@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Protocol, TypeVar, runtime_checkable
 
 from regulatory_agent_kit.exceptions import ConditionParseError
 
@@ -53,12 +53,25 @@ STATIC_PREDICATES: frozenset[str] = frozenset(
 )
 
 
+T = TypeVar("T")
+
+
 @dataclass(frozen=True)
 class Predicate:
     """A leaf predicate in the condition AST."""
 
     operator: PredicateOperator
     argument: str
+
+
+@runtime_checkable
+class ConditionVisitor(Protocol[T]):
+    """Visitor protocol for ConditionAST traversal."""
+
+    def visit_predicate(self, predicate: Predicate) -> T: ...
+    def visit_and(self, results: list[T]) -> T: ...
+    def visit_or(self, results: list[T]) -> T: ...
+    def visit_not(self, results: list[T]) -> T: ...
 
 
 @dataclass
@@ -68,6 +81,20 @@ class ConditionAST:
     node_type: NodeType
     children: list[ConditionAST] = field(default_factory=list)
     predicate: Predicate | None = None
+
+    def accept(self, visitor: ConditionVisitor[T]) -> T:
+        """Accept a visitor and dispatch to the appropriate visit method."""
+        if self.node_type == "PREDICATE" and self.predicate is not None:
+            return visitor.visit_predicate(self.predicate)
+        child_results = [c.accept(visitor) for c in self.children]
+        if self.node_type == "AND":
+            return visitor.visit_and(child_results)
+        if self.node_type == "OR":
+            return visitor.visit_or(child_results)
+        if self.node_type == "NOT":
+            return visitor.visit_not(child_results)
+        msg = f"Unknown node type: {self.node_type}"
+        raise ValueError(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -265,24 +292,38 @@ def parse(expression: str) -> ConditionAST:
     return parser.parse_expression()
 
 
-def can_evaluate_statically(ast: ConditionAST) -> bool:
-    """Return True if the entire AST can be evaluated without an LLM."""
-    if ast.node_type == "PREDICATE":
-        if ast.predicate is None:
-            return False
-        return ast.predicate.operator in STATIC_PREDICATES
-    return all(can_evaluate_statically(child) for child in ast.children)
+# ---------------------------------------------------------------------------
+# Visitor implementations
+# ---------------------------------------------------------------------------
 
 
-def to_llm_prompt(ast: ConditionAST) -> str:
-    """Convert a condition AST into a natural-language prompt for LLM evaluation."""
-    return _ast_to_text(ast)
+class StaticEvaluabilityVisitor:
+    """Visitor that checks whether all predicates can be resolved statically."""
+
+    def visit_predicate(self, predicate: Predicate) -> bool:
+        """Return True when the predicate operator is in STATIC_PREDICATES."""
+        return predicate.operator in STATIC_PREDICATES
+
+    def visit_and(self, results: list[bool]) -> bool:
+        """All children must be statically evaluable."""
+        return all(results)
+
+    def visit_or(self, results: list[bool]) -> bool:
+        """All children must be statically evaluable."""
+        return all(results)
+
+    def visit_not(self, results: list[bool]) -> bool:
+        """All children must be statically evaluable."""
+        return all(results)
 
 
-def _ast_to_text(ast: ConditionAST) -> str:
-    if ast.node_type == "PREDICATE" and ast.predicate is not None:
-        op = ast.predicate.operator
-        arg = ast.predicate.argument
+class LLMPromptVisitor:
+    """Visitor that converts a condition AST into natural-language text."""
+
+    def visit_predicate(self, predicate: Predicate) -> str:
+        """Describe a single predicate in human-readable form."""
+        op = predicate.operator
+        arg = predicate.argument
         descriptions: dict[str, str] = {
             "implements": f"the class implements the '{arg}' interface",
             "inherits": f"the class inherits from '{arg}'",
@@ -294,15 +335,24 @@ def _ast_to_text(ast: ConditionAST) -> str:
         }
         return descriptions.get(op, f"{op}({arg})")
 
-    if ast.node_type == "NOT" and ast.children:
-        return f"it is NOT the case that {_ast_to_text(ast.children[0])}"
-    if ast.node_type == "AND" and len(ast.children) == 2:
-        left = _ast_to_text(ast.children[0])
-        right = _ast_to_text(ast.children[1])
-        return f"({left} AND {right})"
-    if ast.node_type == "OR" and len(ast.children) == 2:
-        left = _ast_to_text(ast.children[0])
-        right = _ast_to_text(ast.children[1])
-        return f"({left} OR {right})"
+    def visit_and(self, results: list[str]) -> str:
+        """Join children with AND."""
+        return f"({results[0]} AND {results[1]})"
 
-    return "unknown condition"
+    def visit_or(self, results: list[str]) -> str:
+        """Join children with OR."""
+        return f"({results[0]} OR {results[1]})"
+
+    def visit_not(self, results: list[str]) -> str:
+        """Negate the child expression."""
+        return f"it is NOT the case that {results[0]}"
+
+
+def can_evaluate_statically(ast: ConditionAST) -> bool:
+    """Return True if the entire AST can be evaluated without an LLM."""
+    return ast.accept(StaticEvaluabilityVisitor())
+
+
+def to_llm_prompt(ast: ConditionAST) -> str:
+    """Convert a condition AST into a natural-language prompt for LLM evaluation."""
+    return ast.accept(LLMPromptVisitor())

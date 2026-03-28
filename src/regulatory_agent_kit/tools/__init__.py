@@ -17,11 +17,18 @@ from regulatory_agent_kit.tools.notification import (
     create_notifier,
     register_notifier,
 )
-from regulatory_agent_kit.tools.search_client import SearchClient
-from regulatory_agent_kit.tools.test_runner import TestResult, TestRunner
+from regulatory_agent_kit.tools.search_client import (
+    ContextSearchStrategy,
+    RulesSearchStrategy,
+    SearchClient,
+    SearchStrategy,
+)
+from regulatory_agent_kit.tools.test_runner import DockerCommand, TestResult, TestRunner
 
 __all__ = [
     "ASTEngine",
+    "ContextSearchStrategy",
+    "DockerCommand",
     "EmailNotifier",
     "GitClient",
     "GitHubClient",
@@ -30,7 +37,9 @@ __all__ = [
     "GitResult",
     "NodeRange",
     "NotificationClient",
+    "RulesSearchStrategy",
     "SearchClient",
+    "SearchStrategy",
     "SlackNotifier",
     "TestResult",
     "TestRunner",

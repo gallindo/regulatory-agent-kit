@@ -96,6 +96,70 @@ class PipelineContext:
         return model
 
 
+class PipelineContextBuilder:
+    """Fluent builder for PipelineContext."""
+
+    def __init__(self) -> None:
+        self._run_id: str = ""
+        self._run_uuid: UUID | None = None
+        self._regulation_id: str = ""
+        self._repo_urls: list[str] = []
+        self._plugin_data: dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
+
+    def with_run(self, run_id: str, run_uuid: UUID) -> PipelineContextBuilder:
+        """Set the run identifier and UUID."""
+        self._run_id = run_id
+        self._run_uuid = run_uuid
+        return self
+
+    def with_regulation(self, regulation_id: str) -> PipelineContextBuilder:
+        """Set the regulation plugin identifier."""
+        self._regulation_id = regulation_id
+        return self
+
+    def with_repos(self, repo_urls: list[str]) -> PipelineContextBuilder:
+        """Set the list of repository URLs to scan."""
+        self._repo_urls = repo_urls
+        return self
+
+    def with_plugin_data(self, data: dict[str, Any]) -> PipelineContextBuilder:
+        """Set the loaded regulation plugin data."""
+        self._plugin_data = data
+        return self
+
+    def with_config(self, config: dict[str, Any]) -> PipelineContextBuilder:
+        """Set pipeline configuration overrides."""
+        self._config = config
+        return self
+
+    def build(
+        self,
+        result: LiteModeResult,
+        pipeline_repo: PipelineRunStore,
+        progress_repo: RepositoryProgressStore,
+        audit_repo: AuditStore,
+        checkpoint_repo: CheckpointStore,
+    ) -> PipelineContext:
+        """Build the PipelineContext, raising ValueError if run_uuid is unset."""
+        if self._run_uuid is None:
+            msg = "run_uuid is required"
+            raise ValueError(msg)
+        return PipelineContext(
+            run_id=self._run_id,
+            run_uuid=self._run_uuid,
+            regulation_id=self._regulation_id,
+            repo_urls=self._repo_urls,
+            plugin_data=self._plugin_data,
+            config=self._config,
+            result=result,
+            pipeline_repo=pipeline_repo,
+            progress_repo=progress_repo,
+            audit_repo=audit_repo,
+            checkpoint_repo=checkpoint_repo,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Phase protocol & concrete phase implementations
 # ---------------------------------------------------------------------------
@@ -384,18 +448,20 @@ class LiteModeExecutor:
             config_snapshot=config,
         )
 
-        context = PipelineContext(
-            run_id=run_id,
-            run_uuid=run_uuid,
-            regulation_id=regulation_id,
-            repo_urls=repo_urls,
-            plugin_data=plugin_data,
-            config=config,
-            result=result,
-            pipeline_repo=pipeline_repo,
-            progress_repo=progress_repo,
-            audit_repo=audit_repo,
-            checkpoint_repo=checkpoint_repo,
+        context = (
+            PipelineContextBuilder()
+            .with_run(run_id, run_uuid)
+            .with_regulation(regulation_id)
+            .with_repos(repo_urls)
+            .with_plugin_data(plugin_data)
+            .with_config(config)
+            .build(
+                result,
+                pipeline_repo,
+                progress_repo,
+                audit_repo,
+                checkpoint_repo,
+            )
         )
 
         for phase in _DEFAULT_PHASES:

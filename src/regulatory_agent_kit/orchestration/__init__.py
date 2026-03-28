@@ -8,7 +8,11 @@ from regulatory_agent_kit.orchestration.activities import (
     report_results,
     test_repository,
 )
-from regulatory_agent_kit.orchestration.lite import LiteModeExecutor, LiteModeResult
+from regulatory_agent_kit.orchestration.lite import (
+    LiteModeExecutor,
+    LiteModeResult,
+    PipelineContextBuilder,
+)
 from regulatory_agent_kit.orchestration.worker import create_worker, run_worker
 from regulatory_agent_kit.orchestration.workflows import (
     ALL_WORKFLOWS,
@@ -24,6 +28,7 @@ __all__ = [
     "CompliancePipeline",
     "LiteModeExecutor",
     "LiteModeResult",
+    "PipelineContextBuilder",
     "RepositoryProcessor",
     "analyze_repository",
     "create_worker",

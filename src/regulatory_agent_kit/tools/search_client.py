@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from regulatory_agent_kit.exceptions import ToolError
 
@@ -14,6 +14,67 @@ except ImportError:
     ElasticsearchException = Exception  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Search strategies (Strategy pattern)
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class SearchStrategy(Protocol):
+    """Strategy for building Elasticsearch query bodies."""
+
+    def build_query(self, **kwargs: Any) -> dict[str, Any]: ...
+
+
+class RulesSearchStrategy:
+    """Builds nested rules search queries."""
+
+    def build_query(
+        self,
+        *,
+        query: str,
+        regulation_id: str | None = None,
+        **_kwargs: Any,
+    ) -> dict[str, Any]:
+        """Build an ES query body for nested rules search."""
+        body: dict[str, Any] = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "nested": {
+                                "path": "rules",
+                                "query": {
+                                    "match": {
+                                        "rules.description": query,
+                                    }
+                                },
+                            }
+                        }
+                    ],
+                }
+            }
+        }
+        if regulation_id:
+            body["query"]["bool"]["filter"] = [{"term": {"regulation_id": regulation_id}}]
+        return body
+
+
+class ContextSearchStrategy:
+    """Builds full-text context search queries."""
+
+    def build_query(
+        self,
+        *,
+        query: str,
+        limit: int = 10,
+        **_kwargs: Any,
+    ) -> dict[str, Any]:
+        """Build an ES query body for full-text context search."""
+        return {"query": {"match": {"content": query}}, "size": limit}
+
 
 # ---------------------------------------------------------------------------
 # Index names
@@ -151,36 +212,34 @@ class SearchClient:
     # Search
     # ------------------------------------------------------------------
 
+    async def _search_with_strategy(
+        self,
+        index: str,
+        strategy: SearchStrategy,
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        """Execute a search using the given strategy to build the query."""
+        try:
+            client = await self._get_client()
+            body = strategy.build_query(**kwargs)
+            resp = await client.search(index=index, body=body)
+            return _extract_hits(resp)
+        except ElasticsearchException:
+            logger.warning("ES unavailable", exc_info=True)
+            return []
+
     async def search_rules(
         self,
         query: str,
         regulation_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Search regulation rules by text query, optionally filtered by regulation."""
-        try:
-            client = await self._get_client()
-            body: dict[str, Any] = {
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "nested": {
-                                    "path": "rules",
-                                    "query": {"match": {"rules.description": query}},
-                                }
-                            }
-                        ],
-                    }
-                }
-            }
-            if regulation_id:
-                body["query"]["bool"]["filter"] = [{"term": {"regulation_id": regulation_id}}]
-
-            resp = await client.search(index=self.regulations_index, body=body)
-            return _extract_hits(resp)
-        except ElasticsearchException:
-            logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
-            return []
+        return await self._search_with_strategy(
+            self.regulations_index,
+            RulesSearchStrategy(),
+            query=query,
+            regulation_id=regulation_id,
+        )
 
     async def search_context(
         self,
@@ -188,17 +247,12 @@ class SearchClient:
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Full-text search against the regulation context index."""
-        try:
-            client = await self._get_client()
-            body: dict[str, Any] = {
-                "query": {"match": {"content": query}},
-                "size": limit,
-            }
-            resp = await client.search(index=self.context_index, body=body)
-            return _extract_hits(resp)
-        except ElasticsearchException:
-            logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
-            return []
+        return await self._search_with_strategy(
+            self.context_index,
+            ContextSearchStrategy(),
+            query=query,
+            limit=limit,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
