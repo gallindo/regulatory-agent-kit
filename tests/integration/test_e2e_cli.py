@@ -8,8 +8,8 @@ import pytest
 from typer.testing import CliRunner
 
 from regulatory_agent_kit.cli import app
+from tests.helpers import EXAMPLE_PLUGIN_PATH as EXAMPLE_PLUGIN
 
-EXAMPLE_PLUGIN = Path(__file__).resolve().parents[2] / "regulations" / "examples" / "example.yaml"
 runner = CliRunner()
 
 

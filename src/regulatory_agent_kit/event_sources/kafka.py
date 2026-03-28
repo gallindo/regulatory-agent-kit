@@ -4,19 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
-from collections.abc import Callable, Coroutine
 from typing import Any
 
-from pydantic import ValidationError
-
+from regulatory_agent_kit.event_sources.base import EventCallback, parse_event
 from regulatory_agent_kit.exceptions import EventSourceError
-from regulatory_agent_kit.models.events import RegulatoryEvent
 
 logger = logging.getLogger(__name__)
-
-EventCallback = Callable[[RegulatoryEvent], Coroutine[Any, Any, None]]
 
 try:
     from confluent_kafka import Consumer, KafkaError
@@ -100,16 +94,6 @@ class KafkaEventSource:
         if raw is None:
             return
 
-        try:
-            data = json.loads(raw)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            logger.error("Failed to decode Kafka message as JSON")
-            return
-
-        try:
-            event = RegulatoryEvent.model_validate(data)
-        except ValidationError:
-            logger.error("Invalid event schema in Kafka message")
-            return
-
-        await self._callback(event)
+        event = parse_event(raw, source_label="Kafka message")
+        if event is not None:
+            await self._callback(event)

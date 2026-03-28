@@ -20,37 +20,7 @@ from regulatory_agent_kit.database.lite import (
 )
 from regulatory_agent_kit.orchestration.lite import LITE_PHASES, LiteModeExecutor, LiteModeResult
 from regulatory_agent_kit.plugins.loader import PluginLoader
-
-# Path to the example regulation plugin (relative to project root).
-_EXAMPLE_PLUGIN = Path(__file__).resolve().parents[2] / "regulations" / "examples" / "example.yaml"
-
-_SAMPLE_JAVA = """\
-package com.example.service;
-
-public class PaymentService implements Service {
-
-    public void processPayment(double amount) {
-        // business logic
-    }
-}
-"""
-
-
-@pytest.fixture
-def fixture_repo(tmp_path: Path) -> Path:
-    """Create a minimal fixture repository with a Java source file."""
-    repo_dir = tmp_path / "fixture-repo"
-    repo_dir.mkdir()
-    src_dir = repo_dir / "src" / "main" / "java" / "com" / "example" / "service"
-    src_dir.mkdir(parents=True)
-    (src_dir / "PaymentService.java").write_text(_SAMPLE_JAVA)
-    return repo_dir
-
-
-@pytest.fixture
-def lite_db(tmp_path: Path) -> Path:
-    """Return a temporary SQLite database path."""
-    return tmp_path / "e2e_test.db"
+from tests.helpers import EXAMPLE_PLUGIN_PATH as _EXAMPLE_PLUGIN
 
 
 @pytest.mark.integration

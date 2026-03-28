@@ -24,8 +24,7 @@ from regulatory_agent_kit.plugins.schema import (
     RegulationPlugin,
 )
 from regulatory_agent_kit.templates.engine import TemplateEngine
-
-EXAMPLE_PLUGIN = Path(__file__).resolve().parents[2] / "regulations" / "examples" / "example.yaml"
+from tests.helpers import EXAMPLE_PLUGIN_PATH as EXAMPLE_PLUGIN
 
 
 def _make_plugin(

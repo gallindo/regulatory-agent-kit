@@ -4,20 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
-from collections.abc import Callable, Coroutine
 from pathlib import Path  # noqa: TC003
-from typing import Any
 
-from pydantic import ValidationError
-
+from regulatory_agent_kit.event_sources.base import EventCallback, parse_event
 from regulatory_agent_kit.exceptions import EventSourceError
-from regulatory_agent_kit.models.events import RegulatoryEvent
 
 logger = logging.getLogger(__name__)
-
-EventCallback = Callable[[RegulatoryEvent], Coroutine[Any, Any, None]]
 
 
 class FileEventSource:
@@ -91,16 +84,8 @@ class FileEventSource:
             logger.warning("Could not read file: %s", path.name)
             return
 
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            logger.warning("Malformed JSON in file: %s", path.name)
-            return
-
-        try:
-            event = RegulatoryEvent.model_validate(data)
-        except ValidationError:
-            logger.warning("Invalid event schema in file: %s", path.name)
+        event = parse_event(raw, source_label=f"file '{path.name}'")
+        if event is None:
             return
 
         await self._callback(event)

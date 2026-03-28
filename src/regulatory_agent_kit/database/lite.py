@@ -67,11 +67,7 @@ CREATE TABLE IF NOT EXISTS checkpoint_decisions (
 
 
 async def create_tables(db_path: str | Path) -> None:
-    """Create all Lite Mode tables in the given SQLite database.
-
-    Args:
-        db_path: Path to the SQLite database file.
-    """
+    """Create all Lite Mode tables in the given SQLite database."""
     import aiosqlite
 
     async with aiosqlite.connect(str(db_path)) as db:
@@ -80,15 +76,68 @@ async def create_tables(db_path: str | Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Base repository — eliminates repeated aiosqlite boilerplate
+# ---------------------------------------------------------------------------
+
+
+class _LiteRepository:
+    """Base class for Lite Mode repositories.
+
+    Provides helper methods that encapsulate the repeated
+    connect → execute → commit/fetch pattern.
+    """
+
+    def __init__(self, db_path: str | Path) -> None:
+        self._db_path = str(db_path)
+
+    async def _execute(self, query: str, params: tuple[Any, ...]) -> None:
+        """Execute a write query (INSERT/UPDATE) with auto-commit."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(query, params)
+            await db.commit()
+
+    async def _fetch_one(
+        self, query: str, params: tuple[Any, ...]
+    ) -> dict[str, Any] | None:
+        """Execute a query and return one row as a dict, or None."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(query, params) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def _fetch_all(
+        self, query: str, params: tuple[Any, ...]
+    ) -> list[dict[str, Any]]:
+        """Execute a query and return all rows as dicts."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    async def _insert_returning_id(
+        self, query: str, params: tuple[Any, ...]
+    ) -> UUID:
+        """Generate a UUID, execute an INSERT, and return the UUID."""
+        new_id = uuid4()
+        await self._execute(query, (str(new_id), *params))
+        return new_id
+
+
+# ---------------------------------------------------------------------------
 # Lite repositories
 # ---------------------------------------------------------------------------
 
 
-class LitePipelineRunRepository:
+class LitePipelineRunRepository(_LiteRepository):
     """Pipeline run CRUD backed by SQLite."""
-
-    def __init__(self, db_path: str | Path) -> None:
-        self._db_path = str(db_path)
 
     async def create(
         self,
@@ -97,97 +146,59 @@ class LitePipelineRunRepository:
         config_snapshot: dict[str, Any],
     ) -> UUID:
         """Create a new pipeline run and return its UUID."""
-        import aiosqlite
-
-        run_id = uuid4()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO pipeline_runs (run_id, regulation_id, status, total_repos,
-                                           config_snapshot)
-                VALUES (?, ?, 'pending', ?, ?)
-                """,
-                (str(run_id), regulation_id, total_repos, json.dumps(config_snapshot)),
-            )
-            await db.commit()
-        return run_id
+        return await self._insert_returning_id(
+            """
+            INSERT INTO pipeline_runs
+                (run_id, regulation_id, status, total_repos, config_snapshot)
+            VALUES (?, ?, 'pending', ?, ?)
+            """,
+            (regulation_id, total_repos, json.dumps(config_snapshot)),
+        )
 
     async def get(self, run_id: UUID) -> dict[str, Any] | None:
         """Get a pipeline run by ID."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM pipeline_runs WHERE run_id = ?", (str(run_id),)
-            ) as cursor:
-                row = await cursor.fetchone()
-                return dict(row) if row else None
+        return await self._fetch_one(
+            "SELECT * FROM pipeline_runs WHERE run_id = ?", (str(run_id),)
+        )
 
     async def update_status(self, run_id: UUID, status: str) -> None:
         """Update the lifecycle status of a pipeline run."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE pipeline_runs SET status = ? WHERE run_id = ?",
-                (status, str(run_id)),
-            )
-            await db.commit()
+        await self._execute(
+            "UPDATE pipeline_runs SET status = ? WHERE run_id = ?",
+            (status, str(run_id)),
+        )
 
 
-class LiteRepositoryProgressRepository:
+class LiteRepositoryProgressRepository(_LiteRepository):
     """Repository progress CRUD backed by SQLite."""
-
-    def __init__(self, db_path: str | Path) -> None:
-        self._db_path = str(db_path)
 
     async def create(self, run_id: UUID, repo_url: str) -> UUID:
         """Create a new repository progress entry."""
-        import aiosqlite
-
-        entry_id = uuid4()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO repository_progress (id, run_id, repo_url, status)
-                VALUES (?, ?, ?, 'pending')
-                """,
-                (str(entry_id), str(run_id), repo_url),
-            )
-            await db.commit()
-        return entry_id
+        return await self._insert_returning_id(
+            """
+            INSERT INTO repository_progress (id, run_id, repo_url, status)
+            VALUES (?, ?, ?, 'pending')
+            """,
+            (str(run_id), repo_url),
+        )
 
     async def update_status(self, entry_id: UUID, status: str) -> None:
         """Update the processing status."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE repository_progress SET status = ? WHERE id = ?",
-                (status, str(entry_id)),
-            )
-            await db.commit()
+        await self._execute(
+            "UPDATE repository_progress SET status = ? WHERE id = ?",
+            (status, str(entry_id)),
+        )
 
     async def get_by_run(self, run_id: UUID) -> list[dict[str, Any]]:
         """Get all repository progress entries for a pipeline run."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM repository_progress WHERE run_id = ? ORDER BY repo_url",
-                (str(run_id),),
-            ) as cursor:
-                rows = await cursor.fetchall()
-                return [dict(row) for row in rows]
+        return await self._fetch_all(
+            "SELECT * FROM repository_progress WHERE run_id = ? ORDER BY repo_url",
+            (str(run_id),),
+        )
 
 
-class LiteAuditRepository:
+class LiteAuditRepository(_LiteRepository):
     """Append-only audit entries backed by SQLite."""
-
-    def __init__(self, db_path: str | Path) -> None:
-        self._db_path = str(db_path)
 
     async def insert(
         self,
@@ -198,47 +209,25 @@ class LiteAuditRepository:
         signature: str,
     ) -> UUID:
         """Insert a single audit entry."""
-        import aiosqlite
-
-        entry_id = uuid4()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO audit_entries (entry_id, run_id, event_type, timestamp,
-                                           payload, signature)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(entry_id),
-                    str(run_id),
-                    event_type,
-                    timestamp.isoformat(),
-                    json.dumps(payload),
-                    signature,
-                ),
-            )
-            await db.commit()
-        return entry_id
+        return await self._insert_returning_id(
+            """
+            INSERT INTO audit_entries
+                (entry_id, run_id, event_type, timestamp, payload, signature)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (str(run_id), event_type, timestamp.isoformat(), json.dumps(payload), signature),
+        )
 
     async def get_by_run(self, run_id: UUID) -> list[dict[str, Any]]:
         """Get all audit entries for a pipeline run."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM audit_entries WHERE run_id = ? ORDER BY timestamp",
-                (str(run_id),),
-            ) as cursor:
-                rows = await cursor.fetchall()
-                return [dict(row) for row in rows]
+        return await self._fetch_all(
+            "SELECT * FROM audit_entries WHERE run_id = ? ORDER BY timestamp",
+            (str(run_id),),
+        )
 
 
-class LiteCheckpointDecisionRepository:
+class LiteCheckpointDecisionRepository(_LiteRepository):
     """Checkpoint decisions backed by SQLite."""
-
-    def __init__(self, db_path: str | Path) -> None:
-        self._db_path = str(db_path)
 
     async def create(
         self,
@@ -250,56 +239,32 @@ class LiteCheckpointDecisionRepository:
         rationale: str | None = None,
     ) -> UUID:
         """Create a new checkpoint decision."""
-        import aiosqlite
-
-        decision_id = uuid4()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO checkpoint_decisions
-                    (id, run_id, checkpoint_type, actor, decision, rationale, signature)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(decision_id),
-                    str(run_id),
-                    checkpoint_type,
-                    actor,
-                    decision,
-                    rationale,
-                    signature,
-                ),
-            )
-            await db.commit()
-        return decision_id
+        return await self._insert_returning_id(
+            """
+            INSERT INTO checkpoint_decisions
+                (id, run_id, checkpoint_type, actor, decision, rationale, signature)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (str(run_id), checkpoint_type, actor, decision, rationale, signature),
+        )
 
     async def get_by_run(self, run_id: UUID) -> list[dict[str, Any]]:
         """Get all checkpoint decisions for a pipeline run."""
-        import aiosqlite
+        return await self._fetch_all(
+            "SELECT * FROM checkpoint_decisions WHERE run_id = ? ORDER BY decided_at",
+            (str(run_id),),
+        )
 
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM checkpoint_decisions WHERE run_id = ? ORDER BY decided_at",
-                (str(run_id),),
-            ) as cursor:
-                rows = await cursor.fetchall()
-                return [dict(row) for row in rows]
-
-    async def get_latest(self, run_id: UUID, checkpoint_type: str) -> dict[str, Any] | None:
+    async def get_latest(
+        self, run_id: UUID, checkpoint_type: str
+    ) -> dict[str, Any] | None:
         """Get the most recent decision for a given run and checkpoint type."""
-        import aiosqlite
-
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM checkpoint_decisions
-                WHERE run_id = ? AND checkpoint_type = ?
-                ORDER BY decided_at DESC, rowid DESC
-                LIMIT 1
-                """,
-                (str(run_id), checkpoint_type),
-            ) as cursor:
-                row = await cursor.fetchone()
-                return dict(row) if row else None
+        return await self._fetch_one(
+            """
+            SELECT * FROM checkpoint_decisions
+            WHERE run_id = ? AND checkpoint_type = ?
+            ORDER BY decided_at DESC, rowid DESC
+            LIMIT 1
+            """,
+            (str(run_id), checkpoint_type),
+        )

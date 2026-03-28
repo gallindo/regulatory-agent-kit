@@ -11,37 +11,8 @@ from regulatory_agent_kit.plugins.schema import (
     Remediation,
     Rule,
 )
-
-
-def _minimal_rule(**overrides: object) -> dict:  # type: ignore[type-arg]
-    base = {
-        "id": "R1",
-        "description": "Test rule",
-        "severity": "high",
-        "affects": [{"pattern": "**/*.java", "condition": "has_method(foo)"}],
-        "remediation": {
-            "strategy": "add_annotation",
-            "template": "templates/fix.j2",
-        },
-    }
-    base.update(overrides)
-    return base
-
-
-def _minimal_plugin(**overrides: object) -> dict:  # type: ignore[type-arg]
-    base = {
-        "id": "test-plugin",
-        "name": "Test Plugin",
-        "version": "1.0.0",
-        "effective_date": "2025-01-01",
-        "jurisdiction": "EU",
-        "authority": "Test Authority",
-        "source_url": "https://example.com/regulation",
-        "disclaimer": "This is not legal advice.",
-        "rules": [_minimal_rule()],
-    }
-    base.update(overrides)
-    return base
+from tests.helpers import minimal_plugin as _minimal_plugin
+from tests.helpers import minimal_rule as _minimal_rule
 
 
 class TestRegulationPlugin:

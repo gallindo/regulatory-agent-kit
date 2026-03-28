@@ -4,19 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
-from collections.abc import Callable, Coroutine
 from typing import Any
 
-from pydantic import ValidationError
-
+from regulatory_agent_kit.event_sources.base import EventCallback, parse_event
 from regulatory_agent_kit.exceptions import EventSourceError
-from regulatory_agent_kit.models.events import RegulatoryEvent
 
 logger = logging.getLogger(__name__)
-
-EventCallback = Callable[[RegulatoryEvent], Coroutine[Any, Any, None]]
 
 try:
     import boto3  # type: ignore[import-untyped]
@@ -97,16 +91,8 @@ class SQSEventSource:
         body = msg.get("Body", "")
         receipt_handle = msg.get("ReceiptHandle", "")
 
-        try:
-            data = json.loads(body)
-        except (json.JSONDecodeError, TypeError):
-            logger.error("Failed to decode SQS message as JSON")
-            return
-
-        try:
-            event = RegulatoryEvent.model_validate(data)
-        except ValidationError:
-            logger.error("Invalid event schema in SQS message")
+        event = parse_event(body, source_label="SQS message")
+        if event is None:
             return
 
         await self._callback(event)

@@ -14,15 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from regulatory_agent_kit.event_sources.file import FileEventSource
 from regulatory_agent_kit.event_sources.webhook import WebhookEventSource
 from regulatory_agent_kit.models.events import RegulatoryEvent  # noqa: TC001
-
-
-def _make_event_dict() -> dict[str, str]:
-    """Return a minimal valid RegulatoryEvent dict."""
-    return {
-        "regulation_id": "test-reg-001",
-        "change_type": "new_requirement",
-        "source": "test",
-    }
+from tests.helpers import make_event_dict as _make_event_dict
 
 
 @pytest.mark.integration
