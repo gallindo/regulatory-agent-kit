@@ -44,6 +44,8 @@ dependencies = [
     "jinja2>=3.1.0",
     # YAML
     "ruamel.yaml>=0.18.0",
+    # Lite Mode (SQLite)
+    "aiosqlite>=0.20.0",
     # Cryptography
     "cryptography>=43.0.0",
     # CLI
