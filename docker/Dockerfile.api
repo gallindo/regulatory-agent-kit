@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — API Container
+# ---------------------------------------------------------------
+# Runs the FastAPI server for webhooks and approval endpoints.
+#
+# Build:  docker build -f docker/Dockerfile.api -t rak:api .
+# ---------------------------------------------------------------
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ---
+
+FROM python:3.12-slim
+
+LABEL org.opencontainers.image.source="https://github.com/your-org/regulatory-agent-kit"
+LABEL org.opencontainers.image.description="regulatory-agent-kit API server"
+
+RUN groupadd --gid 1000 rak && \
+    useradd --uid 1000 --gid rak --create-home rak
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+COPY src/ ./src/
+COPY regulations/ ./regulations/
+COPY pyproject.toml ./
+
+RUN pip install --no-cache-dir --no-deps -e .
+
+USER rak
+
+EXPOSE 8000
+
+ENTRYPOINT ["uvicorn", "regulatory_agent_kit.api.main:app"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]

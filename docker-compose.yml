@@ -1,0 +1,163 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Docker Compose (Local Development)
+# ---------------------------------------------------------------
+# Usage:
+#   cp .env.example .env      # fill in your API keys
+#   docker compose up -d
+#
+# Full reference: docs/local-development.md
+# ---------------------------------------------------------------
+
+services:
+  # --- Data Stores ---
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rak_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-rak}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rak}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --- Temporal ---
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-rak}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-rak_dev_password}
+      - POSTGRES_SEEDS=postgres
+    ports:
+      - "7233:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    ports:
+      - "8233:8080"
+    depends_on:
+      - temporal
+
+  # --- LLM Gateway ---
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-rak-dev-key}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./docker/litellm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+
+  # --- Observability ---
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mlflow
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  # --- Application ---
+
+  rak-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-rak}:${POSTGRES_PASSWORD:-rak_dev_password}@postgres:5432/${POSTGRES_DB:-rak}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - TEMPORAL_ADDRESS=temporal:7233
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-rak-dev-key}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
+  rak-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-rak}:${POSTGRES_PASSWORD:-rak_dev_password}@postgres:5432/${POSTGRES_DB:-rak}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - TEMPORAL_ADDRESS=temporal:7233
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-rak-dev-key}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  es_data:
+  prometheus_data:
+  grafana_data:

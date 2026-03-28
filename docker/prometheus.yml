@@ -1,0 +1,17 @@
+# Prometheus scrape configuration for regulatory-agent-kit
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "rak-api"
+    static_configs:
+      - targets: ["rak-api:8000"]
+
+  - job_name: "temporal"
+    static_configs:
+      - targets: ["temporal:8000"]
+
+  - job_name: "litellm"
+    static_configs:
+      - targets: ["litellm:4000"]

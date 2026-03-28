@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------
+# LiteLLM Proxy — Model Configuration
+# ---------------------------------------------------------------
+# Docs: https://docs.litellm.ai/docs/proxy/configs
+# ---------------------------------------------------------------
+
+model_list:
+  - model_name: "anthropic/claude-sonnet-4-6"
+    litellm_params:
+      model: "claude-sonnet-4-6"
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+
+  - model_name: "anthropic/claude-haiku-4-5-20251001"
+    litellm_params:
+      model: "claude-haiku-4-5-20251001"
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"

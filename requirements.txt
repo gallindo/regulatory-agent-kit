@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Pinned Dependencies
+# ---------------------------------------------------------------
+# Generated from pyproject.toml for Docker builds and CI.
+# For development, use: uv sync --all-extras
+# To regenerate: uv export --format requirements-txt > requirements.txt
+# ---------------------------------------------------------------
+
+# Orchestration
+temporalio>=1.24.0
+
+# Agent framework
+pydantic-ai>=1.0.0
+
+# Data validation & settings
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# Database
+psycopg[binary,pool]>=3.2.0
+alembic>=1.14.0
+
+# HTTP API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Search index
+elasticsearch[async]>=8.13.0
+
+# LLM gateway
+litellm>=1.40.0
+
+# Async runtime
+uvloop>=0.20.0
+anyio>=4.4.0
+
+# Messaging
+confluent-kafka>=2.5.0
+
+# AST parsing
+tree-sitter>=0.22.0
+
+# Templating
+jinja2>=3.1.0
+
+# YAML
+ruamel.yaml>=0.18.0
+
+# Cryptography
+cryptography>=43.0.0
+
+# CLI
+typer>=0.12.0
+rich>=13.7.0
+
+# Observability
+mlflow>=2.18.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-exporter-otlp>=1.25.0
+opentelemetry-instrumentation-fastapi>=0.46b0

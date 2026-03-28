@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Worker Container
+# ---------------------------------------------------------------
+# Runs Temporal workflow workers and agent activities.
+#
+# Build:  docker build -f docker/Dockerfile.worker -t rak:worker .
+# ---------------------------------------------------------------
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ---
+
+FROM python:3.12-slim
+
+LABEL org.opencontainers.image.source="https://github.com/your-org/regulatory-agent-kit"
+LABEL org.opencontainers.image.description="regulatory-agent-kit worker"
+
+RUN groupadd --gid 1000 rak && \
+    useradd --uid 1000 --gid rak --create-home rak
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+COPY src/ ./src/
+COPY regulations/ ./regulations/
+COPY pyproject.toml ./
+
+RUN pip install --no-cache-dir --no-deps -e .
+
+USER rak
+
+ENTRYPOINT ["python", "-m", "regulatory_agent_kit.cli"]
+CMD ["run", "--help"]
