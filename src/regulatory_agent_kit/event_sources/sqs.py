@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from regulatory_agent_kit.event_sources.base import EventCallback, parse_event
@@ -20,6 +21,16 @@ except ImportError:  # pragma: no cover
     _HAS_BOTO3 = False
 
 
+@dataclass(frozen=True)
+class SQSConfig:
+    """Configuration value object for :class:`SQSEventSource`."""
+
+    queue_url: str
+    region_name: str = "us-east-1"
+    wait_time_seconds: int = 20
+    max_messages: int = 10
+
+
 class SQSEventSource:
     """Long-polls an AWS SQS queue and deserializes messages to RegulatoryEvents.
 
@@ -29,18 +40,11 @@ class SQSEventSource:
 
     def __init__(
         self,
-        queue_url: str,
+        config: SQSConfig,
         callback: EventCallback,
-        *,
-        region_name: str = "us-east-1",
-        wait_time_seconds: int = 20,
-        max_messages: int = 10,
     ) -> None:
-        self._queue_url = queue_url
+        self._config = config
         self._callback = callback
-        self._region_name = region_name
-        self._wait_time_seconds = wait_time_seconds
-        self._max_messages = max_messages
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._client: Any = None
@@ -50,7 +54,7 @@ class SQSEventSource:
         if not _HAS_BOTO3:
             msg = "boto3 is not installed. Install it with: pip install boto3"
             raise EventSourceError(msg)
-        self._client = boto3.client("sqs", region_name=self._region_name)
+        self._client = boto3.client("sqs", region_name=self._config.region_name)
         self._running = True
         self._task = asyncio.create_task(self._poll_loop())
 
@@ -81,9 +85,9 @@ class SQSEventSource:
     def _receive_messages(self) -> dict[str, Any]:
         """Synchronous SQS receive call (run in executor)."""
         return self._client.receive_message(  # type: ignore[no-any-return]
-            QueueUrl=self._queue_url,
-            MaxNumberOfMessages=self._max_messages,
-            WaitTimeSeconds=self._wait_time_seconds,
+            QueueUrl=self._config.queue_url,
+            MaxNumberOfMessages=self._config.max_messages,
+            WaitTimeSeconds=self._config.wait_time_seconds,
         )
 
     async def _handle_message(self, msg: dict[str, Any]) -> None:
@@ -104,7 +108,7 @@ class SQSEventSource:
         await loop.run_in_executor(
             None,
             lambda: self._client.delete_message(
-                QueueUrl=self._queue_url,
+                QueueUrl=self._config.queue_url,
                 ReceiptHandle=receipt_handle,
             ),
         )

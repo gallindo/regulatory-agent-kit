@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
 from regulatory_agent_kit.event_sources.base import EventCallback, parse_event
@@ -20,6 +21,21 @@ except ImportError:  # pragma: no cover
     _HAS_KAFKA = False
 
 
+@dataclass(frozen=True)
+class KafkaConfig:
+    """Configuration value object for :class:`KafkaEventSource`."""
+
+    topic: str
+    consumer_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "bootstrap.servers": "localhost:9092",
+            "group.id": "rak-events",
+            "auto.offset.reset": "earliest",
+        }
+    )
+    poll_timeout: float = 1.0
+
+
 class KafkaEventSource:
     """Consumes messages from a Kafka topic and deserializes to RegulatoryEvents.
 
@@ -29,20 +45,11 @@ class KafkaEventSource:
 
     def __init__(
         self,
-        topic: str,
+        config: KafkaConfig,
         callback: EventCallback,
-        *,
-        consumer_config: dict[str, Any] | None = None,
-        poll_timeout: float = 1.0,
     ) -> None:
-        self._topic = topic
+        self._config = config
         self._callback = callback
-        self._consumer_config = consumer_config or {
-            "bootstrap.servers": "localhost:9092",
-            "group.id": "rak-events",
-            "auto.offset.reset": "earliest",
-        }
-        self._poll_timeout = poll_timeout
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._consumer: Any = None
@@ -52,8 +59,8 @@ class KafkaEventSource:
         if not _HAS_KAFKA:
             msg = "confluent-kafka is not installed. Install it with: pip install confluent-kafka"
             raise EventSourceError(msg)
-        self._consumer = Consumer(self._consumer_config)
-        self._consumer.subscribe([self._topic])
+        self._consumer = Consumer(self._config.consumer_config)
+        self._consumer.subscribe([self._config.topic])
         self._running = True
         self._task = asyncio.create_task(self._poll_loop())
 
@@ -74,7 +81,9 @@ class KafkaEventSource:
         loop = asyncio.get_running_loop()
         while self._running:
             try:
-                msg = await loop.run_in_executor(None, self._consumer.poll, self._poll_timeout)
+                msg = await loop.run_in_executor(
+                    None, self._consumer.poll, self._config.poll_timeout
+                )
                 if msg is None:
                     continue
                 if msg.error():

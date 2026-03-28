@@ -59,20 +59,6 @@ _EXTENSION_MAP: dict[str, str] = {
 }
 
 
-def _detect_language(file_path: str | Path) -> str:
-    """Detect programming language from a file extension.
-
-    Raises:
-        ASTError: When the extension is not recognised.
-    """
-    ext = Path(file_path).suffix.lower()
-    lang = _EXTENSION_MAP.get(ext)
-    if lang is None:
-        msg = f"Unsupported file extension for AST parsing: {ext}"
-        raise ASTError(msg)
-    return lang
-
-
 # ---------------------------------------------------------------------------
 # Node range helper (works with or without tree-sitter)
 # ---------------------------------------------------------------------------
@@ -100,29 +86,6 @@ class ASTEngine:
     If tree-sitter is not installed the engine raises ``ASTError`` on parse
     attempts rather than crashing at import time.
     """
-
-    def _require_tree_sitter(self) -> None:
-        if not _TREE_SITTER_AVAILABLE:
-            msg = "tree-sitter is not installed — cannot parse AST"
-            raise ASTError(msg)
-
-    def _get_parser(self, language: str) -> Any:
-        """Build a tree-sitter Parser for *language*."""
-        self._require_tree_sitter()
-
-        if not _LANGUAGES_AVAILABLE:
-            msg = "tree-sitter-languages is not installed — cannot auto-load language grammars"
-            raise ASTError(msg)
-
-        try:
-            lang_obj = tree_sitter_languages.get_language(language)
-        except Exception as exc:
-            msg = f"Failed to load tree-sitter grammar for '{language}': {exc}"
-            raise ASTError(msg) from exc
-
-        parser = tree_sitter.Parser()
-        parser.language = lang_obj
-        return parser
 
     # ------------------------------------------------------------------
     # Public API
@@ -182,6 +145,29 @@ class ASTEngine:
     # Helpers
     # ------------------------------------------------------------------
 
+    def _require_tree_sitter(self) -> None:
+        if not _TREE_SITTER_AVAILABLE:
+            msg = "tree-sitter is not installed — cannot parse AST"
+            raise ASTError(msg)
+
+    def _get_parser(self, language: str) -> Any:
+        """Build a tree-sitter Parser for *language*."""
+        self._require_tree_sitter()
+
+        if not _LANGUAGES_AVAILABLE:
+            msg = "tree-sitter-languages is not installed — cannot auto-load language grammars"
+            raise ASTError(msg)
+
+        try:
+            lang_obj = tree_sitter_languages.get_language(language)
+        except Exception as exc:
+            msg = f"Failed to load tree-sitter grammar for '{language}': {exc}"
+            raise ASTError(msg) from exc
+
+        parser = tree_sitter.Parser()
+        parser.language = lang_obj
+        return parser
+
     @staticmethod
     def _collect_by_type(node: Any, type_names: set[str]) -> list[Any]:
         """Walk *node* recursively and collect nodes whose type is in *type_names*."""
@@ -205,3 +191,17 @@ class ASTEngine:
                 if name in text:
                     return True
         return False
+
+
+def _detect_language(file_path: str | Path) -> str:
+    """Detect programming language from a file extension.
+
+    Raises:
+        ASTError: When the extension is not recognised.
+    """
+    ext = Path(file_path).suffix.lower()
+    lang = _EXTENSION_MAP.get(ext)
+    if lang is None:
+        msg = f"Unsupported file extension for AST parsing: {ext}"
+        raise ASTError(msg)
+    return lang

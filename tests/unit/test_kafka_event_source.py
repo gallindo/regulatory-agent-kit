@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-from regulatory_agent_kit.event_sources.kafka import KafkaEventSource
+from regulatory_agent_kit.event_sources.kafka import KafkaConfig, KafkaEventSource
 from regulatory_agent_kit.models.events import RegulatoryEvent
 
 
@@ -22,7 +22,7 @@ class TestKafkaEventSource:
 
     async def test_handles_valid_message(self) -> None:
         callback = AsyncMock()
-        source = KafkaEventSource("test-topic", callback)
+        source = KafkaEventSource(KafkaConfig(topic="test-topic"), callback)
 
         msg = MagicMock()
         msg.value.return_value = json.dumps(_valid_event_data()).encode()
@@ -36,7 +36,7 @@ class TestKafkaEventSource:
 
     async def test_handles_invalid_json(self) -> None:
         callback = AsyncMock()
-        source = KafkaEventSource("test-topic", callback)
+        source = KafkaEventSource(KafkaConfig(topic="test-topic"), callback)
 
         msg = MagicMock()
         msg.value.return_value = b"not json"
@@ -46,7 +46,7 @@ class TestKafkaEventSource:
 
     async def test_handles_invalid_event_schema(self) -> None:
         callback = AsyncMock()
-        source = KafkaEventSource("test-topic", callback)
+        source = KafkaEventSource(KafkaConfig(topic="test-topic"), callback)
 
         msg = MagicMock()
         msg.value.return_value = json.dumps({"bad": "data"}).encode()
@@ -56,7 +56,7 @@ class TestKafkaEventSource:
 
     async def test_handles_none_value(self) -> None:
         callback = AsyncMock()
-        source = KafkaEventSource("test-topic", callback)
+        source = KafkaEventSource(KafkaConfig(topic="test-topic"), callback)
 
         msg = MagicMock()
         msg.value.return_value = None

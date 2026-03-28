@@ -72,6 +72,8 @@ class SearchClient:
     """
 
     es_url: str = "http://localhost:9200"
+    regulations_index: str = "rak-regulations"
+    context_index: str = "rak-regulation-context"
     _client: Any = field(default=None, init=False, repr=False)
 
     async def _get_client(self) -> Any:
@@ -95,8 +97,8 @@ class SearchClient:
         try:
             client = await self._get_client()
             for index_name, mapping in (
-                (REGULATIONS_INDEX, _REGULATIONS_MAPPING),
-                (CONTEXT_INDEX, _CONTEXT_MAPPING),
+                (self.regulations_index, _REGULATIONS_MAPPING),
+                (self.context_index, _CONTEXT_MAPPING),
             ):
                 exists = await client.indices.exists(index=index_name)
                 if not exists:
@@ -128,7 +130,7 @@ class SearchClient:
                 ],
             }
             await client.index(
-                index=REGULATIONS_INDEX,
+                index=self.regulations_index,
                 id=plugin.id,
                 document=doc,
             )
@@ -169,7 +171,7 @@ class SearchClient:
             if regulation_id:
                 body["query"]["bool"]["filter"] = [{"term": {"regulation_id": regulation_id}}]
 
-            resp = await client.search(index=REGULATIONS_INDEX, body=body)
+            resp = await client.search(index=self.regulations_index, body=body)
             return _extract_hits(resp)
         except Exception:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
@@ -187,7 +189,7 @@ class SearchClient:
                 "query": {"match": {"content": query}},
                 "size": limit,
             }
-            resp = await client.search(index=CONTEXT_INDEX, body=body)
+            resp = await client.search(index=self.context_index, body=body)
             return _extract_hits(resp)
         except Exception:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)

@@ -6,7 +6,7 @@ import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from regulatory_agent_kit.event_sources.sqs import SQSEventSource
+from regulatory_agent_kit.event_sources.sqs import SQSConfig, SQSEventSource
 from regulatory_agent_kit.models.events import RegulatoryEvent
 
 
@@ -24,7 +24,7 @@ class TestSQSEventSource:
     async def test_handles_valid_message_and_deletes(self) -> None:
         callback = AsyncMock()
         source = SQSEventSource(
-            "https://sqs.us-east-1.amazonaws.com/123/test-queue",
+            SQSConfig(queue_url="https://sqs.us-east-1.amazonaws.com/123/test-queue"),
             callback,
         )
         source._client = MagicMock()
@@ -44,7 +44,7 @@ class TestSQSEventSource:
     async def test_handles_invalid_json(self) -> None:
         callback = AsyncMock()
         source = SQSEventSource(
-            "https://sqs.us-east-1.amazonaws.com/123/test-queue",
+            SQSConfig(queue_url="https://sqs.us-east-1.amazonaws.com/123/test-queue"),
             callback,
         )
         source._client = MagicMock()
@@ -60,7 +60,7 @@ class TestSQSEventSource:
     async def test_handles_invalid_event_schema(self) -> None:
         callback = AsyncMock()
         source = SQSEventSource(
-            "https://sqs.us-east-1.amazonaws.com/123/test-queue",
+            SQSConfig(queue_url="https://sqs.us-east-1.amazonaws.com/123/test-queue"),
             callback,
         )
         source._client = MagicMock()

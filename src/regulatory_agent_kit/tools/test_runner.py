@@ -82,6 +82,8 @@ class TestRunner:
 
     image: str = _DEFAULT_IMAGE
     timeout: int = _DEFAULT_TIMEOUT
+    memory_limit: str = _DEFAULT_MEMORY_LIMIT
+    cpu_limit: str = _DEFAULT_CPU_LIMIT
     extra_docker_flags: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
@@ -153,8 +155,8 @@ class TestRunner:
             "--rm",
             "--network=none",
             "--read-only",
-            f"--memory={_DEFAULT_MEMORY_LIMIT}",
-            f"--cpus={_DEFAULT_CPU_LIMIT}",
+            f"--memory={self.memory_limit}",
+            f"--cpus={self.cpu_limit}",
             f"--stop-timeout={self.timeout}",
             "-v",
             f"{test_dir}:/workspace:ro",

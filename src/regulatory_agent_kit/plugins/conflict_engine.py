@@ -54,8 +54,8 @@ class ConflictEngine:
             return self._cross_refs[key_rev]
         return None
 
-    @staticmethod
     def _build_cross_ref_index(
+        self,
         plugins: list[RegulationPlugin],
     ) -> dict[tuple[str, str], str]:
         """Build an index of precedence relationships from cross-references."""
@@ -65,9 +65,10 @@ class ConflictEngine:
                 index[(plugin.id, reg_id)] = plugin.id
         return index
 
-    @staticmethod
     def _find_overlapping_regions(
-        map_a: ImpactMap, map_b: ImpactMap
+        self,
+        map_a: ImpactMap,
+        map_b: ImpactMap,
     ) -> list[tuple[list[str], list[ASTRegion]]]:
         """Find overlapping AST regions between two impact maps."""
         overlaps: list[tuple[list[str], list[ASTRegion]]] = []
