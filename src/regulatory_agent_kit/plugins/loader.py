@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path  # noqa: TC003
+from typing import Protocol, runtime_checkable
 
 from ruamel.yaml import YAML
 
@@ -18,11 +19,25 @@ from regulatory_agent_kit.plugins.schema import RegulationPlugin
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Template-validation protocol
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class TemplateValidator(Protocol):
+    """Interface for objects that can validate Jinja2 template files."""
+
+    def validate_template(self, path: Path) -> list[str]:
+        """Return a list of error messages (empty means valid)."""
+        ...  # pragma: no cover
+
+
 class PluginLoader:
     """Loads, validates, and caches regulation YAML plugins.
 
-    Template validation is deferred until a ``TemplateEngine`` is provided
-    via :meth:`set_template_engine`.
+    Template validation is deferred until a ``TemplateValidator`` is provided
+    via :meth:`set_template_validator`.
     """
 
     def __init__(self, plugin_dir: Path | None = None) -> None:
@@ -30,14 +45,22 @@ class PluginLoader:
         self._cache: dict[str, RegulationPlugin] = {}
         self._path_cache: dict[str, RegulationPlugin] = {}
         self._yaml = YAML(typ="safe")
-        self._template_engine: object | None = None
+        self._template_validator: TemplateValidator | None = None
+
+    # -- validator wiring ---------------------------------------------------
+
+    def set_template_validator(
+        self,
+        validator: TemplateValidator | None,
+    ) -> None:
+        """Set the template validator used during :meth:`validate`."""
+        self._template_validator = validator
 
     def set_template_engine(self, engine: object) -> None:
-        """Set the template engine for template validation.
+        """Backward-compatible alias for :meth:`set_template_validator`."""
+        self.set_template_validator(engine)  # type: ignore[arg-type]
 
-        The engine must have a ``validate_template(path)`` method.
-        """
-        self._template_engine = engine
+    # -- public API ---------------------------------------------------------
 
     def load(self, path: Path) -> RegulationPlugin:
         """Load and validate a plugin YAML file, returning a cached RegulationPlugin."""
@@ -106,8 +129,8 @@ class PluginLoader:
                 except ConditionParseError as exc:
                     errors.append(f"Rule '{rule.id}', condition '{affects.condition}': {exc}")
 
-        # Validate templates (if template engine is available)
-        if self._template_engine is not None:
+        # Validate templates (if a TemplateValidator is available)
+        if self._template_validator is not None:
             errors.extend(self._validate_templates(plugin, path.parent))
 
         return errors
@@ -115,6 +138,8 @@ class PluginLoader:
     def get_by_id(self, plugin_id: str) -> RegulationPlugin | None:
         """Return a cached plugin by ID, or None if not loaded."""
         return self._cache.get(plugin_id)
+
+    # -- internals ----------------------------------------------------------
 
     def _parse_yaml(self, path: Path) -> dict:  # type: ignore[type-arg]
         """Parse a YAML file, raising PluginLoadError on failure."""
@@ -131,25 +156,25 @@ class PluginLoader:
             raise PluginLoadError(msg)
         return data
 
-    def _validate_templates(self, plugin: RegulationPlugin, base_dir: Path) -> list[str]:
+    def _validate_templates(
+        self,
+        plugin: RegulationPlugin,
+        base_dir: Path,
+    ) -> list[str]:
         """Validate templates referenced by plugin rules."""
         errors: list[str] = []
-        engine = self._template_engine
-        if engine is None:
-            return errors
-
-        validate_fn = getattr(engine, "validate_template", None)
-        if validate_fn is None:
+        validator = self._template_validator
+        if validator is None:
             return errors
 
         for rule in plugin.rules:
             template_path = base_dir / rule.remediation.template
-            result = validate_fn(template_path)
+            result = validator.validate_template(template_path)
             if result:
                 errors.append(f"Rule '{rule.id}' template '{rule.remediation.template}': {result}")
             if rule.remediation.test_template:
                 test_path = base_dir / rule.remediation.test_template
-                result = validate_fn(test_path)
+                result = validator.validate_template(test_path)
                 if result:
                     errors.append(
                         f"Rule '{rule.id}' test template "

@@ -239,8 +239,35 @@ class WebhookNotifier:
 
 
 # ---------------------------------------------------------------------------
-# Factory
+# Registry + Factory
 # ---------------------------------------------------------------------------
+
+_NOTIFIER_REGISTRY: dict[str, type[NotificationClient]] = {}
+
+
+def register_notifier(mode: str, cls: type[NotificationClient]) -> None:
+    """Register a notifier class for a given checkpoint mode."""
+    _NOTIFIER_REGISTRY[mode] = cls
+
+
+# Built-in registrations
+register_notifier("slack", SlackNotifier)
+register_notifier("email", EmailNotifier)
+register_notifier("webhook", WebhookNotifier)
+register_notifier("terminal", WebhookNotifier)
+
+# Mapping from mode to the kwargs extractor used by the factory.
+_NOTIFIER_DEFAULTS: dict[str, dict[str, Any]] = {
+    "slack": {"webhook_url": "", "channel": ""},
+    "email": {
+        "smtp_host": "localhost",
+        "smtp_port": 587,
+        "from_address": "",
+        "to_addresses": [],
+    },
+    "webhook": {"url": "", "headers": {}},
+    "terminal": {"url": "", "headers": {}},
+}
 
 
 def create_notifier(
@@ -254,32 +281,12 @@ def create_notifier(
     Raises:
         ToolError: When the mode is not supported.
     """
+    cls = _NOTIFIER_REGISTRY.get(checkpoint_mode)
+    if cls is None:
+        msg = f"Unsupported checkpoint mode: {checkpoint_mode}"
+        raise ToolError(msg)
+
     cfg = config or {}
-
-    if checkpoint_mode == "slack":
-        return SlackNotifier(
-            webhook_url=cfg.get("webhook_url", ""),
-            channel=cfg.get("channel", ""),
-        )
-
-    if checkpoint_mode == "email":
-        return EmailNotifier(
-            smtp_host=cfg.get("smtp_host", "localhost"),
-            smtp_port=cfg.get("smtp_port", 587),
-            from_address=cfg.get("from_address", ""),
-            to_addresses=cfg.get("to_addresses", []),
-        )
-
-    if checkpoint_mode == "webhook":
-        return WebhookNotifier(
-            url=cfg.get("url", ""),
-            headers=cfg.get("headers", {}),
-        )
-
-    if checkpoint_mode == "terminal":
-        # Terminal mode uses a webhook-style notifier that logs to stdout
-        # via the logging subsystem — no external endpoint needed.
-        return WebhookNotifier(url="", headers={})
-
-    msg = f"Unsupported checkpoint mode: {checkpoint_mode}"
-    raise ToolError(msg)
+    defaults = _NOTIFIER_DEFAULTS.get(checkpoint_mode, {})
+    kwargs = {k: cfg.get(k, v) for k, v in defaults.items()}
+    return cls(**kwargs)

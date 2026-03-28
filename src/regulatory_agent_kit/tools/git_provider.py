@@ -164,8 +164,23 @@ class GitLabClient:
 
 
 # ---------------------------------------------------------------------------
-# Factory
+# Registry + Factory
 # ---------------------------------------------------------------------------
+
+_PROVIDER_REGISTRY: dict[str, type[GitProviderClient]] = {}
+
+
+def register_git_provider(
+    host_pattern: str,
+    cls: type[GitProviderClient],
+) -> None:
+    """Register a git-provider class for a hostname pattern."""
+    _PROVIDER_REGISTRY[host_pattern] = cls
+
+
+# Built-in registrations
+register_git_provider("github", GitHubClient)
+register_git_provider("gitlab", GitLabClient)
 
 
 def create_git_provider(
@@ -191,12 +206,17 @@ def create_git_provider(
     owner = parts[0]
     repo = parts[1].removesuffix(".git")
 
-    if "github" in hostname:
-        return GitHubClient(owner=owner, repo=repo, token=token)
-
-    if "gitlab" in hostname:
-        project_path = f"{owner}/{repo}"
-        return GitLabClient(project_path=project_path, token=token)
+    for pattern, cls in _PROVIDER_REGISTRY.items():
+        if pattern in hostname:
+            # GitHub-style: owner + repo
+            if cls is GitHubClient:
+                return cls(owner=owner, repo=repo, token=token)  # type: ignore[call-arg]
+            # GitLab-style: project_path
+            if cls is GitLabClient:
+                project_path = f"{owner}/{repo}"
+                return cls(project_path=project_path, token=token)  # type: ignore[call-arg]
+            # Generic fallback for custom providers — try owner/repo kwargs
+            return cls(owner=owner, repo=repo, token=token)  # type: ignore[call-arg]
 
     msg = f"Unsupported git provider for host: {hostname}"
     raise ToolError(msg)

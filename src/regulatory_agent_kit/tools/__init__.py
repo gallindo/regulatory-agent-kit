@@ -7,6 +7,7 @@ from regulatory_agent_kit.tools.git_provider import (
     GitLabClient,
     GitProviderClient,
     create_git_provider,
+    register_git_provider,
 )
 from regulatory_agent_kit.tools.notification import (
     EmailNotifier,
@@ -14,6 +15,7 @@ from regulatory_agent_kit.tools.notification import (
     SlackNotifier,
     WebhookNotifier,
     create_notifier,
+    register_notifier,
 )
 from regulatory_agent_kit.tools.search_client import SearchClient
 from regulatory_agent_kit.tools.test_runner import TestResult, TestRunner
@@ -35,4 +37,6 @@ __all__ = [
     "WebhookNotifier",
     "create_git_provider",
     "create_notifier",
+    "register_git_provider",
+    "register_notifier",
 ]

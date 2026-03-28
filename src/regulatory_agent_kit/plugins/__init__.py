@@ -8,7 +8,7 @@ from regulatory_agent_kit.plugins.condition_dsl import (
     to_llm_prompt,
 )
 from regulatory_agent_kit.plugins.conflict_engine import ConflictEngine
-from regulatory_agent_kit.plugins.loader import PluginLoader
+from regulatory_agent_kit.plugins.loader import PluginLoader, TemplateValidator
 from regulatory_agent_kit.plugins.schema import (
     RTS,
     AffectsClause,
@@ -31,6 +31,7 @@ __all__ = [
     "RegulationPlugin",
     "Remediation",
     "Rule",
+    "TemplateValidator",
     "can_evaluate_statically",
     "parse",
     "to_llm_prompt",
