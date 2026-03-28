@@ -72,6 +72,46 @@ class SlackNotifier:
         except Exception:
             logger.warning("Failed to send Slack notification", exc_info=True)
 
+    def _format_checkpoint_message(
+        self,
+        run_id: str,
+        checkpoint_name: str,
+        summary: str,
+        approve_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the Slack webhook payload for a checkpoint request."""
+        text = (
+            f":warning: *Checkpoint Required*\n"
+            f"*Run:* `{run_id}`\n"
+            f"*Checkpoint:* {checkpoint_name}\n"
+            f"*Summary:* {summary}"
+        )
+        if approve_url:
+            text += f"\n<{approve_url}|Approve/Reject>"
+        return {"text": text, "channel": self.channel}
+
+    def _format_pipeline_complete_message(
+        self,
+        run_id: str,
+        summary: str,
+    ) -> dict[str, Any]:
+        """Build the Slack webhook payload for a pipeline-complete event."""
+        return {
+            "text": (f":white_check_mark: Pipeline `{run_id}` completed.\n{summary}"),
+            "channel": self.channel,
+        }
+
+    def _format_error_message(
+        self,
+        run_id: str,
+        error: str,
+    ) -> dict[str, Any]:
+        """Build the Slack webhook payload for an error event."""
+        return {
+            "text": f":x: Pipeline `{run_id}` failed.\n```{error}```",
+            "channel": self.channel,
+        }
+
     async def send_checkpoint_request(
         self,
         *,
@@ -81,15 +121,8 @@ class SlackNotifier:
         approve_url: str | None = None,
     ) -> None:
         """Send checkpoint request via Slack webhook."""
-        text = (
-            f":warning: *Checkpoint Required*\n"
-            f"*Run:* `{run_id}`\n"
-            f"*Checkpoint:* {checkpoint_name}\n"
-            f"*Summary:* {summary}"
-        )
-        if approve_url:
-            text += f"\n<{approve_url}|Approve/Reject>"
-        await self._post({"text": text, "channel": self.channel})
+        payload = self._format_checkpoint_message(run_id, checkpoint_name, summary, approve_url)
+        await self._post(payload)
 
     async def send_pipeline_complete(
         self,
@@ -98,12 +131,8 @@ class SlackNotifier:
         summary: str,
     ) -> None:
         """Send pipeline-complete notification via Slack webhook."""
-        await self._post(
-            {
-                "text": f":white_check_mark: Pipeline `{run_id}` completed.\n{summary}",
-                "channel": self.channel,
-            }
-        )
+        payload = self._format_pipeline_complete_message(run_id, summary)
+        await self._post(payload)
 
     async def send_error(
         self,
@@ -112,12 +141,8 @@ class SlackNotifier:
         error: str,
     ) -> None:
         """Send error notification via Slack webhook."""
-        await self._post(
-            {
-                "text": f":x: Pipeline `{run_id}` failed.\n```{error}```",
-                "channel": self.channel,
-            }
-        )
+        payload = self._format_error_message(run_id, error)
+        await self._post(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +213,46 @@ class WebhookNotifier:
         except Exception:
             logger.warning("Failed to send webhook notification", exc_info=True)
 
+    def _format_checkpoint_payload(
+        self,
+        run_id: str,
+        checkpoint_name: str,
+        summary: str,
+        approve_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the webhook JSON payload for a checkpoint request."""
+        return {
+            "type": "checkpoint_request",
+            "run_id": run_id,
+            "checkpoint_name": checkpoint_name,
+            "summary": summary,
+            "approve_url": approve_url,
+        }
+
+    def _format_pipeline_complete_payload(
+        self,
+        run_id: str,
+        summary: str,
+    ) -> dict[str, Any]:
+        """Build the webhook JSON payload for a pipeline-complete event."""
+        return {
+            "type": "pipeline_complete",
+            "run_id": run_id,
+            "summary": summary,
+        }
+
+    def _format_error_payload(
+        self,
+        run_id: str,
+        error: str,
+    ) -> dict[str, Any]:
+        """Build the webhook JSON payload for an error event."""
+        return {
+            "type": "pipeline_error",
+            "run_id": run_id,
+            "error": error,
+        }
+
     async def send_checkpoint_request(
         self,
         *,
@@ -197,15 +262,8 @@ class WebhookNotifier:
         approve_url: str | None = None,
     ) -> None:
         """Send checkpoint request via webhook."""
-        await self._post(
-            {
-                "type": "checkpoint_request",
-                "run_id": run_id,
-                "checkpoint_name": checkpoint_name,
-                "summary": summary,
-                "approve_url": approve_url,
-            }
-        )
+        payload = self._format_checkpoint_payload(run_id, checkpoint_name, summary, approve_url)
+        await self._post(payload)
 
     async def send_pipeline_complete(
         self,
@@ -214,13 +272,8 @@ class WebhookNotifier:
         summary: str,
     ) -> None:
         """Send pipeline-complete notification via webhook."""
-        await self._post(
-            {
-                "type": "pipeline_complete",
-                "run_id": run_id,
-                "summary": summary,
-            }
-        )
+        payload = self._format_pipeline_complete_payload(run_id, summary)
+        await self._post(payload)
 
     async def send_error(
         self,
@@ -229,13 +282,8 @@ class WebhookNotifier:
         error: str,
     ) -> None:
         """Send error notification via webhook."""
-        await self._post(
-            {
-                "type": "pipeline_error",
-                "run_id": run_id,
-                "error": error,
-            }
-        )
+        payload = self._format_error_payload(run_id, error)
+        await self._post(payload)
 
 
 # ---------------------------------------------------------------------------

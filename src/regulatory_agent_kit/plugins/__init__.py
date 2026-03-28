@@ -9,6 +9,7 @@ from regulatory_agent_kit.plugins.condition_dsl import (
 )
 from regulatory_agent_kit.plugins.conflict_engine import ConflictEngine
 from regulatory_agent_kit.plugins.loader import PluginLoader, TemplateValidator
+from regulatory_agent_kit.plugins.scaffolder import PluginScaffolder
 from regulatory_agent_kit.plugins.schema import (
     RTS,
     AffectsClause,
@@ -27,6 +28,7 @@ __all__ = [
     "CrossReference",
     "EventTrigger",
     "PluginLoader",
+    "PluginScaffolder",
     "Predicate",
     "RegulationPlugin",
     "Remediation",

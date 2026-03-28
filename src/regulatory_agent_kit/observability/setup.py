@@ -10,14 +10,109 @@ from regulatory_agent_kit.util.crypto import AuditSigner
 logger = logging.getLogger(__name__)
 
 
-class ObservabilitySetup:
-    """One-shot configuration of all observability subsystems.
+# ---------------------------------------------------------------------------
+# Focused setup classes
+# ---------------------------------------------------------------------------
 
-    Each ``configure_*`` method is best-effort: failures are logged as
-    warnings but never crash the application.
-    """
+
+class MlflowSetup:
+    """Configures MLflow tracking."""
+
+    def configure(self, tracking_uri: str) -> bool:
+        """Set up MLflow tracking.
+
+        Args:
+            tracking_uri: MLflow tracking server URI
+                (e.g. ``http://localhost:5000``).
+
+        Returns:
+            ``True`` if configuration succeeded, ``False`` otherwise.
+        """
+        try:
+            import mlflow
+
+            mlflow.set_tracking_uri(tracking_uri)
+            logger.info("MLflow tracking configured: %s", tracking_uri)
+        except Exception:
+            logger.warning(
+                "Failed to configure MLflow at %s — continuing without MLflow.",
+                tracking_uri,
+                exc_info=True,
+            )
+            return False
+        else:
+            return True
+
+
+class OtelSetup:
+    """Configures OpenTelemetry."""
+
+    def configure(self, endpoint: str) -> bool:
+        """Configure OpenTelemetry tracing (stub).
+
+        Args:
+            endpoint: OTLP exporter endpoint
+                (e.g. ``http://localhost:4317``).
+
+        Returns:
+            ``True`` if configuration succeeded, ``False`` otherwise.
+        """
+        try:
+            # Stub: actual OTEL setup will be added when the SDK is wired in.
+            logger.info("OpenTelemetry endpoint registered (stub): %s", endpoint)
+        except Exception:
+            logger.warning(
+                "Failed to configure OpenTelemetry at %s — continuing without OTEL.",
+                endpoint,
+                exc_info=True,
+            )
+            return False
+        else:
+            return True
+
+
+class AuditSignerLoader:
+    """Loads Ed25519 audit signing keys."""
+
+    def load(self, key_path: Path | None) -> AuditSigner | None:
+        """Load an Ed25519 private key for audit trail signing.
+
+        Args:
+            key_path: Filesystem path to a PEM-encoded Ed25519 private key,
+                or ``None`` to skip.
+
+        Returns:
+            An ``AuditSigner`` instance, or ``None`` if loading failed or
+            was skipped.
+        """
+        if key_path is None:
+            return None
+        try:
+            signer = AuditSigner.load_key(key_path)
+            logger.info("Audit signer loaded from %s", key_path)
+        except Exception:
+            logger.warning(
+                "Failed to load audit signer from %s — audit entries will be unsigned.",
+                key_path,
+                exc_info=True,
+            )
+            return None
+        else:
+            return signer
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible facade
+# ---------------------------------------------------------------------------
+
+
+class ObservabilitySetup:
+    """Facade — delegates to focused setup classes."""
 
     def __init__(self) -> None:
+        self._mlflow = MlflowSetup()
+        self._otel = OtelSetup()
+        self._signer_loader = AuditSignerLoader()
         self._mlflow_configured: bool = False
         self._otel_configured: bool = False
         self._signer: AuditSigner | None = None
@@ -30,20 +125,10 @@ class ObservabilitySetup:
         """Set up MLflow tracking.
 
         Args:
-            tracking_uri: MLflow tracking server URI (e.g. ``http://localhost:5000``).
+            tracking_uri: MLflow tracking server URI
+                (e.g. ``http://localhost:5000``).
         """
-        try:
-            import mlflow
-
-            mlflow.set_tracking_uri(tracking_uri)
-            self._mlflow_configured = True
-            logger.info("MLflow tracking configured: %s", tracking_uri)
-        except Exception:
-            logger.warning(
-                "Failed to configure MLflow at %s — continuing without MLflow.",
-                tracking_uri,
-                exc_info=True,
-            )
+        self._mlflow_configured = self._mlflow.configure(tracking_uri)
 
     # ------------------------------------------------------------------
     # OpenTelemetry (stub)
@@ -53,18 +138,10 @@ class ObservabilitySetup:
         """Configure OpenTelemetry tracing (stub).
 
         Args:
-            endpoint: OTLP exporter endpoint (e.g. ``http://localhost:4317``).
+            endpoint: OTLP exporter endpoint
+                (e.g. ``http://localhost:4317``).
         """
-        try:
-            # Stub: actual OTEL setup will be added when the SDK is wired in.
-            logger.info("OpenTelemetry endpoint registered (stub): %s", endpoint)
-            self._otel_configured = True
-        except Exception:
-            logger.warning(
-                "Failed to configure OpenTelemetry at %s — continuing without OTEL.",
-                endpoint,
-                exc_info=True,
-            )
+        self._otel_configured = self._otel.configure(endpoint)
 
     # ------------------------------------------------------------------
     # Audit signing
@@ -79,17 +156,8 @@ class ObservabilitySetup:
         Returns:
             An ``AuditSigner`` instance, or ``None`` if loading failed.
         """
-        try:
-            self._signer = AuditSigner.load_key(key_path)
-            logger.info("Audit signer loaded from %s", key_path)
-            return self._signer
-        except Exception:
-            logger.warning(
-                "Failed to load audit signer from %s — audit entries will be unsigned.",
-                key_path,
-                exc_info=True,
-            )
-            return None
+        self._signer = self._signer_loader.load(key_path)
+        return self._signer
 
     # ------------------------------------------------------------------
     # Accessors

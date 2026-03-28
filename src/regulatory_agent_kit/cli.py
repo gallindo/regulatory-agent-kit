@@ -21,6 +21,7 @@ from regulatory_agent_kit.exceptions import (
     PluginValidationError,
 )
 from regulatory_agent_kit.plugins.loader import PluginLoader
+from regulatory_agent_kit.plugins.scaffolder import PluginScaffolder
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -264,47 +265,6 @@ def plugin_validate(
 # rak plugin init
 # ---------------------------------------------------------------------------
 
-_SCAFFOLD_PLUGIN_YAML = """\
-# Regulation Plugin: {name}
-# Edit this file to define your regulatory rules.
-
-id: {slug}
-name: "{name}"
-version: "1.0.0"
-effective_date: "2025-01-01"
-jurisdiction: "CHANGE_ME"
-authority: "CHANGE_ME"
-source_url: "https://example.com/regulations/{slug}"
-disclaimer: >
-  DISCLAIMER: Replace this with an appropriate legal disclaimer.
-
-changelog: "1.0.0: Initial plugin scaffold."
-
-rules:
-  - id: {upper_slug}-001
-    description: >
-      Replace this with a description of the regulatory rule.
-    severity: medium
-    affects:
-      - pattern: "**/*.java"
-        condition: "has_annotation(@Example)"
-    remediation:
-      strategy: add_annotation
-      template: templates/example.j2
-      confidence_threshold: 0.85
-"""
-
-_SCAFFOLD_TEMPLATE = """\
-{{# Jinja2 template for {name} rule remediation #}}
-{{{{ content }}}}
-"""
-
-_SCAFFOLD_README = """\
-# {name}
-
-Regulation plugin scaffold. Edit `{slug}.yaml` to define your rules.
-"""
-
 
 @plugin_app.command(name="init")
 def plugin_init(
@@ -318,33 +278,13 @@ def plugin_init(
     ] = "regulations",
 ) -> None:
     """Scaffold a new regulation plugin directory structure."""
-    slug = name.lower().replace(" ", "-")
-    base = Path(output_dir) / slug
-    if base.exists():
-        console.print(f"[red]Directory already exists: {base}[/red]")
-        raise typer.Exit(code=1)
-
-    # Create directory structure
-    templates_dir = base / "templates"
-    templates_dir.mkdir(parents=True)
-
-    # Write scaffold files
-    plugin_yaml = base / f"{slug}.yaml"
-    upper_slug = slug.upper().replace("-", "_")
-    plugin_yaml.write_text(
-        _SCAFFOLD_PLUGIN_YAML.format(name=name, slug=slug, upper_slug=upper_slug)
-    )
-
-    template_file = templates_dir / "example.j2"
-    template_file.write_text(_SCAFFOLD_TEMPLATE.format(name=name))
-
-    readme_file = base / "README.md"
-    readme_file.write_text(_SCAFFOLD_README.format(name=name, slug=slug))
-
-    console.print(f"[green]Plugin scaffold created at {base}[/green]")
-    console.print(f"  {plugin_yaml}")
-    console.print(f"  {template_file}")
-    console.print(f"  {readme_file}")
+    scaffolder = PluginScaffolder()
+    try:
+        plugin_dir = scaffolder.scaffold(name, Path(output_dir))
+    except FileExistsError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from None
+    console.print(f"[green]Plugin scaffold created at {plugin_dir}[/green]")
 
 
 # ---------------------------------------------------------------------------
