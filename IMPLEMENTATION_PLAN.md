@@ -1,6 +1,6 @@
 # regulatory-agent-kit — Implementation Plan
 
-> **Version:** 1.1
+> **Version:** 1.2
 > **Date:** 2026-03-28
 > **Status:** Active
 > **Scope:** Phase 1 (v1.0) — Foundation. Takes the project from scaffold (empty `__init__.py` stubs) to a working end-to-end pipeline.
@@ -47,7 +47,20 @@ The repository contains:
 
 **Files created:** `models/events.py`, `models/pipeline.py`, `models/impact_map.py`, `models/changes.py`, `models/audit.py`, `tests/unit/test_models.py`
 
-**Validation:** `pytest tests/unit/test_models.py` passes; `mypy src/regulatory_agent_kit/models/` clean
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-1.1 | All 15+ model classes instantiate with valid data and reject invalid data (wrong types, missing required fields) | `pytest tests/unit/test_models.py` — parametrized tests with valid/invalid fixtures | Yes |
+| AC-1.2 | `RegulatoryEvent.change_type` only accepts `"new_requirement"`, `"amendment"`, `"withdrawal"` | Unit test with `pytest.raises(ValidationError)` for invalid literals | Yes |
+| AC-1.3 | `PipelineResult` model validator enforces: terminal statuses (`completed`, `failed`, `rejected`, `cost_rejected`) require `report` or `actual_cost`; non-terminal statuses are rejected | Unit test for `model_validator` with all status combinations | Yes |
+| AC-1.4 | `AuditEntry.event_type` only accepts the 9 defined types from data-model.md Section 3.3 | Unit test with all 9 valid types + 1 invalid | Yes |
+| AC-1.5 | `CheckpointDecision.decision` only accepts `"approved"`, `"rejected"`, `"modifications_requested"` | Unit test with `pytest.raises(ValidationError)` | Yes |
+| AC-1.6 | All models round-trip through `model_dump()` → `model_validate()` without data loss | Unit test: `assert Model.model_validate(instance.model_dump()) == instance` for each model | Yes |
+| AC-1.7 | All models serialize to JSON via `model_dump_json()` and deserialize back | Unit test for JSON round-trip | Yes |
+| AC-1.8 | `models/__init__.py` exports all public model classes (importable as `from regulatory_agent_kit.models import X`) | Unit test: `import regulatory_agent_kit.models; assert hasattr(...)` for each class | Yes |
+| AC-1.9 | `mypy src/regulatory_agent_kit/models/` passes with zero errors in strict mode | `mypy --strict src/regulatory_agent_kit/models/` exit code 0 | Yes |
+| AC-1.10 | No use of deprecated Pydantic v1 API (`@validator`, `.dict()`, `.json()`) | `ruff check` with TCH rules + grep for deprecated patterns | Yes |
 
 ---
 
@@ -64,7 +77,19 @@ The repository contains:
 - [ ] **2.5** Write unit tests for config loading (env vars, `.env` file, YAML overlay) (`tests/unit/test_config.py`)
 - [ ] **2.6** Write unit tests for exception hierarchy (`tests/unit/test_exceptions.py`)
 
-**Validation:** `pytest tests/unit/test_config.py tests/unit/test_exceptions.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-2.1 | `Settings` loads all fields from environment variables with correct types and defaults | `pytest tests/unit/test_config.py` — set env vars via `monkeypatch`, assert field values | Yes |
+| AC-2.2 | `Settings` loads from a `.env` file when present | Unit test: write temp `.env` file, verify fields populated | Yes |
+| AC-2.3 | `rak-config.yaml` overlay overrides env var defaults; env vars still override YAML values | Unit test: set YAML value + env var for same field, verify env var wins | Yes |
+| AC-2.4 | Nested settings models (`DatabaseSettings`, `TemporalSettings`, etc.) validate their own field types independently | Unit test: construct each nested model with invalid data, assert `ValidationError` | Yes |
+| AC-2.5 | `Settings.lite_mode` toggle defaults to `False` and disables Temporal/ES/PostgreSQL fields when `True` | Unit test: `lite_mode=True` doesn't require `database_url` or `temporal_address` | Yes |
+| AC-2.6 | All 15 exception classes exist and inherit from `RAKError` | `pytest tests/unit/test_exceptions.py` — `assert issubclass(XError, RAKError)` for each | Yes |
+| AC-2.7 | Each exception class can be raised and caught by its parent type | Unit test: `with pytest.raises(RAKError): raise PluginValidationError(...)` | Yes |
+| AC-2.8 | `mypy src/regulatory_agent_kit/config.py src/regulatory_agent_kit/exceptions.py` passes | mypy exit code 0 | Yes |
+| AC-2.9 | No manual `os.getenv()` calls — all config uses pydantic-settings | `grep -r "os.getenv\|os.environ" src/regulatory_agent_kit/config.py` returns 0 matches | Yes |
 
 ---
 
@@ -84,7 +109,27 @@ The repository contains:
 - [ ] **3.8** Write unit tests for Condition DSL parser (all operators, precedence, error cases) (`tests/unit/test_condition_dsl.py`)
 - [ ] **3.9** Write unit tests for ConflictEngine (overlap detection, precedence) (`tests/unit/test_conflict_engine.py`)
 
-**Validation:** `pytest tests/unit/test_plugin_*.py tests/unit/test_condition_dsl.py tests/unit/test_conflict_engine.py` passes. Note: `rak plugin validate` CLI command is wired in Phase 13.6 — at this phase, validate programmatically via `PluginLoader.validate()` in tests
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-3.1 | `RegulationPlugin` model validates all required fields (id, name, version, effective_date, jurisdiction, authority, source_url, disclaimer) and rejects missing ones | `pytest tests/unit/test_plugin_schema.py` — valid + invalid plugin fixtures | Yes |
+| AC-3.2 | `RegulationPlugin` accepts arbitrary extra fields (`model_config = ConfigDict(extra="allow")`) and preserves them in `model_extra` | Unit test: load plugin with unknown field, assert it appears in `model_extra` | Yes |
+| AC-3.3 | `PluginLoader.load()` parses a valid YAML file into a `RegulationPlugin` instance | Unit test with `regulations/examples/example.yaml` | Yes |
+| AC-3.4 | `PluginLoader.validate()` returns a list of errors for an invalid plugin (missing disclaimer, invalid severity, bad condition syntax) | Unit test with intentionally broken YAML fixtures | Yes |
+| AC-3.5 | `PluginLoader` caches loaded plugins — calling `load()` twice on the same path returns the same object | Unit test: `assert loader.load(path) is loader.load(path)` | Yes |
+| AC-3.6 | `PluginLoader.get_by_id()` returns `None` for unknown IDs and the correct plugin for known IDs | Unit test after loading example plugin | Yes |
+| AC-3.7 | Condition DSL parser handles all operators: `AND`, `OR`, `NOT`, `implements`, `inherits`, `has_annotation`, `has_decorator`, `has_method`, `has_key`, `matches` | `pytest tests/unit/test_condition_dsl.py` — one test per operator | Yes |
+| AC-3.8 | Condition DSL respects operator precedence: `NOT` > `AND` > `OR`; parentheses override | Unit test: `parse("A OR B AND NOT C")` produces correct AST shape | Yes |
+| AC-3.9 | Condition DSL raises `ConditionParseError` with line/column for malformed expressions | Unit test with invalid expressions: unclosed parens, unknown operators, empty input | Yes |
+| AC-3.10 | `can_evaluate_statically()` returns `True` for all 7 static predicates and `False` for semantic conditions | Unit test for each predicate type | Yes |
+| AC-3.11 | `to_llm_prompt()` converts a condition AST into a natural-language prompt string | Unit test: assert output is non-empty string containing predicate terms | Yes |
+| AC-3.12 | `ConflictEngine.detect()` identifies overlapping AST regions across two plugins with conflicting rules | Unit test with two mock ImpactMaps containing overlapping `ASTRegion` ranges | Yes |
+| AC-3.13 | `ConflictEngine.get_precedence()` respects `takes_precedence` cross-references | Unit test with two plugins where one declares `takes_precedence` over the other | Yes |
+| AC-3.14 | `regulations/examples/example.yaml` loads and validates without errors | Unit test: `PluginLoader.validate()` returns empty error list | Yes |
+| AC-3.15 | Plugin schema uses `ruamel.yaml` (not PyYAML) for parsing | Code review: verify import; no `import yaml` in plugin code | Manual |
+
+Note: `rak plugin validate` CLI command is wired in Phase 13.6 — at this phase, validate programmatically via `PluginLoader.validate()` in tests
 
 ---
 
@@ -101,7 +146,19 @@ The repository contains:
 - [ ] **4.5** Write unit tests for logging setup (`tests/unit/test_logging.py`)
 - [ ] **4.6** Write unit tests for hashing (`tests/unit/test_hashing.py`)
 
-**Validation:** `pytest tests/unit/test_crypto.py tests/unit/test_logging.py tests/unit/test_hashing.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-4.1 | `AuditSigner.generate_key_pair()` produces valid Ed25519 public/private key bytes | `pytest tests/unit/test_crypto.py` — generate, load, verify round-trip | Yes |
+| AC-4.2 | `AuditSigner.sign()` produces a base64-encoded Ed25519 signature that `verify()` accepts | Unit test: sign payload, verify signature returns `True` | Yes |
+| AC-4.3 | `AuditSigner.verify()` rejects tampered payloads (modified field, added field, removed field) | Unit test: sign, modify payload, assert `verify()` returns `False` or raises | Yes |
+| AC-4.4 | `_canonicalize()` produces deterministic output regardless of dict key ordering | Unit test: `_canonicalize({"b":1,"a":2}) == _canonicalize({"a":2,"b":1})` | Yes |
+| AC-4.5 | Structured logging outputs valid JSON with `run_id` correlation ID when set via contextvars | `pytest tests/unit/test_logging.py` — capture log output, parse JSON, assert `run_id` field present | Yes |
+| AC-4.6 | Log level is configurable from Settings and defaults to INFO | Unit test: set level to DEBUG, verify debug messages appear; set to WARNING, verify info messages suppressed | Yes |
+| AC-4.7 | `compute_cache_key()` returns a 64-character hex SHA-256 digest | `pytest tests/unit/test_hashing.py` — `assert len(result) == 64 and all(c in '0123456789abcdef' for c in result)` | Yes |
+| AC-4.8 | `compute_cache_key()` is deterministic: same inputs always produce the same key | Unit test: call twice with identical inputs, assert equal | Yes |
+| AC-4.9 | `compute_cache_key()` is sensitive: changing any input (content, plugin_version, agent_version) changes the key | Unit test: vary each input independently, assert all keys differ | Yes |
 
 ---
 
@@ -123,7 +180,24 @@ The repository contains:
 - [ ] **5.10** Write integration tests using `testcontainers` PostgreSQL (`tests/integration/test_repositories.py`): CRUD operations for all repositories, verify audit_entries append-only behavior, test partition routing
 - [ ] **5.11** Write unit tests for pool creation logic (`tests/unit/test_database.py`)
 
-**Validation:** `alembic upgrade head` against a real PostgreSQL; `pytest tests/integration/test_repositories.py -m integration` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-5.1 | `create_pool()` returns an `AsyncConnectionPool` that can execute a simple query (`SELECT 1`) | `pytest tests/unit/test_database.py` — mock or integration test | Yes |
+| AC-5.2 | `close_pool()` gracefully shuts down all connections | Unit test: call `close_pool()`, verify pool is closed | Yes |
+| AC-5.3 | All 6 repositories inherit from `BaseRepository` and use parameterized queries (no f-strings or %-formatting in SQL) | `grep -rn "f\".*SELECT\|f\".*INSERT\|%s.*SELECT" src/regulatory_agent_kit/database/` returns 0 matches | Yes |
+| AC-5.4 | `PipelineRunRepository` CRUD: `create()` returns UUID, `get()` retrieves by ID, `update_status()` changes status, `complete()` sets `completed_at`, `list_by_status()` filters correctly | `pytest tests/integration/test_repositories.py -m integration` — full CRUD cycle | Yes |
+| AC-5.5 | `RepositoryProgressRepository`: `create()` enforces `(run_id, repo_url)` uniqueness; `get_failed()` returns only failed rows; `count_by_status()` returns correct counts | Integration test with multiple repos in different statuses | Yes |
+| AC-5.6 | `AuditRepository` is append-only: `insert()` and `bulk_insert()` succeed; no `update()` or `delete()` methods exist on the class | Integration test: verify insert works; code review: no update/delete methods | Yes (partial) |
+| AC-5.7 | `AuditRepository` queries work across partitions: insert into current month partition, query by `run_id` returns results | Integration test with testcontainers PostgreSQL after running migration | Yes |
+| AC-5.8 | `CheckpointDecisionRepository.get_latest()` returns the most recent decision per `(run_id, checkpoint_type)` when multiple exist | Integration test: insert 2 decisions for same checkpoint, verify latest returned | Yes |
+| AC-5.9 | `ConflictLogRepository.resolve()` sets `resolution` and `human_decision_id`; `get_unresolved()` excludes resolved entries | Integration test with resolve/query cycle | Yes |
+| AC-5.10 | `FileAnalysisCacheRepository.delete_expired()` removes only entries where `expires_at < now()` | Integration test: insert expired + non-expired entries, delete, verify counts | Yes |
+| AC-5.11 | `alembic upgrade head` creates all 6 tables with correct constraints, indexes, triggers, roles, and grants | Integration test: run migration against testcontainers PostgreSQL, introspect `information_schema` for table/column existence | Yes |
+| AC-5.12 | `audit_entries` table is partitioned by month with at least 2 initial partitions created | Integration test: query `pg_catalog.pg_partitioned_table` and `pg_class` for partition children | Yes |
+| AC-5.13 | `rak_app` role has INSERT/SELECT only on `audit_entries` (no UPDATE/DELETE) | Integration test: connect as `rak_app`, attempt `UPDATE` and `DELETE`, assert they fail with permission error | Yes |
+| AC-5.14 | `repository_progress.updated_at` trigger fires on UPDATE (auto-sets to `now()`) | Integration test: update a row, verify `updated_at` changed | Yes |
 
 ---
 
@@ -138,7 +212,17 @@ The repository contains:
 - [ ] **6.3** Wire template validation back into `PluginLoader.validate()` — add an optional `validate_templates()` pass that calls `TemplateEngine.validate_template()` for each rule's `remediation.template` and `test_template`. This resolves the deferred validation noted in Phase 3.2
 - [ ] **6.4** Write unit tests for template rendering, sandboxing (no access to dangerous builtins), validation, and PluginLoader template validation integration (`tests/unit/test_templates.py`)
 
-**Validation:** `pytest tests/unit/test_templates.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-6.1 | `TemplateEngine.render()` renders a Jinja2 template with context variables and returns the output string | `pytest tests/unit/test_templates.py` — render example template with known context, assert output | Yes |
+| AC-6.2 | `TemplateEngine` uses `SandboxedEnvironment` — accessing dangerous builtins (`os`, `subprocess`, `__import__`) raises `SecurityError` | Unit test: attempt `{{ ''.__class__.__mro__ }}` and similar, assert exception | Yes |
+| AC-6.3 | `render_string()` renders inline template strings (not files) | Unit test: `render_string("Hello {{ name }}", {"name": "World"}) == "Hello World"` | Yes |
+| AC-6.4 | `validate_template()` returns empty list for valid templates and error descriptions for invalid ones (syntax errors, undefined variables) | Unit test with valid and broken template files | Yes |
+| AC-6.5 | Example templates (`audit_log.j2`, `audit_log_test.j2`) render without errors against a synthetic context | Unit test: render each example template with a fixture context dict | Yes |
+| AC-6.6 | `PluginLoader.validate()` now validates templates when `TemplateEngine` is available (Phase 6.3 wiring) | Unit test: create plugin referencing a broken template, verify `validate()` reports template error | Yes |
+| AC-6.7 | Template rendering preserves indentation and does not introduce trailing whitespace | Unit test: render template, check output against expected string with exact whitespace | Yes |
 
 ---
 
@@ -163,7 +247,22 @@ The repository contains:
 
 **Files created:** `tools/git_client.py`, `tools/git_provider.py`, `tools/ast_engine.py`, `tools/test_runner.py`, `tools/search_client.py`, `tools/notification.py`
 
-**Validation:** `pytest tests/unit/test_git_client.py tests/unit/test_ast_engine.py tests/unit/test_test_runner.py tests/unit/test_notification.py` passes; integration tests pass with Docker
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-7.1 | `GitClient.clone()` clones a repository to a specified path; `create_branch()`, `checkout()`, `add()`, `commit()`, `push()`, `diff()`, `log()` all execute without error on a temp repo | `pytest tests/integration/test_git_client.py -m integration` — real temp repo lifecycle | Yes |
+| AC-7.2 | `GitClient` uses async subprocess — all methods are `async def` and do not block the event loop | Code review + unit test: mock `asyncio.create_subprocess_exec`, verify awaited | Yes |
+| AC-7.3 | `create_git_provider()` factory returns `GitHubClient` for `github.com` URLs and `GitLabClient` for `gitlab.com` URLs | `pytest tests/unit/test_git_client.py` — parametrized factory test | Yes |
+| AC-7.4 | `ASTEngine.parse()` produces a tree-sitter `Tree` for both Python and Java source files | `pytest tests/unit/test_ast_engine.py` — parse sample .py and .java content | Yes |
+| AC-7.5 | `ASTEngine.find_classes()`, `find_annotations()`, `find_methods()`, `check_implements()` return correct results for known source code | Unit test with fixture source files containing known classes/annotations/methods | Yes |
+| AC-7.6 | `ASTEngine._detect_language()` correctly identifies Python (`.py`) and Java (`.java`) from file extensions | Unit test: parametrized with various extensions | Yes |
+| AC-7.7 | `TestRunner.execute()` builds a Docker command with `--network=none --read-only --memory=512m --cpus=1` flags | `pytest tests/unit/test_test_runner.py` — mock Docker, inspect command args | Yes |
+| AC-7.8 | `TestRunner` static AST pre-analysis rejects test files that import `os`, `subprocess`, or `socket` | Unit test: create test file with `import os`, assert rejection | Yes |
+| AC-7.9 | `SearchClient.ensure_index()` creates both `rak-regulations` and `rak-regulation-context` indexes with correct mappings | `pytest tests/integration/test_search_client.py -m integration` — testcontainers ES, inspect index mappings | Yes |
+| AC-7.10 | `SearchClient` gracefully degrades when Elasticsearch is unavailable: `search_rules()` and `search_context()` return empty lists, log a warning | Unit test: mock ES client to raise `ConnectionError`, verify empty result + warning log | Yes |
+| AC-7.11 | `create_notifier()` factory returns `SlackNotifier` for `checkpoint_mode="slack"`, `EmailNotifier` for `"email"`, `WebhookNotifier` for `"webhook"` | `pytest tests/unit/test_notification.py` — parametrized factory test | Yes |
+| AC-7.12 | All notification methods (`send_checkpoint_request`, `send_pipeline_complete`, `send_error`) are callable and accept the expected arguments | Unit test with mock httpx/smtp clients | Yes |
 
 ---
 
@@ -181,7 +280,19 @@ The repository contains:
 - [ ] **8.6** Write unit tests for WAL (write, replay, corruption recovery) (`tests/unit/test_wal.py`)
 - [ ] **8.7** Write unit tests for AuditArchiver (mock storage backends) (`tests/unit/test_storage.py`)
 
-**Validation:** `pytest tests/unit/test_audit_logger.py tests/unit/test_wal.py tests/unit/test_storage.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-8.1 | `AuditLogger.log_llm_call()` creates an `AuditEntry` with `event_type="llm_call"`, signs it, and inserts via `AuditRepository` | `pytest tests/unit/test_audit_logger.py` — mock repo and signer, verify `insert()` called with signed entry | Yes |
+| AC-8.2 | All 5 `AuditLogger` methods (`log_llm_call`, `log_tool_invocation`, `log_state_transition`, `log_human_decision`, `log_conflict_detected`) produce entries with correct `event_type` values | Unit test: call each method, assert `event_type` in the inserted entry | Yes |
+| AC-8.3 | Every audit entry produced by `AuditLogger` has a non-empty `signature` field | Unit test: mock signer to return known signature, verify it appears in the entry | Yes |
+| AC-8.4 | WAL buffers entries to a local file when the primary store is unavailable | `pytest tests/unit/test_wal.py` — simulate repo failure, verify entries written to WAL file | Yes |
+| AC-8.5 | WAL replays buffered entries on reconnection without duplicates | Unit test: write N entries to WAL, replay, verify all N inserted and WAL file is emptied/rotated | Yes |
+| AC-8.6 | WAL handles corruption gracefully (truncated file, invalid JSON) — skips corrupt entries, logs warning, continues | Unit test: write corrupt data to WAL file, replay, verify partial recovery + warning logged | Yes |
+| AC-8.7 | `AuditArchiver.export_partition()` exports audit entries for a given year/month | `pytest tests/unit/test_storage.py` — mock storage backend, verify upload called with correct path | Yes |
+| AC-8.8 | `AuditArchiver` in Lite Mode writes to local filesystem instead of S3/GCS | Unit test: configure Lite Mode, call `export_partition()`, verify local file created | Yes |
+| AC-8.9 | `StorageBackend` Protocol is implemented by at least one concrete backend (S3 or local filesystem) | Unit test: instantiate backend, call upload method | Yes |
 
 ---
 
@@ -203,7 +314,21 @@ The repository contains:
 - [ ] **9.10** Write unit tests for KafkaEventSource (mock confluent-kafka Consumer, deserialization, error handling) (`tests/unit/test_kafka_event_source.py`)
 - [ ] **9.11** Write unit tests for SQSEventSource (mock boto3 SQS client, long-polling, message deletion) (`tests/unit/test_sqs_event_source.py`)
 
-**Validation:** `pytest tests/unit/test_*event_source*.py tests/unit/test_workflow_starter.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-9.1 | `EventSource` Protocol defines `start()` and `stop()` methods; all 4 implementations satisfy the protocol | Unit test: `assert isinstance(source, EventSource)` for each | Yes |
+| AC-9.2 | `FileEventSource` detects a new JSON file in the watched directory and produces a `RegulatoryEvent` | `pytest tests/unit/test_file_event_source.py` — create temp dir, drop JSON file, verify event produced | Yes |
+| AC-9.3 | `FileEventSource` ignores non-JSON files and malformed JSON (logs warning, does not crash) | Unit test: drop `.txt` file and invalid JSON file, verify no event produced + warning logged | Yes |
+| AC-9.4 | `WebhookEventSource` validates HMAC signatures and rejects requests with invalid/missing signatures | `pytest tests/unit/test_webhook_event_source.py` — send request with correct and incorrect HMAC | Yes |
+| AC-9.5 | `WebhookEventSource` parses valid JSON body into `RegulatoryEvent` and calls `WorkflowStarter.start_pipeline()` | Unit test: mock WorkflowStarter, send valid webhook, verify `start_pipeline()` called | Yes |
+| AC-9.6 | `KafkaEventSource` deserializes Kafka messages into `RegulatoryEvent` objects | `pytest tests/unit/test_kafka_event_source.py` — mock Consumer, verify deserialization | Yes |
+| AC-9.7 | `KafkaEventSource` handles deserialization errors gracefully (logs error, continues consuming) | Unit test: mock Consumer returning corrupt message, verify no crash + error logged | Yes |
+| AC-9.8 | `SQSEventSource` polls SQS and deletes messages after successful processing | `pytest tests/unit/test_sqs_event_source.py` — mock boto3, verify `delete_message()` called on success | Yes |
+| AC-9.9 | `WorkflowStarter.start_pipeline()` starts a Temporal workflow with a deterministic workflow ID | `pytest tests/unit/test_workflow_starter.py` — mock Temporal client, verify `start_workflow()` called with expected ID | Yes |
+| AC-9.10 | `WorkflowStarter.signal_approval()` sends a Temporal signal to a running workflow | Unit test: mock client, verify `signal()` called with correct signal name and payload | Yes |
+| AC-9.11 | `WorkflowStarter.cancel()` sends a cancellation request to a running workflow | Unit test: mock client, verify `cancel()` called | Yes |
 
 ---
 
@@ -220,7 +345,18 @@ The repository contains:
 - [ ] **10.5** Implement `agents/tools.py` — PydanticAI `@agent.tool` decorated functions that wrap the `tools/` classes (GitClient, ASTEngine, SearchClient, TemplateEngine, TestRunner, GitProviderClient). Tool instances are injected via PydanticAI agent dependencies. Enforce tool isolation: Analyzer gets read-only tools (clone, parse, search); Refactor gets read-write tools (branch, commit, template render); TestGenerator gets sandboxed tools (test run); Reporter gets external tools (PR create, notify)
 - [ ] **10.6** Write unit tests for each agent (mock LLM responses via PydanticAI test utilities) (`tests/unit/test_agents.py`)
 
-**Validation:** `pytest tests/unit/test_agents.py` passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-10.1 | `AnalyzerAgent` has `result_type=ImpactMap` and only read-only tools bound (clone, parse, search — no write tools) | `pytest tests/unit/test_agents.py` — inspect agent tool list, assert no write tools present | Yes |
+| AC-10.2 | `RefactorAgent` has `result_type=ChangeSet` and has read-write tools (branch, commit, template render) | Unit test: inspect agent tool list | Yes |
+| AC-10.3 | `TestGeneratorAgent` has `result_type=TestResult` and only sandboxed tools (test run, read, template render) | Unit test: inspect agent tool list | Yes |
+| AC-10.4 | `ReporterAgent` has `result_type=ReportBundle` and external tools (PR create, notify, template render) | Unit test: inspect agent tool list | Yes |
+| AC-10.5 | Each agent produces a valid Pydantic model as output when given a mock LLM response | Unit test: use PydanticAI test utilities to mock LLM, run agent, assert output type | Yes |
+| AC-10.6 | Tool isolation is enforced: `AnalyzerAgent` cannot access `git_commit` or `git_push`; `TestGeneratorAgent` cannot access `git_pr_create` | Unit test: verify tool names in each agent's tool set do not include forbidden tools | Yes |
+| AC-10.7 | Agent system prompts are regulation-agnostic (contain no hardcoded regulation names or rule IDs) | Unit test: inspect system prompt strings, assert no known regulation IDs appear | Yes |
+| AC-10.8 | All tool functions in `agents/tools.py` are decorated with `@agent.tool` and have type annotations | `mypy src/regulatory_agent_kit/agents/` passes | Yes |
 
 ---
 
@@ -241,7 +377,22 @@ The repository contains:
 - [ ] **11.9** Write unit tests for Lite Mode executor (`tests/unit/test_lite_mode.py`)
 - [ ] **11.10** Write integration tests for workflows using Temporal test server (`tests/integration/test_workflows.py`)
 
-**Validation:** `pytest tests/unit/test_activities.py tests/unit/test_lite_db.py tests/unit/test_lite_mode.py` passes; Temporal workflow integration test passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-11.1 | All 5 activities (`estimate_cost`, `analyze_repository`, `refactor_repository`, `test_repository`, `report_results`) are decorated with `@activity.defn` | `pytest tests/unit/test_activities.py` — verify activity registration | Yes |
+| AC-11.2 | `CompliancePipeline` workflow implements the full state machine from LLD Section 4.1: PENDING → COST_ESTIMATION → ANALYZING → AWAITING_IMPACT_REVIEW → REFACTORING → TESTING → AWAITING_MERGE_REVIEW → REPORTING → COMPLETED | `pytest tests/integration/test_workflows.py -m integration` — Temporal test server end-to-end | Yes |
+| AC-11.3 | Human checkpoints are non-bypassable: the workflow durably pauses at AWAITING_IMPACT_REVIEW and AWAITING_MERGE_REVIEW until a signal is received | Integration test: start workflow, verify it stays in awaiting state until signal sent | Yes |
+| AC-11.4 | `approve_impact_review` and `approve_merge_review` signal handlers resume the workflow with the provided `CheckpointDecision` | Integration test: send approval signal, verify workflow proceeds to next phase | Yes |
+| AC-11.5 | `query_status` query handler returns a valid `PipelineStatus` at any point during execution | Integration test: query during different phases, verify response structure | Yes |
+| AC-11.6 | `RepositoryProcessor` child workflow processes a single repo through analyze → refactor → test | Unit test with mock activities | Yes |
+| AC-11.7 | Fan-out/fan-in: `CompliancePipeline` spawns N child workflows and waits for all to complete | Integration test: start pipeline with 3 repos, verify all 3 are processed | Yes |
+| AC-11.8 | Lite Mode SQLite adapter: `create_tables()` creates all required tables; all 4 repository implementations pass the same CRUD tests as the PostgreSQL versions | `pytest tests/unit/test_lite_db.py` — CRUD cycle for each repository | Yes |
+| AC-11.9 | Lite Mode executor runs the full pipeline sequentially without Temporal, using SQLite and terminal checkpoints | `pytest tests/unit/test_lite_mode.py` — mock agents, verify all phases execute in order | Yes |
+| AC-11.10 | Lite Mode executor handles `SearchClient` graceful degradation (empty results when ES unavailable) | Unit test: verify Lite Mode proceeds without Elasticsearch, no exceptions | Yes |
+| AC-11.11 | Temporal worker (`orchestration/worker.py`) registers all workflows and activities and connects to the Temporal server | Integration test: start worker, verify it polls the task queue | Yes |
+| AC-11.12 | Pipeline transitions to FAILED state on unrecoverable activity errors, and records the error in `repository_progress` | Integration test: mock activity to raise, verify FAILED state + error message | Yes |
 
 ---
 
@@ -259,7 +410,20 @@ The repository contains:
 - [ ] **12.6** Update `api/main.py` — Wire all routes, middleware, startup/shutdown lifecycle (pool creation, Temporal connection, MLflow setup)
 - [ ] **12.7** Write unit tests for all API endpoints using `httpx.AsyncClient` (`tests/unit/test_api.py`)
 
-**Validation:** `pytest tests/unit/test_api.py` passes; `uvicorn regulatory_agent_kit.api.main:app` starts and responds to health/events/approvals
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-12.1 | `POST /events` accepts a valid `RegulatoryEvent` JSON body and returns 202 with `workflow_id` | `pytest tests/unit/test_api.py` — httpx.AsyncClient, mock Temporal | Yes |
+| AC-12.2 | `POST /events` returns 422 for invalid event body (missing required fields, wrong types) | Unit test: send malformed JSON, assert 422 + Pydantic error details | Yes |
+| AC-12.3 | `POST /approvals/{run_id}` accepts a valid `CheckpointDecision`, signs it, persists to DB, sends Temporal signal | Unit test: mock DB + Temporal + signer, verify all three called | Yes |
+| AC-12.4 | `POST /approvals/{run_id}` returns 404 for unknown `run_id` | Unit test: mock DB returning None for `get()`, assert 404 | Yes |
+| AC-12.5 | `GET /runs/{run_id}` returns pipeline status combining DB status and Temporal phase | Unit test: mock both sources, verify combined response | Yes |
+| AC-12.6 | `GET /runs` returns a list of pipeline runs with optional status filter | Unit test: mock `list_by_status()`, verify filter applied | Yes |
+| AC-12.7 | `GET /health` returns 200 with service health status (existing endpoint) | Unit test: call health endpoint, assert 200 | Yes |
+| AC-12.8 | `RakAuthMiddleware` rejects requests without a valid Bearer token when configured | Unit test: send request without token, assert 401; send with valid token, assert passes through | Yes |
+| AC-12.9 | API startup lifecycle creates DB pool, Temporal connection, and MLflow setup; shutdown closes them | Unit test: mock lifespan events, verify startup/shutdown hooks called | Yes |
+| AC-12.10 | `uvicorn regulatory_agent_kit.api.main:app` starts without import errors | Smoke test: start uvicorn with `--check` or import `app` object in test | Yes |
 
 ---
 
@@ -279,7 +443,24 @@ The repository contains:
 - [ ] **13.8** Implement `rak db` subcommands: `clean-cache` (invoke `FileAnalysisCacheRepository.delete_expired()`), `create-partitions` (create next N months of `audit_entries` partitions via raw DDL). These are operational management commands referenced in Phase 5.8 and 5.9
 - [ ] **13.9** Write unit tests for CLI commands using typer.testing.CliRunner (`tests/unit/test_cli.py`). Must include: `rak run --config` loading from `rak-config.yaml` with CLI flag overrides, `rak cancel`, `rak db` subcommands
 
-**Validation:** `pytest tests/unit/test_cli.py` passes; `rak --help` shows all commands including `cancel` and `db`; `rak run --lite` executes end-to-end; `rak run --config rak-config.yaml` loads YAML config correctly
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-13.1 | `rak --help` lists all commands: `run`, `status`, `retry-failures`, `rollback`, `resume`, `cancel`, `plugin`, `db` | `pytest tests/unit/test_cli.py` — `CliRunner.invoke(app, ["--help"])`, assert all command names in output | Yes |
+| AC-13.2 | `rak run --lite --regulation <path> --repos <path> --checkpoint-mode terminal` executes end-to-end against a fixture repo | Integration test: run CLI in Lite Mode with example plugin and test repo | Yes |
+| AC-13.3 | `rak run --config rak-config.yaml` loads regulation, repos, model, checkpoint_mode from YAML | Unit test: create temp YAML config, invoke `rak run --config`, verify settings loaded | Yes |
+| AC-13.4 | CLI flags override `rak-config.yaml` values (e.g., `--checkpoint-mode slack` overrides YAML `checkpoint_mode: terminal`) | Unit test: set YAML value, pass conflicting CLI flag, verify CLI flag wins | Yes |
+| AC-13.5 | `rak status --run-id <uuid>` displays a Rich-formatted table with pipeline status and per-repo progress | Unit test: mock DB/Temporal, invoke command, assert output contains expected fields | Yes |
+| AC-13.6 | `rak retry-failures --run-id <uuid>` identifies failed repos and triggers re-dispatch | Unit test: mock DB returning failed repos, verify signal sent | Yes |
+| AC-13.7 | `rak rollback --run-id <uuid>` reads rollback manifest and performs cleanup actions (close PRs, delete branches) | Unit test: mock manifest and GitProviderClient, verify cleanup actions called | Yes |
+| AC-13.8 | `rak rollback --run-id <uuid> --dry-run` previews actions without executing them | Unit test: invoke with `--dry-run`, verify no mutations, output describes planned actions | Yes |
+| AC-13.9 | `rak cancel --run-id <uuid>` sends cancellation signal in Temporal mode and sets status in Lite Mode | Unit test: mock WorkflowStarter.cancel(), verify called; mock SQLite, verify status set | Yes |
+| AC-13.10 | `rak plugin validate <path>` reports validation errors for invalid plugins with clear error messages | Unit test: invoke with broken plugin YAML, assert non-zero exit code + error in output | Yes |
+| AC-13.11 | `rak plugin init --name <name>` creates a scaffold directory with YAML, templates, tests, and README | Unit test: invoke in temp dir, verify directory structure created | Yes |
+| AC-13.12 | `rak db clean-cache` invokes `FileAnalysisCacheRepository.delete_expired()` | Unit test: mock repository, verify `delete_expired()` called | Yes |
+| AC-13.13 | `rak db create-partitions` creates next N months of `audit_entries` partitions | Unit test: mock DB, verify DDL executed for correct partition names | Yes |
+| AC-13.14 | No use of `print()` in CLI code — all output uses `typer.echo()` or Rich console | `grep -rn "^\s*print(" src/regulatory_agent_kit/cli.py` returns 0 matches | Yes |
 
 ---
 
@@ -300,7 +481,23 @@ The repository contains:
 - [ ] **14.6** Verify full stack: `docker compose up -d` → all services healthy → `rak run` against Docker stack works
 - [ ] **14.7** Write smoke test script (`tests/smoke/test_docker_compose.sh`) that starts stack, runs health checks, submits an event, verifies pipeline
 
-**Validation:** `docker compose up -d` all containers healthy; smoke test passes
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-14.1 | `docker/Dockerfile.worker` builds successfully with multi-stage build, runs as non-root user `rak` (UID 1000) | `tests/smoke/test_docker_compose.sh` — `docker compose build worker` succeeds; `docker compose exec worker whoami` returns `rak` | Yes |
+| AC-14.2 | `docker/Dockerfile.api` builds successfully with multi-stage build, runs as non-root user | Smoke test: `docker compose build api` succeeds | Yes |
+| AC-14.3 | `docker/Dockerfile.mlflow` builds and `mlflow server` starts on port 5000 | Smoke test: `curl http://localhost:5000/health` returns 200 | Yes |
+| AC-14.4 | All stateful services (postgres, elasticsearch, temporal) have health checks in `docker-compose.yml` | Smoke test: `docker compose ps` shows `healthy` for all stateful services within 120s | Yes |
+| AC-14.5 | `docker compose up -d` starts all 10 services without errors | Smoke test: all containers in `running` state | Yes |
+| AC-14.6 | PostgreSQL has 3 databases created: `rak` (from POSTGRES_DB), `temporal`, `mlflow` (from init-db.sql) | Smoke test: `psql -c "\l"` lists all 3 databases | Yes |
+| AC-14.7 | PostgreSQL has `rak_admin` and `rak_app` roles created by init-db.sql | Smoke test: `psql -c "\du"` shows both roles | Yes |
+| AC-14.8 | LiteLLM proxy responds on port 4000 and accepts the configured model list | Smoke test: `curl http://localhost:4000/health` returns 200 | Yes |
+| AC-14.9 | Prometheus scrapes configured targets and has metrics available | Smoke test: `curl http://localhost:9090/api/v1/targets` shows targets UP | Yes |
+| AC-14.10 | Grafana starts on port 3000 with Prometheus datasource auto-provisioned | Smoke test: `curl http://localhost:3000/api/datasources` returns Prometheus | Yes |
+| AC-14.11 | `rak run` from inside the worker container can connect to all services (Temporal, PostgreSQL, ES, LiteLLM) | Smoke test: submit event via API, verify workflow started in Temporal UI | Yes |
+| AC-14.12 | Named volumes persist data across `docker compose down` + `docker compose up` (without `-v`) | Smoke test: create data, restart, verify data exists | Yes |
+| AC-14.13 | No secrets are baked into Docker images — all secrets injected via `.env` file or environment variables | Dockerfile review: no `ENV *_KEY=` or `COPY .env` in any Dockerfile | Manual |
 
 ---
 
@@ -319,7 +516,21 @@ The repository contains:
 - [ ] **15.7** Update `README.md` with installation, quickstart, and architecture overview
 - [ ] **15.8** Create `CONTRIBUTING.md` with development setup and contribution guidelines
 
-**Validation:** All quality checks pass (`make check`); full test suite green; coverage >= 80%
+### Acceptance Criteria
+
+| # | Criterion | Validation Method | Automated? |
+|---|-----------|-------------------|------------|
+| AC-15.1 | Lite Mode E2E test: load example plugin → run against fixture repo → verify impact map produced → verify refactored code compiles → verify tests pass → verify audit trail exists with signed entries | `pytest tests/integration/test_e2e_lite.py -m integration` | Yes |
+| AC-15.2 | Docker Compose E2E test: submit event via `POST /events` → wait for pipeline to reach AWAITING_IMPACT_REVIEW → send approval → wait for COMPLETED → verify PRs created (mock Git provider) → verify audit entries in PostgreSQL | `pytest tests/integration/test_e2e_docker.py -m integration` | Yes |
+| AC-15.3 | `ruff check src/ tests/` exits with code 0 (no lint violations) | `make check` or CI step | Yes |
+| AC-15.4 | `ruff format --check src/ tests/` exits with code 0 (all code formatted) | `make check` or CI step | Yes |
+| AC-15.5 | `mypy src/` exits with code 0 in strict mode (no type errors) | `make check` or CI step | Yes |
+| AC-15.6 | `pytest tests/ --cov=regulatory_agent_kit --cov-report=term-missing` reports >= 80% line coverage | CI step with `--cov-fail-under=80` | Yes |
+| AC-15.7 | No test takes longer than 30 seconds (global timeout enforced) | `pytest --timeout=30` — all tests pass within limit | Yes |
+| AC-15.8 | All integration tests are marked with `@pytest.mark.integration` and can be skipped independently | `pytest tests/ -m "not integration"` runs only unit tests successfully | Yes |
+| AC-15.9 | `README.md` contains: installation instructions, quickstart (Lite Mode), architecture diagram link, and link to `CONTRIBUTING.md` | Manual review | Manual |
+| AC-15.10 | `CONTRIBUTING.md` contains: development setup (uv sync, Docker), coding standards reference, testing instructions, PR process | Manual review | Manual |
+| AC-15.11 | `make check` (or `just check`) runs all quality gates (lint + format + typecheck + tests with coverage) in a single command | Invoke `make check`, verify all 4 steps execute | Yes |
 
 ---
 
