@@ -1,0 +1,47 @@
+# Example Regulation Plugin
+# This is a minimal, self-contained example for testing and the getting-started guide.
+
+id: example-audit-logging-2025
+name: "Example Audit Logging Regulation"
+version: "1.0.0"
+effective_date: "2025-01-01"
+jurisdiction: "EXAMPLE"
+authority: "Example Regulatory Authority"
+source_url: "https://example.com/regulations/audit-logging"
+disclaimer: >
+  This is an example regulation plugin for testing and demonstration purposes only.
+  It does not represent any real regulatory requirement.
+
+changelog: "1.0.0: Initial example plugin."
+
+rules:
+  - id: EXAMPLE-001
+    description: >
+      All service classes must have an @AuditLog annotation for traceability.
+    severity: high
+    affects:
+      - pattern: "**/*.java"
+        condition: "class implements Service AND NOT has_annotation(@AuditLog)"
+    remediation:
+      strategy: add_annotation
+      template: templates/audit_log.j2
+      test_template: templates/audit_log_test.j2
+      confidence_threshold: 0.85
+
+  - id: EXAMPLE-002
+    description: >
+      Configuration files must define resilience timeout keys.
+    severity: medium
+    affects:
+      - pattern: "**/*.yaml"
+        condition: "has_key(resilience.rto) AND has_key(resilience.rpo)"
+    remediation:
+      strategy: add_configuration
+      template: templates/audit_log.j2
+      confidence_threshold: 0.90
+
+cross_references:
+  - regulation_id: "gdpr"
+    relationship: does_not_override
+    articles: ["2(3)"]
+    conflict_handling: escalate_to_human
