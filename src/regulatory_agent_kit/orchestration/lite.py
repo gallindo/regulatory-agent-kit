@@ -26,6 +26,13 @@ from regulatory_agent_kit.database.protocols import (  # noqa: TC001
     PipelineRunStore,
     RepositoryProgressStore,
 )
+from regulatory_agent_kit.orchestration.activities import (
+    DEFAULT_ANALYSIS_CONFIDENCE,
+    ESTIMATED_COST_PER_REPO_USD,
+    ESTIMATED_TOKENS_PER_REPO,
+    MOCK_PASS_RATE,
+    MOCK_TOTAL_TESTS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,11 +120,11 @@ class CostEstimationPhase:
     async def execute(self, context: PipelineContext) -> None:
         logger.info("[Lite] Phase: COST_ESTIMATION")
         model = context.get_model()
-        per_repo = {url: 1.50 for url in context.repo_urls}
+        per_repo = {url: ESTIMATED_COST_PER_REPO_USD for url in context.repo_urls}
         context.result.cost_estimate = {
             "estimated_total_cost": sum(per_repo.values()),
             "per_repo_cost": per_repo,
-            "estimated_total_tokens": len(context.repo_urls) * 10_000,
+            "estimated_total_tokens": len(context.repo_urls) * ESTIMATED_TOKENS_PER_REPO,
             "model_used": model,
             "exceeds_threshold": False,
         }
@@ -138,7 +145,7 @@ class AnalysisPhase:
             analysis = {
                 "files": [],
                 "conflicts": [],
-                "analysis_confidence": 0.85,
+                "analysis_confidence": DEFAULT_ANALYSIS_CONFIDENCE,
             }
             context.result.add_repo_result(
                 {
@@ -198,9 +205,9 @@ class TestingPhase:
         logger.info("[Lite] Phase: TESTING")
         for repo_result in context.result.repo_results:
             repo_result["test_result"] = {
-                "pass_rate": 1.0,
-                "total_tests": 5,
-                "passed": 5,
+                "pass_rate": MOCK_PASS_RATE,
+                "total_tests": MOCK_TOTAL_TESTS,
+                "passed": MOCK_TOTAL_TESTS,
                 "failed": 0,
                 "failures": [],
                 "test_files_created": [],

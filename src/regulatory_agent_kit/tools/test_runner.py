@@ -65,6 +65,8 @@ class TestResult:
 
 _DEFAULT_TIMEOUT = 300
 _DEFAULT_IMAGE = "python:3.12-slim"
+_DEFAULT_MEMORY_LIMIT = "512m"
+_DEFAULT_CPU_LIMIT = "1"
 
 
 @dataclass
@@ -151,8 +153,8 @@ class TestRunner:
             "--rm",
             "--network=none",
             "--read-only",
-            "--memory=512m",
-            "--cpus=1",
+            f"--memory={_DEFAULT_MEMORY_LIMIT}",
+            f"--cpus={_DEFAULT_CPU_LIMIT}",
             f"--stop-timeout={self.timeout}",
             "-v",
             f"{test_dir}:/workspace:ro",

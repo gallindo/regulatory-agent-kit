@@ -157,7 +157,28 @@ class CompliancePipeline:
 
         model = config.get("default_model", "claude-sonnet-4-20250514")
 
-        # Phase 1: Cost Estimation
+        await self._cost_estimation_phase(repo_urls, regulation_id, model)
+        await self._analysis_phase(repo_urls, regulation_id, plugin_data)
+
+        if not await self._await_impact_review():
+            return self._build_rejected_result("impact_review")
+
+        await self._refactoring_and_testing_phase()
+
+        if not await self._await_merge_review():
+            return self._build_rejected_result("merge_review")
+
+        return await self._reporting_phase()
+
+    # -- Phase helpers -----------------------------------------------------
+
+    async def _cost_estimation_phase(
+        self,
+        repo_urls: list[str],
+        regulation_id: str,
+        model: str,
+    ) -> None:
+        """Phase 1: Estimate pipeline cost."""
         self._phase = "COST_ESTIMATION"
         self._cost_estimate = await workflow.execute_activity(
             estimate_cost,
@@ -165,7 +186,13 @@ class CompliancePipeline:
             start_to_close_timeout=timedelta(minutes=5),
         )
 
-        # Phase 2: Analyze (fan-out via child workflows — analysis only)
+    async def _analysis_phase(
+        self,
+        repo_urls: list[str],
+        regulation_id: str,
+        plugin_data: dict[str, Any],
+    ) -> None:
+        """Phase 2: Fan-out analysis via child workflows, then fan-in."""
         self._phase = "ANALYZING"
         analysis_handles = []
         for repo_url in repo_urls:
@@ -176,47 +203,34 @@ class CompliancePipeline:
             )
             analysis_handles.append(handle)
 
-        # Fan-in: collect all child workflow results
         self._repo_results = []
         for handle in analysis_handles:
             result: dict[str, Any] = await handle
             self._repo_results.append(result)
 
-        # Phase 3: Await impact review
+    async def _await_impact_review(self) -> bool:
+        """Phase 3: Wait for human impact review checkpoint."""
         self._phase = "AWAITING_IMPACT_REVIEW"
         await workflow.wait_condition(
             lambda: self._impact_approved or self._impact_rejected,
         )
+        return self._impact_approved
 
-        if self._impact_rejected:
-            self._status = "rejected"
-            self._phase = "COMPLETED"
-            return {
-                "run_id": self._run_id,
-                "status": "rejected",
-                "phase": "impact_review",
-            }
-
-        # Phases 4-5 already done in child workflows (refactor + test)
+    async def _refactoring_and_testing_phase(self) -> None:
+        """Phases 4-5: Already done in child workflows (refactor + test)."""
         self._phase = "REFACTORING"
         self._phase = "TESTING"
 
-        # Phase 6: Await merge review
+    async def _await_merge_review(self) -> bool:
+        """Phase 6: Wait for human merge review checkpoint."""
         self._phase = "AWAITING_MERGE_REVIEW"
         await workflow.wait_condition(
             lambda: self._merge_approved or self._merge_rejected,
         )
+        return self._merge_approved
 
-        if self._merge_rejected:
-            self._status = "rejected"
-            self._phase = "COMPLETED"
-            return {
-                "run_id": self._run_id,
-                "status": "rejected",
-                "phase": "merge_review",
-            }
-
-        # Phase 7: Reporting
+    async def _reporting_phase(self) -> dict[str, Any]:
+        """Phase 7: Generate compliance report and return final result."""
         self._phase = "REPORTING"
         report: dict[str, Any] = await workflow.execute_activity(
             report_results,
@@ -224,7 +238,6 @@ class CompliancePipeline:
             start_to_close_timeout=timedelta(minutes=5),
         )
 
-        # Done
         self._phase = "COMPLETED"
         self._status = "completed"
         return {
@@ -233,6 +246,16 @@ class CompliancePipeline:
             "report": report,
             "cost_estimate": self._cost_estimate,
             "repo_results": self._repo_results,
+        }
+
+    def _build_rejected_result(self, phase: str) -> dict[str, Any]:
+        """Build a rejection result for a failed checkpoint."""
+        self._status = "rejected"
+        self._phase = "COMPLETED"
+        return {
+            "run_id": self._run_id,
+            "status": "rejected",
+            "phase": phase,
         }
 
 

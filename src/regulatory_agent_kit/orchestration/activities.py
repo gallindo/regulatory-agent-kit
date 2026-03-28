@@ -15,6 +15,16 @@ from temporalio import activity
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Named constants for stub / placeholder values
+# ---------------------------------------------------------------------------
+
+ESTIMATED_COST_PER_REPO_USD: float = 1.50
+ESTIMATED_TOKENS_PER_REPO: int = 10_000
+DEFAULT_ANALYSIS_CONFIDENCE: float = 0.85
+MOCK_TOTAL_TESTS: int = 5
+MOCK_PASS_RATE: float = 1.0
+
 
 @dataclass
 class ActivityContext:
@@ -39,12 +49,12 @@ async def estimate_cost(
         len(repo_urls),
         regulation_id,
     )
-    per_repo = {url: 1.50 for url in repo_urls}
+    per_repo = {url: ESTIMATED_COST_PER_REPO_USD for url in repo_urls}
     total = sum(per_repo.values())
     return {
         "estimated_total_cost": total,
         "per_repo_cost": per_repo,
-        "estimated_total_tokens": len(repo_urls) * 10_000,
+        "estimated_total_tokens": len(repo_urls) * ESTIMATED_TOKENS_PER_REPO,
         "model_used": model,
         "exceeds_threshold": False,
     }
@@ -64,7 +74,7 @@ async def analyze_repository(
     return {
         "files": [],
         "conflicts": [],
-        "analysis_confidence": 0.85,
+        "analysis_confidence": DEFAULT_ANALYSIS_CONFIDENCE,
     }
 
 
@@ -98,9 +108,9 @@ async def test_repository(
     """
     activity.logger.info("Testing repository %s", repo_url)
     return {
-        "pass_rate": 1.0,
-        "total_tests": 5,
-        "passed": 5,
+        "pass_rate": MOCK_PASS_RATE,
+        "total_tests": MOCK_TOTAL_TESTS,
+        "passed": MOCK_TOTAL_TESTS,
         "failed": 0,
         "failures": [],
         "test_files_created": [],

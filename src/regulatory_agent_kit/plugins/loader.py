@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path  # noqa: TC003
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from ruamel.yaml import YAML
 
@@ -68,9 +68,9 @@ class PluginLoader:
         if cache_key in self._path_cache:
             return self._path_cache[cache_key]
 
-        raw = self._parse_yaml(path)
+        raw_yaml = self._parse_yaml(path)
         try:
-            plugin = RegulationPlugin.model_validate(raw)
+            plugin = RegulationPlugin.model_validate(raw_yaml)
         except Exception as exc:
             msg = f"Failed to validate plugin '{path}': {exc}"
             raise PluginValidationError(msg) from exc
@@ -86,53 +86,75 @@ class PluginLoader:
             raise PluginLoadError(msg)
 
         plugins: list[RegulationPlugin] = []
-        for yaml_path in sorted(self._plugin_dir.rglob("*.yaml")):
-            try:
-                plugins.append(self.load(yaml_path))
-            except (PluginValidationError, PluginLoadError) as exc:
-                logger.warning("Skipping invalid plugin %s: %s", yaml_path, exc)
-        for yaml_path in sorted(self._plugin_dir.rglob("*.yml")):
-            try:
-                plugins.append(self.load(yaml_path))
-            except (PluginValidationError, PluginLoadError) as exc:
-                logger.warning("Skipping invalid plugin %s: %s", yaml_path, exc)
+        for pattern in ("*.yaml", "*.yml"):
+            for yaml_path in sorted(self._plugin_dir.rglob(pattern)):
+                try:
+                    plugins.append(self.load(yaml_path))
+                except (PluginValidationError, PluginLoadError) as exc:
+                    logger.warning("Skipping invalid plugin %s: %s", yaml_path, exc)
         return plugins
 
     def validate(self, path: Path) -> list[str]:
         """Validate a plugin YAML file, returning a list of error messages (empty = valid)."""
-        errors: list[str] = []
+        errors = self._validate_file_exists(path)
+        if errors:
+            return errors
 
-        # Check file existence
+        raw_yaml, parse_errors = self._validate_yaml_syntax(path)
+        if parse_errors:
+            return parse_errors
+
+        plugin, schema_errors = self._validate_plugin_schema(raw_yaml)
+        if schema_errors or plugin is None:
+            return schema_errors
+
+        errors.extend(self._validate_rule_conditions(plugin))
+        if self._template_validator is not None:
+            errors.extend(self._validate_templates(plugin, path.parent))
+        return errors
+
+    # -- validation helpers -------------------------------------------------
+
+    def _validate_file_exists(self, path: Path) -> list[str]:
+        """Check that the plugin file exists on disk."""
         if not path.exists():
-            errors.append(f"File not found: {path}")
-            return errors
+            return [f"File not found: {path}"]
+        return []
 
-        # Parse YAML
+    def _validate_yaml_syntax(
+        self,
+        path: Path,
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Parse YAML and return (raw_data, errors)."""
         try:
-            raw = self._parse_yaml(path)
+            raw_yaml = self._parse_yaml(path)
         except PluginLoadError as exc:
-            errors.append(str(exc))
-            return errors
+            return {}, [str(exc)]
+        return raw_yaml, []
 
-        # Validate schema
+    def _validate_plugin_schema(
+        self,
+        raw_yaml: dict[str, Any],
+    ) -> tuple[RegulationPlugin | None, list[str]]:
+        """Validate raw YAML against the RegulationPlugin schema."""
         try:
-            plugin = RegulationPlugin.model_validate(raw)
+            plugin = RegulationPlugin.model_validate(raw_yaml)
         except Exception as exc:
-            errors.append(f"Schema validation failed: {exc}")
-            return errors
+            return None, [f"Schema validation failed: {exc}"]
+        return plugin, []
 
-        # Validate condition DSL expressions
+    def _validate_rule_conditions(
+        self,
+        plugin: RegulationPlugin,
+    ) -> list[str]:
+        """Validate condition DSL expressions across all rules."""
+        errors: list[str] = []
         for rule in plugin.rules:
             for affects in rule.affects:
                 try:
                     parse(affects.condition)
                 except ConditionParseError as exc:
                     errors.append(f"Rule '{rule.id}', condition '{affects.condition}': {exc}")
-
-        # Validate templates (if a TemplateValidator is available)
-        if self._template_validator is not None:
-            errors.extend(self._validate_templates(plugin, path.parent))
-
         return errors
 
     def get_by_id(self, plugin_id: str) -> RegulationPlugin | None:
@@ -147,14 +169,16 @@ class PluginLoader:
             msg = f"Plugin file not found: {path}"
             raise PluginLoadError(msg)
         try:
-            data = self._yaml.load(path)
+            raw_yaml = self._yaml.load(path)
         except Exception as exc:
             msg = f"Failed to parse YAML '{path}': {exc}"
             raise PluginLoadError(msg) from exc
-        if not isinstance(data, dict):
-            msg = f"Plugin file '{path}' must contain a YAML mapping, got {type(data).__name__}"
+        if not isinstance(raw_yaml, dict):
+            msg = (
+                f"Plugin file '{path}' must contain a YAML mapping, got {type(raw_yaml).__name__}"
+            )
             raise PluginLoadError(msg)
-        return data
+        return raw_yaml
 
     def _validate_templates(
         self,
