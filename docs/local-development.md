@@ -155,7 +155,7 @@ After `docker compose up`, you have the following services:
 | **RAK API** | 8000 | [http://localhost:8000](http://localhost:8000) | Webhook events, approvals, pipeline status |
 | **RAK Worker** | — | (no UI) | Temporal worker — executes workflows, activities, and agents |
 | **Temporal Server** | 7233 | (gRPC, no browser UI) | Workflow engine — manages state, retries, scheduling |
-| **Temporal UI** | 8080 | [http://localhost:8080](http://localhost:8080) | Workflow visibility — see running/failed/completed pipelines |
+| **Temporal UI** | 8233 | [http://localhost:8233](http://localhost:8233) | Workflow visibility — see running/failed/completed pipelines |
 | **PostgreSQL** | 5432 | — | Database for Temporal, RAK, and MLflow schemas |
 | **Elasticsearch** | 9200 | [http://localhost:9200](http://localhost:9200) | Regulatory knowledge base (semantic search) |
 | **LiteLLM Proxy** | 4000 | [http://localhost:4000](http://localhost:4000) | LLM gateway — routes calls to your configured provider |
@@ -165,7 +165,7 @@ After `docker compose up`, you have the following services:
 
 ### Useful UIs to Explore
 
-- **Temporal UI** (`localhost:8080`) — Watch your pipeline progress in real-time. See which repositories are being processed, where checkpoints are waiting, and which activities have failed.
+- **Temporal UI** (`localhost:8233`) — Watch your pipeline progress in real-time. See which repositories are being processed, where checkpoints are waiting, and which activities have failed.
 - **MLflow** (`localhost:5000`) — After a pipeline run, inspect every LLM call: prompts, completions, token counts, costs, and latency.
 - **Grafana** (`localhost:3000`) — Pre-built dashboards for pipeline throughput, error rates, and LLM cost tracking.
 
@@ -204,7 +204,7 @@ Repos:  3 total
 Cost:   $0.82 estimated / $0.31 actual
 ```
 
-Or visit the **Temporal UI** at [http://localhost:8080](http://localhost:8080) to see the workflow visually.
+Or visit the **Temporal UI** at [http://localhost:8233](http://localhost:8233) to see the workflow visually.
 
 ### Approve checkpoints
 
