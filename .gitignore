@@ -137,6 +137,9 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# User pipeline configuration (only .example files are tracked)
+rak-config.yaml
 .venv
 env/
 venv/

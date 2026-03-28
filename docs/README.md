@@ -32,6 +32,7 @@ The documentation is organized in layers from "why" to "how to deploy". Start fr
 | Document | Purpose |
 |---|---|
 | [`getting-started.md`](getting-started.md) | 5-minute quickstart with Lite Mode — install, run, understand |
+| [`local-development.md`](local-development.md) | Full-stack local setup with Docker Compose — 10 minutes, all services |
 | [`glossary.md`](glossary.md) | Definitions for technical and regulatory terms used across docs |
 | [`cli-reference.md`](cli-reference.md) | All `rak` CLI commands, flags, and environment variables |
 | [`plugin-template-guide.md`](plugin-template-guide.md) | Jinja2 template authoring for regulation plugins |

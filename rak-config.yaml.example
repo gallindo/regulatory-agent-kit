@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Pipeline Configuration
+# ---------------------------------------------------------------
+# Copy this file to rak-config.yaml and edit it:
+#   cp rak-config.yaml.example rak-config.yaml
+#
+# Then start the stack:
+#   docker compose up -d
+#
+# Full reference: docs/local-development.md#2-configuration-reference
+# ---------------------------------------------------------------
+
+# Which regulation plugin to enforce (path relative to project root)
+regulation: regulations/dora/dora-ict-risk-2025.yaml
+
+# Repositories to analyze
+# Use HTTPS URLs for remote repos, or mount local paths via docker-compose.override.yml
+repos:
+  - https://github.com/your-org/service-a
+  - https://github.com/your-org/service-b
+  # - /workspace/local-repo
+
+# LLM model for analysis (any LiteLLM-supported model identifier)
+# Examples:
+#   anthropic/claude-sonnet-4-6    — Anthropic Claude (recommended)
+#   anthropic/claude-haiku-4-5-20251001     — Anthropic Claude (faster, cheaper)
+#   openai/gpt-4o                  — OpenAI GPT-4o
+#   openai/gpt-4o-mini             — OpenAI GPT-4o Mini (cheaper)
+#   bedrock/anthropic.claude-3-5-sonnet     — AWS Bedrock
+model: anthropic/claude-sonnet-4-6
+
+# How you approve checkpoints
+# Options: terminal | slack | email | webhook
+checkpoint_mode: terminal
+
+# Maximum estimated LLM cost (USD) before the pipeline asks for approval
+# Set to 0 to always require cost approval
+cost_threshold: 5.00
+
+# Automatically approve cost estimates below the threshold
+# Set to true to skip the cost approval step for cheap runs
+auto_approve_cost: false
+
+# Maximum retry attempts for failed agent activities
+max_retries: 3
+
+# --- Slack notifications (only if checkpoint_mode: slack) ---
+# slack_channel: "#compliance-approvals"
+# slack_webhook_url: https://hooks.slack.com/services/T00/B00/xxx
+
+# --- Email notifications (only if checkpoint_mode: email) ---
+# email_recipients:
+#   - compliance-team@company.com
+#   - tech-lead@company.com
+
+# --- Webhook notifications (only if checkpoint_mode: webhook) ---
+# webhook_url: https://your-app.com/api/rak-approvals
