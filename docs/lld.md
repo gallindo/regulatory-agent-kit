@@ -920,6 +920,15 @@ stateDiagram-v2
     FAILED --> [*]
     REJECTED --> [*]
     COST_REJECTED --> [*]
+    CANCELLED --> [*]
+
+    PENDING --> CANCELLED : Operator cancels
+    COST_ESTIMATION --> CANCELLED : Operator cancels
+    ANALYZING --> CANCELLED : Operator cancels
+    AWAITING_IMPACT_REVIEW --> CANCELLED : Operator cancels
+    REFACTORING --> CANCELLED : Operator cancels
+    TESTING --> CANCELLED : Operator cancels
+    AWAITING_MERGE_REVIEW --> CANCELLED : Operator cancels
 
     note right of AWAITING_IMPACT_REVIEW
         Temporal Signal gate.
@@ -932,6 +941,32 @@ stateDiagram-v2
         Workflow durably paused.
         Non-bypassable.
     end note
+```
+
+#### 4.1.1 Workflow Phase vs. Database Status
+
+The state machine above represents the **Temporal workflow phase** — the granular orchestration state managed by Temporal's event-sourced history. The `pipeline_runs.status` column in PostgreSQL tracks a **coarse lifecycle status** for dashboard queries and reporting. These are two distinct state representations by design: Temporal is the authority for which phase is active, PostgreSQL is the authority for lifecycle queries.
+
+**Mapping: DB `status` → Temporal workflow phases**
+
+| DB `pipeline_runs.status` | Temporal Workflow Phases Covered | Semantics |
+|---|---|---|
+| `pending` | `PENDING` | Workflow created, not yet started |
+| `running` | `COST_ESTIMATION`, `ANALYZING`, `AWAITING_IMPACT_REVIEW`, `REFACTORING`, `TESTING`, `AWAITING_MERGE_REVIEW`, `REPORTING` | Pipeline is actively executing (any intermediate phase) |
+| `cost_rejected` | `COST_REJECTED` | Cost estimate exceeded threshold; operator rejected |
+| `completed` | `COMPLETED` | All outputs delivered successfully |
+| `failed` | `FAILED` (from any phase) | Unrecoverable error after retry exhaustion |
+| `rejected` | `REJECTED` | Human rejected at a checkpoint |
+| `cancelled` | `CANCELLED` | Operator-initiated cancellation via Temporal API |
+
+**Implications for `rak status`:** The CLI queries both sources — `pipeline_runs.status` for the lifecycle state, and the Temporal API (`workflow.describe()`) for the current phase — to display a complete picture. Example output:
+
+```
+Run:    a1b2c3d4-...
+Status: running
+Phase:  AWAITING_IMPACT_REVIEW (waiting for human approval)
+Repos:  12 pending, 3 in_progress, 5 completed, 0 failed
+Cost:   $4.20 / $10.00 estimated
 ```
 
 ### 4.2 Repository Progress Lifecycle
@@ -1075,10 +1110,10 @@ CREATE TABLE rak.repository_progress (
 
     UNIQUE (run_id, repo_url),
 
+    -- If status is 'completed' or 'in_progress', branch_name must be set.
     CONSTRAINT branch_when_active CHECK (
-        (status IN ('completed','in_progress') AND branch_name IS NOT NULL)
-        OR status NOT IN ('completed','in_progress')
-        OR branch_name IS NOT NULL  -- allow partial progress
+        status NOT IN ('completed','in_progress')
+        OR branch_name IS NOT NULL
     )
 );
 
@@ -1103,6 +1138,10 @@ CREATE TRIGGER trg_progress_updated
 -- --------------------------------------------------------
 CREATE TABLE rak.audit_entries (
     entry_id    UUID        NOT NULL DEFAULT gen_random_uuid(),
+    -- NOTE: run_id is NOT a foreign key to pipeline_runs.
+    -- PostgreSQL does not support FK constraints on partitioned tables
+    -- referencing non-partitioned tables. Application code validates
+    -- run_id existence before insert. See data-model.md for details.
     run_id      UUID        NOT NULL,
     event_type  TEXT        NOT NULL
                 CHECK (event_type IN ('llm_call','tool_invocation',
@@ -1147,8 +1186,12 @@ CREATE TABLE rak.checkpoint_decisions (
     signature       TEXT        NOT NULL,
     decided_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    -- At most one decision per checkpoint type per run
-    -- (last decision wins in case of re-review)
+    -- Multiple decisions per checkpoint type are allowed (re-reviews).
+    -- Each re-review creates a new row with a different decided_at.
+    -- The application queries the latest decision per checkpoint type:
+    --   SELECT DISTINCT ON (checkpoint_type) * FROM checkpoint_decisions
+    --   WHERE run_id = $1 ORDER BY checkpoint_type, decided_at DESC;
+    -- This preserves the full audit trail of all approval/rejection decisions.
     UNIQUE (run_id, checkpoint_type, decided_at)
 );
 
@@ -1328,6 +1371,55 @@ def parse(expression: str) -> ConditionAST:
 
     return parse_or()
 ```
+
+**Operator Precedence (highest to lowest):**
+
+| Precedence | Operator | Associativity | Example |
+|---|---|---|---|
+| 1 (highest) | `NOT` | Right | `NOT has_annotation(@Foo)` |
+| 2 | `AND` | Left | `A AND B AND C` → `(A AND B) AND C` |
+| 3 (lowest) | `OR` | Left | `A OR B OR C` → `(A OR B) OR C` |
+
+Parentheses override precedence: `A OR (B AND NOT C)`.
+
+**Static vs. LLM Evaluation:**
+
+Each leaf predicate is classified as statically evaluable or requiring LLM delegation:
+
+| Predicate | Evaluation | Method | Confidence |
+|---|---|---|---|
+| `class implements X` | **Static** | tree-sitter query for class inheritance | 1.0 |
+| `class inherits X` | **Static** | tree-sitter query for class hierarchy | 1.0 |
+| `has_annotation(@X)` | **Static** | tree-sitter query for decorator/annotation nodes | 1.0 |
+| `has_decorator(@X)` | **Static** | tree-sitter query for decorator nodes (Python) | 1.0 |
+| `has_method(X)` | **Static** | tree-sitter query for method definitions | 1.0 |
+| `has_key(X.Y.Z)` | **Static** | YAML/JSON key path lookup | 1.0 |
+| `class_name matches "regex"` | **Static** | Regex match on class name node text | 1.0 |
+| Semantic conditions | **LLM** | `to_llm_prompt()` generates a constrained prompt | 0.6–0.9 (model-dependent) |
+
+**LLM Delegation for Semantic Conditions:**
+
+When `can_evaluate_statically()` returns `False` for a predicate (e.g., a condition requiring understanding of business intent), the `to_llm_prompt()` method converts the condition AST into a constrained LLM prompt:
+
+```python
+def to_llm_prompt(self, ast: ConditionAST) -> str:
+    """Convert a non-static condition into an LLM evaluation prompt."""
+    # 1. Serialize the condition as natural language
+    # 2. Include the file content as context
+    # 3. Constrain the output to a Pydantic schema:
+    #    class ConditionResult(BaseModel):
+    #        matches: bool
+    #        confidence: float  # 0.0–1.0
+    #        reasoning: str     # explanation for audit trail
+    # 4. The PydanticAI agent enforces structured output
+    ...
+```
+
+The LLM evaluation result includes a confidence score. If `confidence < rule.remediation.confidence_threshold`, the match is flagged for additional human review at the next checkpoint.
+
+**Boolean Combination:**
+
+After all leaf predicates are evaluated (statically or via LLM), the boolean operators combine results bottom-up through the AST. Confidence for combined expressions uses minimum propagation: `AND` takes the minimum confidence of its children, `OR` takes the maximum, and `NOT` preserves the child's confidence.
 
 ### 6.2 Cross-Regulation Conflict Detection
 

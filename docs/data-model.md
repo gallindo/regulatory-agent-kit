@@ -164,7 +164,7 @@ Tracks the lifecycle of a single compliance pipeline execution.
 |---|---|---|---|---|
 | `run_id` | `UUID` | NO | `gen_random_uuid()` | Primary key. Globally unique pipeline run identifier. |
 | `regulation_id` | `TEXT` | NO | — | ID of the regulation plugin that triggered this run (e.g., `dora-ict-risk-2025`). Must match a loaded plugin ID. |
-| `status` | `TEXT` | NO | `'pending'` | Current pipeline state. Constrained to: `pending`, `running`, `cost_rejected`, `completed`, `failed`, `rejected`, `cancelled`. |
+| `status` | `TEXT` | NO | `'pending'` | Coarse lifecycle state. Constrained to: `pending`, `running`, `cost_rejected`, `completed`, `failed`, `rejected`, `cancelled`. This tracks the **lifecycle**, not the granular workflow phase — Temporal manages intermediate phases (e.g., `ANALYZING`, `AWAITING_IMPACT_REVIEW`) via its event-sourced history. `running` covers all active intermediate phases. See [`lld.md` Section 4.1.1](lld.md) for the full mapping. |
 | `created_at` | `TIMESTAMPTZ` | NO | `now()` | Timestamp when the pipeline run was created. |
 | `completed_at` | `TIMESTAMPTZ` | YES | `NULL` | Timestamp when the run reached a terminal state. NOT NULL when status is terminal; NULL when running. Enforced by CHECK constraint. |
 | `total_repos` | `INTEGER` | NO | — | Number of repositories in this run. Must be > 0. |

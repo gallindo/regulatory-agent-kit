@@ -497,6 +497,8 @@ audit_entries (parent, partitioned)
 
 ### 4.6 Connection Pool Design
 
+**Without PgBouncer (up to 3 workers):**
+
 ```
 +-------------------------------------------+
 | PostgreSQL 16+                            |
@@ -511,19 +513,29 @@ audit_entries (parent, partitioned)
 | (internal)| | (per pod) | | (internal)|
 +-----------+ +-----------+ +-----------+
 
-Allocation:
+Allocation (3 workers):
   Temporal server:     50 connections (fixed)
-  rak-worker (x5):     30 x 5 = 150 connections (max)
+  rak-worker (x3):     30 x 3 = 90 connections (max)
   MLflow server:       20 connections (fixed)
   Headroom:            30 connections (monitoring, migrations, ad-hoc)
-  TOTAL:               250 (headroom above max_connections triggers PgBouncer)
+  TOTAL:               190 (fits within max_connections = 200)
 ```
 
-When scaling beyond 5 workers, deploy **PgBouncer** in front of PostgreSQL:
+**With PgBouncer (4+ workers — mandatory):**
+
+When scaling beyond 3 workers, deploy **PgBouncer** in front of PostgreSQL to multiplex connections:
 
 ```
 Workers (N) --> PgBouncer (pool: 100) --> PostgreSQL (max_connections: 200)
+
+Allocation (5 workers via PgBouncer):
+  Temporal server:     50 connections (direct, bypasses PgBouncer)
+  PgBouncer pool:      100 connections (shared by N workers + MLflow)
+  Headroom:            50 connections (monitoring, migrations, ad-hoc)
+  TOTAL:               200 (matches max_connections)
 ```
+
+**Rule of thumb:** PgBouncer is required when `(50 + N×30 + 20 + 30) > 200`, i.e., when N > 3 workers.
 
 ---
 
@@ -992,6 +1004,8 @@ The cost estimation gate (`estimate_cost` activity) calculates these estimates b
 ## 10. Environment Strategy
 
 ### 10.1 Environment Matrix
+
+For detailed deployment configurations, container images, Helm chart values, and cloud-specific guides (AWS, GCP, Azure), see [`infrastructure.md`](infrastructure.md).
 
 | Environment | Purpose | Infrastructure | Data | Access |
 |---|---|---|---|---|

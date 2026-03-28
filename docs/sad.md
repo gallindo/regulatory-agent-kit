@@ -906,76 +906,15 @@ refactor_agent = Agent(
 
 ### 9.2 Agent Contracts
 
-| Agent | Input (Pydantic Model) | Output (Pydantic Model) | Tools (Isolated) |
-|---|---|---|---|
-| **Analyzer** | `AnalysisInput(repo_url, plugin_rules, cross_refs)` | `ImpactMap(files, rules, approach, conflicts)` | `git_clone`, `ast_parse`, `ast_search`, `es_search` (read-only) |
-| **Refactor** | `RefactorInput(impact_map, templates, config)` | `ChangeSet(diffs, confidence_scores, branch_name)` | `git_branch`, `git_commit`, `ast_transform`, `jinja_render` (read-write) |
-| **TestGenerator** | `TestInput(change_set, test_templates)` | `TestResult(pass_rate, failures, test_files)` | `git_read`, `test_run` (sandboxed), `jinja_render` |
-| **Reporter** | `ReportInput(results, metadata, config)` | `ReportBundle(pr_urls, audit_log, report, rollback_manifest)` | `git_pr_create`, `notification_send`, `jinja_render` |
-
-### 9.3 Tool Isolation (Security Boundary)
-
-```
-SECURITY BOUNDARY: Tool sets are disjoint by design.
-
-Analyzer Agent:
-  ALLOWED:  git_clone (read), ast_parse (read), ast_search (read), es_search (read)
-  DENIED:   git_commit, git_branch, git_push, git_pr_create, test_run
-
-Refactor Agent:
-  ALLOWED:  git_branch (write), git_commit (write), ast_transform (write), jinja_render
-  DENIED:   git_push, git_pr_create, test_run
-
-TestGenerator Agent:
-  ALLOWED:  git_read (read), test_run (sandboxed: --network=none --read-only), jinja_render
-  DENIED:   git_commit, git_branch, git_push, git_pr_create
-
-Reporter Agent:
-  ALLOWED:  git_pr_create (write), notification_send (write), jinja_render
-  DENIED:   git_commit, ast_transform, test_run
-```
-
-The Analyzer Agent cannot modify code. The Refactor Agent cannot push to remote. The TestGenerator cannot access the network. Each agent operates within the minimum privilege boundary required for its role.
+Four PydanticAI agents (Analyzer, Refactor, TestGenerator, Reporter) with typed Pydantic input/output models and disjoint tool sets enforcing minimum privilege per agent. For the canonical contract table and tool isolation matrix, see [`architecture.md` Section 4.3 — Agent Contracts](architecture.md#43-agent-contracts). For implementation-level class definitions, see [`lld.md` Section 2.3](lld.md#23-workflow-and-activity-layer-workflows-activities).
 
 ---
 
 ## 10. Event Architecture
 
-### 10.1 Pluggable Event Sources
+The framework treats regulatory changes as domain events from pluggable sources (Kafka, Webhook, SQS, File), all implementing a common `EventSource` interface and producing a normalized `RegulatoryEvent`. It also supports shift-left integration via CI/CD pipeline gates, PR review bots, and pre-commit hooks.
 
-All event sources implement a common `EventSource` interface and produce a normalized `RegulatoryEvent`:
-
-```python
-class EventSource(Protocol):
-    async def start(self) -> None: ...
-    async def stop(self) -> None: ...
-    # Events trigger Temporal workflows via WorkflowStarter
-
-class RegulatoryEvent(BaseModel):
-    event_id: UUID
-    timestamp: datetime
-    regulation_id: str          # Must match a loaded plugin ID
-    change_type: Literal["new_requirement", "amendment", "withdrawal"]
-    source: str
-    payload: dict[str, Any]
-```
-
-| Source | Implementation | Dependencies | Use Case |
-|---|---|---|---|
-| `KafkaEventSource` | confluent-kafka consumer group | Kafka cluster | Enterprise with existing Kafka |
-| `WebhookEventSource` | FastAPI `POST /events` endpoint | None | Lightweight; CI/CD triggers; manual |
-| `SQSEventSource` | boto3 SQS long-polling | AWS SQS | AWS-native organizations |
-| `FileEventSource` | Watches a directory for JSON files | None | Development, testing ("lite mode") |
-
-### 10.2 Shift-Left Integration (CI/CD Mode)
-
-Beyond regulatory change events, the framework supports code change events:
-
-- **CI/CD pipeline gate:** GitHub Action / GitLab CI step that blocks merges on compliance violations
-- **PR review bot:** Agent comments on pull requests with compliance impact analysis
-- **Pre-commit hook:** Lightweight Analyzer flags violations before code is pushed
-
-In shift-left mode, the event source is a Git webhook, not a regulatory change feed.
+For the canonical event schema, source table, and shift-left integration details, see [`architecture.md` Section 5 — Event Architecture](architecture.md#5-event-architecture). For implementation-level class definitions (KafkaEventSource, WebhookEventSource, etc.), see [`lld.md` Section 2.6 — Event System](lld.md#26-event-system-events).
 
 ---
 
@@ -1069,19 +1008,7 @@ Observability is split into two complementary layers:
 
 ### 13.1 Security Boundaries
 
-```
-SECURITY BOUNDARIES
-
-1. Regulatory docs --> LLM           (read-only tools only, per agent)
-2. LLM output --> Pydantic validation (typed schemas, structured output)
-3. Generated tests --> Sandboxed container
-   (--network=none --read-only, CPU/memory/time limits)
-4. All code changes --> Human review  (non-bypassable Temporal Signals, signed)
-5. Git credentials --> Secrets manager (short-lived tokens, rotatable)
-6. Data classification --> Region-specific model routing (LiteLLM enforced)
-7. Audit logs --> Cryptographically signed (Ed25519) + WAL
-8. Supply chain --> uv.lock with hash verification, pip-audit, SBOM
-```
+The framework enforces eight security boundaries. For the canonical listing, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture).
 
 ### 13.2 Threat Mitigations
 
@@ -1116,12 +1043,7 @@ SECURITY BOUNDARIES
 
 ### 14.1 Deployment Options
 
-| Option | Description | Services | Best For |
-|---|---|---|---|
-| **Lite Mode** (`rak run --lite`) | File-based events, SQLite, MLflow optional | Python 3.12+ LLM API key | Evaluation in < 5 minutes |
-| **Docker Compose** | Full stack with all services | See SS13.2 | Development, POC |
-| **Kubernetes (Helm)** | Production-grade, horizontal scaling | See SS13.3 | Enterprise production |
-| **AWS ECS + MSK** | Managed containers + managed Kafka | AWS services | AWS-native organizations |
+Four deployment models are supported: Lite Mode, Docker Compose, Kubernetes (Helm), and AWS ECS + MSK. For the canonical deployment options with hardware sizing, cloud-specific configurations (AWS, GCP, Azure), and Helm chart values, see [`infrastructure.md`](infrastructure.md).
 
 ### 14.2 Docker Compose Topology
 
@@ -1186,21 +1108,7 @@ services:
 
 ### 14.4 Integration Reference
 
-| Category | Integration | Protocol | Authentication |
-|---|---|---|---|
-| **Event Streaming** | Apache Kafka | Kafka 2.x+ | SASL/SCRAM, mTLS |
-| **Event (lightweight)** | Webhook (HTTP POST) | REST (HTTPS) | Bearer Token, HMAC |
-| **Event (AWS)** | Amazon SQS | AWS SDK | IAM Roles |
-| **Search / Knowledge** | Elasticsearch 8.x | REST (HTTPS) | API Key, OAuth2 |
-| **State / Workflows** | Temporal Server | gRPC | mTLS (production) |
-| **Database** | PostgreSQL 16+ | libpq | Username/Password, SSL |
-| **LLM Observability** | MLflow Tracking Server | REST (HTTPS) | Bearer Token |
-| **Operational Metrics** | OpenTelemetry -> Prometheus -> Grafana | OTLP (gRPC/HTTP) | N/A |
-| **Git** | GitHub, GitLab, Bitbucket | REST/GraphQL (HTTPS) | App tokens, OAuth2 |
-| **Notifications** | Slack, Email, Generic Webhook | Webhooks/SMTP/HTTP | Bot Token, SMTP, Bearer |
-| **Object Storage** | S3 / GCS / Azure Blob | SDK | IAM / Service Account |
-| **CI/CD** | GitHub Actions, GitLab CI, Jenkins | Webhook/REST | Token |
-| **Secrets** | Vault, AWS SM, GCP SM | SDK | IAM / AppRole |
+For the detailed integration specification table including protocols, authentication, rate limits, retry strategies, and timeouts, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table). For a summary-level integration reference, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
 
 ---
 

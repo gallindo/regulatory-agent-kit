@@ -16,7 +16,7 @@ This repository's documentation is split into three layers to maintain regulatio
 | Document | Purpose | Contains regulation-specific content? |
 |---|---|---|
 | **[`docs/architecture.md`](architecture.md)** | Pure framework specification — agents, plugins, events, security, deployment | **No** — completely regulation-agnostic |
-| **`docs/regulatory-agent-kit-v2.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
+| **`docs/regulatory-agent-kit.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
 | **[`regulations/README.md`](../regulations/README.md)** | Plugin catalog, contribution guide, plugin roadmap | Yes — lists all planned and community regulation plugins |
 | **[`regulations/dora/README.md`](../regulations/dora/README.md)** | DORA-specific plugin documentation (five pillars, RTS/ITS, cross-references) | Yes — entirely DORA-specific |
 
@@ -49,7 +49,7 @@ Research demonstrates that 50–70% of compliance activities could be automated,
 `regulatory-agent-kit` solves this by providing:
 
 - A **pluggable, regulation-as-configuration model** where any regulatory ruleset — DORA, PSD2, PCI-DSS, BACEN, SOX, HIPAA, NIS2, MiCA, EU AI Act — is expressed as a declarative YAML plugin, not hardcoded logic. This approach aligns with the OECD's "Regulation as Code" initiative, which advocates for machine-readable regulatory expressions [7].
-- A **composable multi-agent orchestration engine**, built on LangGraph, where specialized AI agents (Analyzer, Refactor, TestGenerator, Reporter) collaborate in defined workflows with explicit state management, retry logic, and human-in-the-loop checkpoints [21][22].
+- A **composable multi-agent orchestration engine**, built on **Temporal + PydanticAI** (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)), where specialized AI agents (Analyzer, Refactor, TestGenerator, Reporter) collaborate in defined workflows with explicit state management, retry logic, and human-in-the-loop checkpoints [21][22].
 - A **generic event-driven architecture** where regulatory change events from any upstream source trigger the pipeline and deliver results downstream — decoupled from any specific regulator's publication channel.
 - **Full observability** of every agent decision, every LLM call, every tool invocation, and every generated artifact — enabling the audit trails that regulated environments legally require, as mandated by the EU AI Act (Regulation (EU) 2024/1689) [24] and the NIST AI Risk Management Framework [25].
 
@@ -173,7 +173,7 @@ flowchart TD
 | **P4** | **Audit documentation** required by regulators must be manually assembled from disparate sources | 20–40 hours of technical writing per audit cycle | Reporter Agent generates structured, machine-readable audit trails (JSON-LD) automatically, capturing every decision and transformation [26] |
 | **P5** | **Regulatory rules change frequently**, requiring continuous re-work of tooling | Compliance tools become obsolete with each regulatory revision | Regulation-as-YAML plugin model: updating compliance rules requires no code changes, only YAML updates [7] |
 | **P6** | **LLM hallucinations in production code** are catastrophic in regulated environments | Silent introduction of bugs that pass unit tests but fail in production [5] | Human-in-the-loop checkpoints after each agent phase [21][23]; all changes surface as reviewable merge requests, never auto-deployed |
-| **P7** | **Observability of AI-generated changes** is absent from most agentic systems | No audit trail of what the AI decided, why, and what it produced | Full Langfuse tracing of every LLM call, every tool invocation, every agent state transition — permanently stored and queryable [25][27] |
+| **P7** | **Observability of AI-generated changes** is absent from most agentic systems | No audit trail of what the AI decided, why, and what it produced | Full MLflow tracing of every LLM call, every tool invocation, every agent state transition — permanently stored and queryable [25][27] |
 | **P8** | **Cross-regulation conflicts** are invisible until audit time | Multiple regulations requiring contradictory changes to the same code (e.g., DORA audit logging vs. GDPR data minimization) | Cross-regulation dependency graph detects conflicts and escalates to human review before any code changes are applied |
 
 ### 3.3 The Cost of Inaction
@@ -201,9 +201,9 @@ graph TB
         YAML["Regulation Plugins\n*.yaml"]
     end
 
-    subgraph ORCHESTRATION["ORCHESTRATION LAYER (LangGraph)"]
-        WF["Workflow Engine\n(StateGraph)"]
-        SM["State Manager\n(AgentState + PostgreSQL)"]
+    subgraph ORCHESTRATION["ORCHESTRATION LAYER (Temporal + PydanticAI)"]
+        WF["Workflow Engine\n(Temporal)"]
+        SM["State Manager\n(Temporal + PostgreSQL)"]
         HiL["Human-in-the-Loop\nCheckpoints (non-bypassable)"]
     end
 
@@ -222,7 +222,7 @@ graph TB
     end
 
     subgraph OBSERVABILITY["OBSERVABILITY LAYER"]
-        LF["Langfuse\nTracing & Evaluation"]
+        LF["MLflow\nTracing & Evaluation"]
         OTEL["OpenTelemetry\nMetrics & Spans"]
         PROM["Prometheus + Grafana\nOperational Dashboards"]
     end
@@ -279,7 +279,7 @@ graph TB
 
 **Key architectural changes from v1.0:**
 - **Event Sources** are now pluggable: Kafka, Webhook (HTTP POST), SQS, or file-based (for lite mode evaluation)
-- **State Manager** uses PostgreSQL for durable checkpointing (via `langgraph-checkpoint-postgres`), not in-memory state
+- **State Manager** uses Temporal's event-sourced persistence to PostgreSQL for durable checkpointing, not in-memory state
 - **AST Tools** use tree-sitter as the universal parsing backend, supporting partial ASTs for syntactically invalid files [14]
 - **Test execution is sandboxed** in network-isolated, resource-limited containers
 - **Audit logs are cryptographically signed** for tamper evidence
@@ -387,9 +387,9 @@ kafka_event:
 | `generate_file` | Creates new required files per repository | Generating DPIA documentation templates |
 | `custom_agent` | Delegates to a user-defined agent class | Complex multi-step remediations |
 
-### 4.3 Feature 2 — LangGraph Multi-Agent Orchestration
+### 4.3 Feature 2 — Temporal + PydanticAI Multi-Agent Orchestration
 
-The workflow engine is implemented as a **stateful LangGraph StateGraph** [2], where each agent is a node and transitions are governed by explicit conditions, including human approval gates. Pipeline state is durably persisted to PostgreSQL via `langgraph-checkpoint-postgres`, ensuring crash recovery at any point in the pipeline.
+The workflow engine is built on **Temporal** (self-hosted, Go binary) with **PydanticAI** as the agent framework (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)). Each agent phase is a Temporal Activity, and transitions are governed by explicit workflow logic, including human approval gates via Temporal Signals. Pipeline state is durably persisted to PostgreSQL via Temporal's event-sourced history, ensuring crash recovery at any point in the pipeline. The canonical state machine definition is maintained in [`architecture.md` Section 4](architecture.md#4-agent-orchestration).
 
 ```mermaid
 stateDiagram-v2
@@ -441,13 +441,13 @@ stateDiagram-v2
 **Key additions to the orchestration model:**
 
 - **Cost estimation gate** before analysis begins — operators see estimated LLM cost before approving
-- **Non-bypassable human checkpoints** with cryptographic signing of approvals
+- **Non-bypassable human checkpoints** via Temporal Signals with cryptographic signing of approvals
 - **Per-repository progress tracking** in PostgreSQL: `{repo_url, status: pending|in_progress|complete|failed, branch_name, commit_sha}`
-- **Idempotent operations** with deterministic branch naming (`rak/{regulation_id}/{rule_id}`)
-- **Repository-level locking** (PostgreSQL advisory locks) to prevent conflicts from concurrent pipeline runs
+- **Idempotent operations** with deterministic branch naming (`rak/{regulation_id}/{rule_id}`) and deterministic Temporal workflow IDs
+- **Repository-level locking** via Temporal workflow ID uniqueness to prevent conflicts from concurrent pipeline runs
 - **Dead letter queue** for failed repositories, with retry support via `rak retry-failures --run-id <id>`
 
-**Agent responsibilities:**
+**Agent responsibilities** (canonical contracts: [`architecture.md` Section 4.3](architecture.md#43-agent-contracts)):
 
 | Agent | Input | Core Capability | Output |
 |---|---|---|---|
@@ -482,7 +482,7 @@ sequenceDiagram
     participant P as Event Source
     participant C as EventConsumer
     participant ES as Elasticsearch<br/>(Regulatory KB)
-    participant WF as LangGraph Workflow
+    participant WF as Temporal Workflow
     participant AA as Analyzer Agent
     participant RA as Refactor Agent
     participant TG as TestGenerator Agent
@@ -538,13 +538,13 @@ All LLM calls within the framework are routed through **LiteLLM**, providing mod
 - **Data residency compliance:** Route specific agent calls to on-premise or region-specific models (Azure OpenAI in EU, AWS Bedrock in US) based on data classification. **This is mandatory, not optional**, for any deployment handling data subject to GDPR or equivalent.
 - **Cost optimization:** Use larger models (Claude Opus, GPT-4o) for complex analysis tasks; smaller models (Haiku, GPT-4o-mini) for templated, deterministic tasks like test generation.
 - **Model version pinning:** Pin specific model versions in production to ensure deterministic behavior. A code transformation that worked correctly with one model version may behave differently with an update.
-- **Audit of model selection:** Every model used for every decision is logged in Langfuse [27], ensuring the audit trail includes the reasoning engine, not just the output.
+- **Audit of model selection:** Every model used for every decision is logged in MLflow (see [ADR-005](adr/005-llm-observability-platform.md)), ensuring the audit trail includes the reasoning engine, not just the output.
 - **Vendor independence:** Switching LLM providers requires zero code changes — only a configuration update.
 - **Rate limit management:** Token bucket rate limiter prevents hitting API limits when processing 500+ repositories. Estimated cost is displayed before pipeline execution begins.
 
 ### 4.6 Feature 5 — Compliance-Grade Observability
 
-Every agent decision in a regulated environment is a potential audit artifact. The framework integrates Langfuse as its primary observability layer, with a mandatory local write-ahead log (WAL) for audit-critical traces to prevent data loss during Langfuse outages.
+Every agent decision in a regulated environment is a potential audit artifact. The framework integrates **MLflow** (self-hosted, PostgreSQL + S3 backend; see [ADR-005](adr/005-llm-observability-platform.md)) as its primary LLM observability layer, with a mandatory local write-ahead log (WAL) for audit-critical traces to prevent data loss during MLflow outages.
 
 | Observable Event | Captured Data | Retention |
 |---|---|---|
@@ -577,7 +577,7 @@ A single code change may trigger multiple regulations simultaneously. The kit's 
 
 **Practical implications (regulation-agnostic behavior):**
 - The Analyzer Agent evaluates **all loaded regulation plugins** for each code change, not just one
-- **Conflicting requirements are detected and flagged** (e.g., audit logging vs. data minimization) and escalated to human review — the kit never attempts to automatically resolve regulation conflicts, as these are legal decisions
+- **Conflicting requirements are detected and flagged** (e.g., audit logging vs. data minimization) — by default, conflicts are escalated to human review (`escalate_to_human`). Plugin authors may opt into `apply_both` or `defer_to_referenced` for well-understood relationships, but the default behavior is human escalation, as conflict resolution is ultimately a legal decision
 - **Precedence relationships** are encoded so the kit does not generate duplicate or contradictory remediations
 
 ---
@@ -598,9 +598,9 @@ graph LR
     subgraph KIT["regulatory-agent-kit"]
         CONSUMER["EventConsumer\n(Kafka · Webhook · SQS · File)"]
         ES_INT["Elasticsearch\nIntegration"]
-        PIPELINE["Agent Pipeline\n(LangGraph)"]
+        PIPELINE["Agent Pipeline\n(Temporal + PydanticAI)"]
         LITELLM["LiteLLM Gateway"]
-        LANGFUSE["Langfuse\nObservability"]
+        MLFLOW["MLflow\nObservability"]
     end
 
     subgraph GIT_PROVIDERS["Git Providers"]
@@ -651,9 +651,9 @@ graph LR
     LITELLM --> BEDROCK
     LITELLM --> AZURE_OAI
 
-    LITELLM --> LANGFUSE
-    PIPELINE --> LANGFUSE
-    LANGFUSE --> S3
+    LITELLM --> MLFLOW
+    PIPELINE --> MLFLOW
+    MLFLOW --> S3
     PIPELINE --> PG
 
     PIPELINE --> GITHUB
@@ -677,18 +677,20 @@ graph LR
 
 ### 5.2 Integration Reference Table
 
+For detailed integration specifications including rate limits, retry strategies, and timeouts, see [`hld.md` Section 6.2](hld.md#62-integration-specification-table).
+
 | Category | Integration | Protocol | Authentication | Notes |
 |---|---|---|---|---|
 | **Event Streaming** | Apache Kafka (Confluent, AWS MSK, self-hosted) | Kafka Protocol 2.x+ | SASL/SCRAM, mTLS | Schema Registry support for Avro/Protobuf events |
 | **Event — Lightweight** | Webhook (HTTP POST) | REST (HTTPS) | Bearer Token, HMAC | Zero-dependency event ingestion for evaluation and small deployments |
 | **Event — AWS** | Amazon SQS | AWS SDK | IAM Roles | For AWS-native organizations |
 | **Search & Knowledge** | Elasticsearch 8.x | REST (HTTPS) | API Key, OAuth2 | Used for regulatory knowledge base and semantic search |
-| **State & Checkpoints** | PostgreSQL 14+ | libpq | Username/Password, SSL | Durable pipeline state, repository progress, advisory locks |
+| **State & Checkpoints** | PostgreSQL 16+ | libpq | Username/Password, SSL | Durable pipeline state (Temporal + rak + mlflow schemas), repository progress |
 | **LLM — Primary** | Anthropic Claude (claude-opus-4-5, claude-sonnet-4-6) | REST (HTTPS) | API Key | Default model for complex reasoning tasks |
 | **LLM — Fallback** | OpenAI GPT-4o / GPT-4o-mini | REST (HTTPS) | API Key | Configurable fallback via LiteLLM routing |
 | **LLM — Enterprise** | AWS Bedrock (Claude, Llama), Azure OpenAI | AWS SigV4, Azure AD | IAM Roles, Service Principal | For data residency requirements (mandatory for GDPR-scoped data) |
 | **LLM Gateway** | LiteLLM Proxy | REST (HTTPS) | Bearer Token | Deployed behind load balancer with 2+ replicas |
-| **Observability** | Langfuse (cloud or self-hosted) | REST (HTTPS) | Project API Key | Traces, evaluations, cost tracking; local WAL for durability |
+| **Observability** | MLflow (self-hosted, PostgreSQL + S3) | REST (HTTPS) | Bearer Token | LLM traces, evaluations, cost tracking; local WAL for durability |
 | **Metrics** | OpenTelemetry → Prometheus → Grafana | OTLP (gRPC/HTTP) | N/A | Operational metrics for pipeline health |
 | **Git — GitHub** | GitHub Enterprise / Cloud | REST (HTTPS), GraphQL | GitHub App (short-lived tokens) | Clone, branch, PR creation, code search |
 | **Git — GitLab** | GitLab Self-hosted / Cloud | REST (HTTPS) | Access Token (with expiry) | Clone, branch, MR creation |
@@ -702,13 +704,7 @@ graph LR
 
 ### 5.3 Deployment Options
 
-| Option | Description | Best For | Dependencies |
-|---|---|---|---|
-| **Lite Mode** (`rak run --lite`) | File-based events, in-memory/SQLite store, Langfuse optional | **Evaluation in < 5 minutes** — requires only Python + LLM API key | Python 3.11+ |
-| **Docker Compose** | Full local stack with Kafka, Elasticsearch, Langfuse, PostgreSQL | Development, proof of concept | Docker |
-| **Kubernetes (Helm Chart)** | Production-grade deployment with horizontal scaling | Enterprise production environments | Kubernetes 1.28+ |
-| **AWS ECS + MSK** | Managed containers with managed Kafka | AWS-native organizations | AWS account |
-| **Serverless (AWS Lambda + EventBridge)** | Event-triggered, cost-efficient for low-frequency cycles | Organizations with infrequent regulatory events | AWS account |
+The framework supports five deployment models ranging from zero-infrastructure evaluation to production Kubernetes with full HA. Options include Lite Mode (evaluation in < 5 minutes with Python 3.12+ and an LLM API key), Docker Compose, Kubernetes (Helm), AWS ECS + MSK, and Serverless (Lambda + EventBridge). For detailed deployment configurations, hardware sizing, and cloud-specific guides (AWS, GCP, Azure), see [`infrastructure.md`](infrastructure.md).
 
 ### 5.4 Analysis Scope — Beyond Application Code
 
@@ -732,34 +728,19 @@ The framework analyzes not just application source code but the full spectrum of
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
-| **Mid-pipeline crash losing state** | CRITICAL | HIGH | PostgreSQL-backed checkpoints with per-repository progress tracking; idempotent operations with deterministic branch naming; `rak resume --run-id <id>` command |
+| **Mid-pipeline crash losing state** | CRITICAL | HIGH | Temporal event-sourced state with automatic replay; per-repository progress tracking; idempotent operations with deterministic branch naming; `rak resume --run-id <id>` command |
 | **Test execution as remote code execution vector** | CRITICAL | MEDIUM | Sandboxed execution in network-isolated containers (`--network=none --read-only`); static AST analysis of generated tests before execution; resource limits (CPU, memory, time) |
 | **No rollback mechanism** | CRITICAL | HIGH | Every pipeline run generates a rollback manifest; `rak rollback --run-id <id>` closes PRs, deletes branches, creates revert PRs for merged changes |
 | **LLM prompt injection via regulatory documents** | HIGH | MEDIUM | Input sanitization; structured output enforcement via Pydantic schemas; tool-level isolation (Analyzer gets read-only tools); human checkpoints as primary defense [see OWASP LLM Top 10] |
-| **Concurrent regulation conflicts on same repos** | HIGH | MEDIUM | Repository-level PostgreSQL advisory locks; queuing for locked repos; conflict detection at PR creation |
+| **Concurrent regulation conflicts on same repos** | HIGH | MEDIUM | Temporal workflow ID uniqueness; deterministic child workflow IDs; conflict detection at PR creation |
 | **Credential exposure via environment variables** | HIGH | HIGH | Mandatory secrets manager integration (Vault, AWS SM, GCP SM); short-lived Git tokens (GitHub App installation tokens expire in 1h); credential rotation without restart |
-| **LangGraph checkpoint format instability** | HIGH | MEDIUM | Exact version pinning; integration tests against serialized checkpoint format; internal `WorkflowEngine` abstraction for potential migration to Temporal |
+| **Temporal SDK version instability** | HIGH | MEDIUM | Exact version pinning; integration tests; internal `WorkflowEngine` abstraction for potential migration |
 | **LLM response non-determinism across model versions** | HIGH | MEDIUM | Model version pinning; version logged in every audit trace; validation test suite per model+plugin combination |
 | **No incremental analysis** | MEDIUM | HIGH | File-level caching via content hashing (`SHA256(content + plugin_version + agent_version)`); `git diff` based change detection; analysis results cached in PostgreSQL |
 
 ### 6.2 Security Architecture
 
-```
-┌────────────────────────────────────────────────────┐
-│  SECURITY BOUNDARIES                                │
-│                                                     │
-│  1. Regulatory docs → LLM (read-only tools only)   │
-│  2. LLM output → Pydantic validation (typed JSON)  │
-│  3. Generated tests → Sandboxed container           │
-│     (no network, no secrets, no filesystem escape)  │
-│  4. All code changes → Human review (non-bypassable)│
-│  5. Git credentials → Secrets manager (short-lived) │
-│  6. EU data → EU-region models only (enforced)      │
-│  7. Audit logs → Cryptographically signed + WAL     │
-│  8. Supply chain → Pinned deps with hash verify     │
-│     (pip --require-hashes, SBOM via Syft/CycloneDX)│
-└────────────────────────────────────────────────────┘
-```
+The framework enforces eight security boundaries covering tool isolation, output validation, sandboxed execution, non-bypassable human review, credential management, data residency routing, cryptographic audit signing, and supply chain verification. For the full security architecture including threat mitigations and credential management, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture).
 
 ### 6.3 Market & Strategic Risks
 
@@ -856,10 +837,10 @@ Three persona-based tracks:
 |---|---|
 | Full agent pipeline | Multi-tenant SaaS |
 | Plugin system + all official plugins | RBAC + fine-grained access controls |
-| LangGraph orchestration | SSO/SAML integration |
+| Temporal + PydanticAI orchestration | SSO/SAML integration |
 | Single-tenant deployment | Advanced audit (cryptographic chaining, digital signatures, legal hold) |
 | CLI + developer tooling | Cost forecasting + analytics dashboard |
-| Langfuse integration | GRC platform integrations (ServiceNow, Archer, OneTrust) |
+| MLflow integration | GRC platform integrations (ServiceNow, Archer, OneTrust) |
 | | Enterprise support SLAs |
 
 ---
@@ -876,9 +857,9 @@ gantt
 
     section Phase 1 — Foundation (v1.0)
     Core agent framework (Analyzer, Refactor, TestGen, Reporter) :done, p1a, 2026-01, 2026-03
-    LangGraph orchestration + PostgreSQL checkpoints            :done, p1b, 2026-01, 2026-03
+    Temporal + PydanticAI orchestration + PostgreSQL             :done, p1b, 2026-01, 2026-03
     Pluggable event sources (Kafka, Webhook, File)              :done, p1c, 2026-02, 2026-03
-    LiteLLM gateway + Langfuse observability                    :done, p1d, 2026-02, 2026-03
+    LiteLLM gateway + MLflow observability                      :done, p1d, 2026-02, 2026-03
     GitHub + GitLab + Bitbucket integrations                    :done, p1e, 2026-02, 2026-03
     Regulation plugin system (YAML) + validation CLI            :done, p1f, 2026-01, 2026-03
     Lite mode (zero-infra evaluation)                           :done, p1g, 2026-03, 2026-03
@@ -898,7 +879,7 @@ gantt
     EU AI Act self-compliance assessment                        :p2i, 2026-06, 2026-08
 
     section Phase 3 — Intelligence (v2.0)
-    Agent self-evaluation (Langfuse evals integration)          :p3a, 2026-08, 2026-10
+    Agent self-evaluation (MLflow evals integration)            :p3a, 2026-08, 2026-10
     Continuous monitoring mode (always-on compliance watch)     :p3b, 2026-08, 2026-11
     Enterprise features: RBAC, SSO, advanced audit              :p3c, 2026-08, 2026-10
     Cost forecasting per compliance cycle (pre-run forecast)    :p3d, 2026-09, 2026-11
@@ -910,7 +891,7 @@ gantt
     Regulation plugin marketplace (community-contributed)       :p4b, 2027-01, 2027-03
     GRC platform integrations (ServiceNow, Archer, OneTrust)   :p4c, 2027-01, 2027-03
     Commercial support and SLA tiers                            :p4d, 2027-01, 2027-03
-    Temporal orchestration backend (enterprise option)           :p4e, 2027-02, 2027-04
+    Temporal Cloud managed backend (enterprise option)           :p4e, 2027-02, 2027-04
 ```
 
 ### 8.2 Roadmap Feature Detail
@@ -919,7 +900,7 @@ gantt
 
 | Feature | Rationale | Success Metric |
 |---|---|---|
-| **Official PCI-DSS v4.0 plugin** | Global applicability, unambiguous requirements, imminent deadline (March 2025), largest addressable market | Adopted by 10+ organizations within 90 days |
+| **Official PCI-DSS v4.0 plugin** | Global applicability, unambiguous requirements, largest addressable market. The March 2025 enforcement deadline has passed — organizations are now in ongoing compliance maintenance and audit remediation, making the plugin more urgent, not less. | Adopted by 10+ organizations within 90 days |
 | **Official DORA plugin (all 5 pillars)** | DORA applicable since January 2025; 22,000+ EU financial entities in scope [11] | Adopted by 10+ EU financial institutions within 90 days |
 | **Plugin registry** | Discoverability is critical for ecosystem growth — cannot wait until v2.5 | 10+ community plugins within 6 months of launch |
 | **Shift-left CI/CD integration** | Increases daily active usage and stickiness; captures "code change events" not just "regulatory change events" | Available as GitHub Action and GitLab CI component |
@@ -930,7 +911,7 @@ gantt
 
 | Feature | Rationale | Success Metric |
 |---|---|---|
-| **Agent self-evaluation** | LLM outputs must be measurably improving; current performance is a black box | Automated eval scores tracked per release in Langfuse |
+| **Agent self-evaluation** | LLM outputs must be measurably improving; current performance is a black box | Automated eval scores tracked per release in MLflow |
 | **Enterprise features (RBAC, SSO)** | Required for enterprise adoption and open-core revenue model | First enterprise license sold within 60 days |
 | **EU AI Act + NIS2 + MiCA plugins** | EU AI Act high-risk obligations fully applicable August 2026 [24]; NIS2 already in force; MiCA fully applicable since December 2024 | Complete coverage of major EU regulatory stack |
 | **Go + TypeScript AST support** | Modern fintechs run polyglot stacks; Python + Java/Kotlin alone excludes 40%+ of potential users | Full analysis and refactoring capability |
@@ -940,7 +921,7 @@ gantt
 | Feature | Rationale | Success Metric |
 |---|---|---|
 | **Multi-tenant SaaS** | Consulting firms and RegTech vendors need to run on behalf of multiple clients | Pilot with 3+ compliance consulting firms |
-| **Temporal orchestration backend** | Enterprise environments need workflow versioning, activity-level checkpointing, and durable execution guarantees beyond what LangGraph provides | Available as alternative backend for enterprise deployments |
+| **Temporal Cloud managed backend** | Enterprise environments may prefer Temporal Cloud (managed SaaS) over self-hosted Temporal for reduced operational overhead | Available as managed backend option for enterprise deployments |
 | **Commercial support** | Enterprise buyers require SLAs; open source cannot provide contractual guarantees | First paying support contract by Q1 2027 |
 
 ### 8.3 Research Directions
@@ -1017,7 +998,7 @@ pip install regulatory-agent-kit
 # Set up environment (minimum for lite mode)
 export ANTHROPIC_API_KEY=your_key
 
-# Run in lite mode — no Kafka, no Elasticsearch, no Langfuse required
+# Run in lite mode — no Kafka, no Elasticsearch, no MLflow required
 rak run --lite \
   --regulation regulations/examples/pci_dss_v4.yaml \
   --repos ./my-local-repo \
@@ -1028,12 +1009,10 @@ rak run --lite \
 # Set up environment
 export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 export ELASTICSEARCH_URL=http://localhost:9200
-export LANGFUSE_SECRET_KEY=your_key
-export LANGFUSE_PUBLIC_KEY=your_key
 export DATABASE_URL=postgresql://rak:password@localhost:5432/rak
 
 # Start local infrastructure
-docker compose up -d  # Kafka, Elasticsearch, Langfuse, PostgreSQL, Zookeeper
+docker compose up -d  # Temporal, Elasticsearch, MLflow, PostgreSQL
 
 # Run with full infrastructure
 rak run \
@@ -1058,57 +1037,7 @@ rak rollback --run-id <id>
 
 ## Appendix B — Regulation Plugin Schema Reference
 
-```yaml
-# Full schema for regulation plugins
-id: string                    # Unique identifier (kebab-case)
-name: string                  # Human-readable name
-version: semver               # Plugin version
-effective_date: date          # When regulation takes effect
-jurisdiction: string          # ISO 3166-1 alpha-2 or "GLOBAL"
-authority: string             # Regulatory body name
-source_url: url               # Official regulation URL
-
-# NEW: Regulatory hierarchy
-regulatory_technical_standards:  # Optional
-  - id: string                # RTS/ITS identifier
-    name: string              # Human-readable name
-    url: url                  # Official URL
-
-# NEW: Cross-regulation dependencies
-cross_references:             # Optional
-  - regulation_id: string     # ID of referenced regulation
-    relationship: enum        # does_not_override | takes_precedence |
-                              # complementary | supersedes | references
-    articles: [string]        # Relevant articles
-    conflict_handling: enum   # escalate_to_human | apply_both | defer_to_referenced
-
-# NEW: Versioning
-supersedes: string | null     # ID of prior version this replaces
-changelog: string             # What changed from prior version
-
-# REQUIRED: Legal disclaimer
-disclaimer: string            # Mandatory disclaimer text
-
-rules:
-  - id: string                # Rule identifier (e.g., "DORA-ICT-001")
-    description: string       # Plain-language rule description
-    severity: critical|high|medium|low
-    affects:
-      - pattern: glob         # File patterns to scan
-        condition: string     # Predicate expression (DSL)
-    remediation:
-      strategy: enum          # add_annotation|add_configuration|replace_pattern|
-                              # add_dependency|generate_file|custom_agent
-      template: path          # Jinja2 template for code generation
-      test_template: path     # Jinja2 template for test generation
-      confidence_threshold: float  # NEW: 0.0-1.0, below requires extra review
-
-kafka_event:                  # Optional: auto-trigger configuration
-  topic: string
-  schema:
-    regulation_id: string
-    change_type: string
-```
+For the complete plugin YAML schema with all required and optional fields, see [`architecture.md` Section 12 — Plugin Schema Reference](architecture.md#12-plugin-schema-reference). A worked example using DORA is provided in [Section 4.2](#42-feature-1--regulation-as-yaml-plugin-system) of this document.
 
 ---
 

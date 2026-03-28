@@ -44,7 +44,7 @@ All deployment models run the same application containers. Only the backing serv
 |---|---|---|---|
 | `rak-worker` | `rak:worker` (Python 3.12) | No | — |
 | `rak-api` | `rak:api` (Python 3.12) | No | — |
-| `litellm-proxy` | `ghcr.io/berriai/litellm:main` | No | — |
+| `litellm-proxy` | `ghcr.io/berriai/litellm:v1.40.0` | No | — |
 | `mlflow-server` | `rak:mlflow` (Python 3.12) | No | — |
 | `temporal-server` | `temporalio/server` | Yes (PG-backed) | Temporal Cloud |
 | `temporal-ui` | `temporalio/ui` | No | Temporal Cloud |
@@ -957,6 +957,37 @@ rak run --lite \
   --repos ./my-local-repo \
   --checkpoint-mode terminal
 ```
+
+#### 8.5.1 Lite Mode Feature Parity
+
+Lite Mode replaces production infrastructure components with lightweight alternatives. The following table documents feature availability and behavioral differences:
+
+| Feature | Full Mode | Lite Mode | Notes |
+|---|---|---|---|
+| **Workflow orchestration** | Temporal (event-sourced, durable) | Direct Python function calls (in-process) | No crash recovery — a process restart loses pipeline state |
+| **State persistence** | PostgreSQL (temporal + rak + mlflow schemas) | SQLite (in-memory or file-based) | SQLite does not support concurrent writers; single-pipeline only |
+| **Human checkpoints** | Temporal Signals (Slack, email, API) | Interactive terminal prompts (`input()`) | Blocks the process; only `--checkpoint-mode terminal` is supported |
+| **Event sources** | Kafka, Webhook, SQS, File | File only (`FileEventSource`) | Drop JSON files into `./events/` directory to trigger |
+| **Regulatory knowledge base** | Elasticsearch 8.x (semantic search) | **Not available** | Analyzer Agent skips `es_search` tool; relies on LLM with plugin YAML context only |
+| **LLM observability** | MLflow (full tracing, dashboards) | Optional (stdout logging if MLflow not configured) | Set `MLFLOW_TRACKING_URI` to enable; otherwise traces go to stdout |
+| **Cross-regulation conflicts** | Full conflict detection + escalation | **Supported** (conflict engine is in-process) | Works identically — no infrastructure dependency |
+| **Parallel repository processing** | Fan-out across N Temporal workers | Sequential (single-threaded, one repo at a time) | Significant performance difference for multi-repo runs |
+| **Repository-level locking** | Temporal workflow ID uniqueness | Not needed (sequential processing) | No concurrent conflicts possible |
+| **Dead letter queue / retry** | Temporal failed workflow queries + `rak retry-failures` | **Not available** | Failures logged to stdout; must re-run the entire pipeline |
+| **Rollback manifests** | Generated and stored in PostgreSQL + S3 | Generated to local filesystem | `rak rollback` works but reads from local file |
+| **Audit trail signing** | Ed25519 signatures, append-only PostgreSQL | Ed25519 signatures, SQLite (or stdout JSON) | Signatures are still generated; storage is less durable |
+| **Cost estimation gate** | Pre-run estimate with approval workflow | Pre-run estimate with terminal prompt | Same estimation logic; different approval mechanism |
+| **Sandboxed test execution** | Docker containers (`--network=none`) | Docker containers (same) | Requires Docker even in Lite Mode |
+
+**When to use Lite Mode:**
+- Evaluating the framework for the first time (< 5 minutes to first run)
+- Developing and testing a new regulation plugin against a local repository
+- CI/CD environments where only shift-left analysis is needed (no full pipeline)
+
+**When NOT to use Lite Mode:**
+- Processing more than 5 repositories (sequential execution is too slow)
+- Production compliance pipelines (no crash recovery, no durable audit trail)
+- Multi-user environments (no concurrent access support)
 
 ---
 

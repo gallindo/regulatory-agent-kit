@@ -51,8 +51,8 @@ graph TB
     end
 
     subgraph ORCHESTRATION["ORCHESTRATION LAYER"]
-        WF["Workflow Engine\n(StateGraph)"]
-        SM["State Manager\n(durable, PostgreSQL)"]
+        WF["Workflow Engine\n(Temporal)"]
+        SM["State Manager\n(Temporal + PostgreSQL)"]
         HiL["Human-in-the-Loop\nCheckpoints (non-bypassable)"]
     end
 
@@ -71,7 +71,7 @@ graph TB
     end
 
     subgraph OBSERVABILITY["OBSERVABILITY LAYER"]
-        LF["Trace Collector\n(Langfuse)"]
+        LF["Trace Collector\n(MLflow)"]
         OTEL["OpenTelemetry\nMetrics & Spans"]
         PROM["Metrics Backend\n(Prometheus + Grafana)"]
     end
@@ -276,7 +276,7 @@ No "certified" tier. Certification implies legal liability that cannot be assume
 
 ### 4.1 Workflow Engine
 
-The workflow engine is a **stateful LangGraph StateGraph** where each agent is a node and transitions are governed by explicit conditions. Pipeline state is durably persisted to PostgreSQL via `langgraph-checkpoint-postgres`.
+The workflow engine is built on **Temporal** (self-hosted, Go binary) with **PydanticAI** as the agent framework. Each agent phase is a Temporal Activity, and transitions are governed by explicit workflow logic. Pipeline state is durably persisted to PostgreSQL via Temporal's event-sourced history (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)).
 
 ```mermaid
 stateDiagram-v2
@@ -311,10 +311,10 @@ stateDiagram-v2
 ### 4.2 Orchestration Features
 
 - **Cost estimation gate** — estimated LLM cost displayed before analysis begins
-- **Non-bypassable human checkpoints** — cryptographically signed approvals at two gates (post-analysis, pre-merge)
+- **Non-bypassable human checkpoints** — Temporal Signals with cryptographically signed approvals at two gates (post-analysis, pre-merge)
 - **Per-repository progress tracking** — `{repo_url, status: pending|in_progress|complete|failed, branch_name, commit_sha}` persisted to PostgreSQL
-- **Idempotent operations** — deterministic branch naming (`rak/{regulation_id}/{rule_id}`) prevents duplicate work on retry
-- **Repository-level locking** — PostgreSQL advisory locks prevent concurrent pipeline runs from conflicting
+- **Idempotent operations** — deterministic branch naming (`rak/{regulation_id}/{rule_id}`) and deterministic Temporal workflow IDs prevent duplicate work on retry
+- **Repository-level locking** — Temporal workflow ID uniqueness prevents concurrent pipeline runs from conflicting
 - **Dead letter queue** — failed repositories are isolated; `rak retry-failures --run-id <id>` retries them without re-processing successes
 - **Rollback manifests** — every pipeline run records all branches, PRs, and commits; `rak rollback --run-id <id>` reverses everything
 
@@ -338,7 +338,7 @@ Each agent phase supports fan-out/fan-in:
 3. A coordinator waits for all workers, then proceeds to TestGenerator
 4. Same fan-out pattern for TestGenerator and Reporter
 
-This maps to Kubernetes Job patterns or Temporal activity-level parallelism.
+Temporal distributes activities across N worker replicas automatically, providing native fan-out/fan-in parallelism.
 
 ---
 
@@ -432,8 +432,8 @@ Every agent decision is a potential audit artifact. The framework captures:
 
 ### Durability Guarantees
 
-- **Langfuse** is the primary trace collector
-- A **local write-ahead log (WAL)** buffers audit-critical traces, preventing data loss during Langfuse outages
+- **MLflow** (self-hosted, PostgreSQL + S3 backend) is the primary trace collector (see [ADR-005](adr/005-llm-observability-platform.md))
+- A **local write-ahead log (WAL)** buffers audit-critical traces, preventing data loss during MLflow outages
 - **OpenTelemetry** exports operational metrics to Prometheus for pipeline health dashboards
 - All permanent traces are replicated to object storage (S3/GCS/Azure Blob)
 
@@ -461,7 +461,7 @@ When two regulations loaded in the same pipeline run produce contradictory remed
 
 1. **Detects** the conflict via AST range overlap analysis
 2. **Flags** both rules and their conflicting actions
-3. **Escalates** to the human checkpoint — the engine never automatically resolves regulation conflicts, as these are legal decisions
+3. **Resolves or escalates** based on the plugin's `conflict_handling` setting — `escalate_to_human` (default) routes to the human checkpoint; `apply_both` applies both remediations; `defer_to_referenced` defers to the referenced regulation. The default behavior is escalation, as conflict resolution is ultimately a legal decision
 4. **Logs** the conflict in the audit trail with both rule IDs, affected code, and the human's resolution
 
 ### 8.3 Duplicate Prevention
@@ -496,8 +496,8 @@ SECURITY BOUNDARIES
 | **Credential exposure** | Mandatory secrets manager (Vault, AWS SM, GCP SM); short-lived Git tokens (GitHub App tokens expire in 1h); rotation without restart |
 | **Data classification leakage** | LiteLLM routing enforces region-based model selection; content with privacy-sensitive patterns is redacted before LLM calls |
 | **Supply chain compromise** | Exact version pinning with hash verification; `pip-audit` in CI; SBOM generation; signed container images (Sigstore/cosign) |
-| **Mid-pipeline crash** | PostgreSQL-backed state; per-repo progress tracking; idempotent operations; `rak resume` command |
-| **Concurrent pipeline conflicts** | Repository-level PostgreSQL advisory locks; queuing for locked repos |
+| **Mid-pipeline crash** | Temporal event-sourced state; automatic replay; per-repo progress tracking; idempotent operations; `rak resume` command |
+| **Concurrent pipeline conflicts** | Temporal workflow ID uniqueness; deterministic child workflow IDs; queuing for locked repos |
 
 ### 9.2 Credential Management
 
@@ -517,13 +517,13 @@ SECURITY BOUNDARIES
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
-| Mid-pipeline crash losing state | CRITICAL | HIGH | PostgreSQL checkpoints; per-repo progress; `rak resume --run-id` |
+| Mid-pipeline crash losing state | CRITICAL | HIGH | Temporal event-sourced state; automatic replay; per-repo progress; `rak resume --run-id` |
 | Test execution as RCE vector | CRITICAL | MEDIUM | Sandboxed containers; static analysis; resource limits |
 | No rollback mechanism | CRITICAL | HIGH | Rollback manifests; `rak rollback --run-id` |
 | LLM prompt injection | HIGH | MEDIUM | Input sanitization; Pydantic validation; tool isolation; human checkpoints |
-| Concurrent regulation conflicts | HIGH | MEDIUM | PostgreSQL advisory locks; conflict detection at PR creation |
+| Concurrent regulation conflicts | HIGH | MEDIUM | Temporal workflow ID uniqueness; deterministic child workflow IDs; conflict detection at PR creation |
 | Credential exposure | HIGH | HIGH | Mandatory secrets manager; short-lived tokens |
-| LangGraph checkpoint instability | HIGH | MEDIUM | Version pinning; integration tests; `WorkflowEngine` abstraction for migration |
+| Temporal SDK version instability | HIGH | MEDIUM | Version pinning; integration tests; `WorkflowEngine` abstraction for potential migration |
 | LLM non-determinism across versions | HIGH | MEDIUM | Model version pinning; version in audit trace; validation test suite |
 | No incremental analysis | MEDIUM | HIGH | File-level caching via `SHA256(content + plugin_version + agent_version)` |
 
@@ -533,13 +533,17 @@ SECURITY BOUNDARIES
 
 | Option | Description | Dependencies | Best For |
 |---|---|---|---|
-| **Lite Mode** (`rak run --lite`) | File-based events, SQLite, Langfuse optional | Python 3.11+ LLM API key | Evaluation in < 5 minutes |
-| **Docker Compose** | Full stack: Kafka, Elasticsearch, Langfuse, PostgreSQL | Docker | Development, POC |
+| **Lite Mode** (`rak run --lite`) | File-based events, SQLite, MLflow optional | Python 3.12+, LLM API key | Evaluation in < 5 minutes |
+| **Docker Compose** | Full stack: Kafka, Elasticsearch, Temporal, MLflow, PostgreSQL | Docker | Development, POC |
 | **Kubernetes (Helm)** | Production-grade, horizontal scaling | Kubernetes 1.28+ | Enterprise production |
 | **AWS ECS + MSK** | Managed containers + managed Kafka | AWS account | AWS-native organizations |
 | **Serverless** | Lambda + EventBridge | AWS account | Low-frequency events |
 
+For detailed deployment configurations, hardware sizing, container images, Helm chart values, cloud-specific guides (AWS, GCP, Azure), CI/CD pipelines, and monitoring setup, see [`infrastructure.md`](infrastructure.md).
+
 ### Integration Reference
+
+The following table summarizes all external system integrations. For the detailed integration specification including rate limits, retry strategies, timeouts, and data residency routing, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table).
 
 | Category | Integration | Protocol | Authentication |
 |---|---|---|---|
@@ -547,8 +551,8 @@ SECURITY BOUNDARIES
 | **Event — Lightweight** | Webhook (HTTP POST) | REST (HTTPS) | Bearer Token, HMAC |
 | **Event — AWS** | Amazon SQS | AWS SDK | IAM Roles |
 | **Search & Knowledge** | Elasticsearch 8.x | REST (HTTPS) | API Key, OAuth2 |
-| **State & Checkpoints** | PostgreSQL 14+ | libpq | Username/Password, SSL |
-| **Observability** | Langfuse (cloud/self-hosted) | REST (HTTPS) | Project API Key |
+| **State & Checkpoints** | PostgreSQL 16+ | libpq | Username/Password, SSL |
+| **Observability** | MLflow (self-hosted) | REST (HTTPS) | Bearer Token |
 | **Metrics** | OpenTelemetry → Prometheus → Grafana | OTLP (gRPC/HTTP) | N/A |
 | **Git** | GitHub, GitLab, Bitbucket | REST/GraphQL | App tokens, OAuth2 |
 | **Notifications** | Slack, Email, Generic Webhook | Webhooks/SMTP/HTTP | Bot Token, SMTP, Bearer |
@@ -639,13 +643,13 @@ event_trigger:
 pip install regulatory-agent-kit
 
 # Minimal evaluation (lite mode — no infrastructure required)
-export LLM_API_KEY=your_key
+export ANTHROPIC_API_KEY=your_key
 rak run --lite \
   --regulation regulations/examples/example.yaml \
   --repos ./my-local-repo \
   --checkpoint-mode terminal
 
-# Full deployment
+# Full deployment (Temporal, MLflow, PostgreSQL, Elasticsearch)
 docker compose up -d
 rak run \
   --regulation regulations/my-regulation.yaml \
@@ -668,4 +672,4 @@ rak resume --run-id <id>
 
 ---
 
-*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/regulatory-agent-kit-v2.md`](regulatory-agent-kit-v2.md).*
+*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/regulatory-agent-kit.md`](regulatory-agent-kit.md).*

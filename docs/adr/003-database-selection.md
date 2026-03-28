@@ -201,7 +201,17 @@ None of these conditions apply today.
 
 ## Decision
 
-**Use PostgreSQL as the single database for all application data.**
+**Use PostgreSQL 16+ as the single database for all application data.**
+
+### Version Selection
+
+PostgreSQL 16 is the minimum required version. Key features used:
+
+- **`gen_random_uuid()`** — native UUID generation without the `pgcrypto` extension (available since PG 13, but PG 16 is required for other reasons)
+- **Improved partitioning performance** — partition pruning optimizations in PG 14–16 are critical for the `audit_entries` table
+- **Logical replication improvements** — PG 16 supports logical replication from standby servers, useful for exporting audit partitions without impacting the primary
+- **`GRANT` on schemas** — PG 16 simplifies schema-level permission management for the three-schema design (temporal, rak, mlflow)
+- **Temporal server compatibility** — Temporal requires PG 13+ but recommends PG 15+; PG 16 is fully supported
 
 ### Schema Design
 
