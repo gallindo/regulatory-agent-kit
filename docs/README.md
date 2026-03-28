@@ -1,6 +1,18 @@
 # Documentation Guide
 
-## Reading Order
+`regulatory-agent-kit` is an open-source Python framework for building multi-agent AI pipelines that automate regulatory compliance across software codebases. Unfamiliar terms? See the [`glossary.md`](glossary.md).
+
+## Quick Paths
+
+| Your goal | Reading path |
+|---|---|
+| **Evaluate the tool (5 min)** | [`getting-started.md`](getting-started.md) |
+| **Understand the architecture** | [`getting-started.md`](getting-started.md) -> [`architecture.md`](architecture.md) |
+| **Build a regulation plugin** | [`architecture.md` SS3, SS12](architecture.md) -> [`plugin-template-guide.md`](plugin-template-guide.md) |
+| **Deploy to production** | [`hld.md`](hld.md) -> [`infrastructure.md`](infrastructure.md) -> [`operations/runbook.md`](operations/runbook.md) |
+| **Implement features** | [`architecture.md`](architecture.md) -> [`sad.md`](sad.md) -> [`lld.md`](lld.md) -> [`data-model.md`](data-model.md) |
+
+## Full Reading Order
 
 The documentation is organized in layers from "why" to "how to deploy". Start from the top and drill down as needed for your role.
 
@@ -19,6 +31,8 @@ The documentation is organized in layers from "why" to "how to deploy". Start fr
 
 | Document | Purpose |
 |---|---|
+| [`getting-started.md`](getting-started.md) | 5-minute quickstart with Lite Mode — install, run, understand |
+| [`glossary.md`](glossary.md) | Definitions for technical and regulatory terms used across docs |
 | [`cli-reference.md`](cli-reference.md) | All `rak` CLI commands, flags, and environment variables |
 | [`plugin-template-guide.md`](plugin-template-guide.md) | Jinja2 template authoring for regulation plugins |
 | [`operations/runbook.md`](operations/runbook.md) | Operational runbook for failure recovery and maintenance |

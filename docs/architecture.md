@@ -5,6 +5,7 @@
 > **Version:** 2.0
 > **Status:** Active Development
 > **Scope:** This document describes the framework's architecture, contracts, and infrastructure. It contains **no regulation-specific business rules, country-specific references, or jurisdiction-dependent logic**. All regulatory knowledge is externalized into YAML plugins (see [`regulations/`](../regulations/README.md)).
+> **Glossary:** See [`glossary.md`](glossary.md) for term definitions.
 
 ---
 
@@ -118,6 +119,15 @@ graph TB
     RP --> REP
     RP --> NOTIF
 ```
+
+**Layer summary in plain English:**
+
+- **Input Layer**: Receives regulatory change events (from Kafka, webhooks, SQS, or files) and loads the YAML regulation plugins that define compliance rules.
+- **Orchestration Layer**: The Temporal workflow engine manages pipeline state, crash recovery, retries, and parallel processing. Human checkpoints pause the pipeline for approval.
+- **Agent Layer**: Four PydanticAI agents — Analyzer (detects issues), Refactor (applies fixes), TestGenerator (validates changes), Reporter (produces audit trail and merge requests) — each with isolated tool sets.
+- **Tool Layer**: Shared utilities — Git operations, AST parsing via tree-sitter, sandboxed test execution, Elasticsearch search, and the LLM gateway (LiteLLM).
+- **Observability Layer**: MLflow traces every LLM call; OpenTelemetry + Prometheus track operational metrics; Grafana provides dashboards.
+- **Output Layer**: Merge requests per repository, a cryptographically signed audit log (JSON-LD), compliance reports (PDF/HTML), and pluggable notifications.
 
 ### Layer Responsibilities
 
@@ -697,5 +707,14 @@ rak resume --run-id <id>
 ```
 
 ---
+
+## Next Steps
+
+| Your role | Read next |
+|---|---|
+| Implementing agents or workflows | [`lld.md`](lld.md) — class diagrams, algorithms, state machines |
+| Deploying the system | [`infrastructure.md`](infrastructure.md) — Docker, Kubernetes, cloud guides |
+| Writing regulation plugins | [`plugin-template-guide.md`](plugin-template-guide.md) — Jinja2 template authoring |
+| Understanding data storage | [`data-model.md`](data-model.md) — tables, indexes, partitioning |
 
 *This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/regulatory-agent-kit.md`](regulatory-agent-kit.md).*

@@ -18,7 +18,7 @@
 - **Cross-regulation conflict detection** requiring conditional branching logic
 - **Cost estimation gates**, dead letter queues, rollback manifests, and repository-level advisory locks
 
-The orchestration layer is the backbone of the system. It must support regulated-environment requirements: full observability, deterministic behavior, crash recovery, and human approval gates that cannot be bypassed programmatically.
+The orchestration layer is the backbone of the system. It must support regulated-environment requirements: full observability, deterministic behavior, crash recovery, and human checkpoints that cannot be bypassed programmatically.
 
 Three frameworks were evaluated: **LangGraph** (LangChain ecosystem), **CrewAI**, and **AutoGen** (Microsoft).
 
@@ -78,13 +78,13 @@ CrewAI is a high-level framework for orchestrating autonomous AI agents organize
 |---|---|
 | **No explicit state machine** | CrewAI uses implicit task sequencing, not a formal state graph. There is no typed state object that flows between nodes. The audit trail cannot capture "transition from state X to state Y on condition Z" because no such construct exists. This is a **critical gap** for regulatory audit requirements. |
 | **No durable checkpointing** | No built-in mechanism for persisting workflow state to PostgreSQL. If the process crashes mid-pipeline, there is no resume capability. For a system processing hundreds of repositories, this is unacceptable. |
-| **Human-in-the-loop is bolted on** | CrewAI's `human_input=True` flag prompts for terminal input. There is no concept of a non-bypassable, cryptographically signed approval gate. Implementing the checkpoint architecture would require building it entirely outside CrewAI's execution model. |
+| **Human-in-the-loop is bolted on** | CrewAI's `human_input=True` flag prompts for terminal input. There is no concept of a non-bypassable, cryptographically signed checkpoint. Implementing the checkpoint architecture would require building it entirely outside CrewAI's execution model. |
 | **No fan-out/fan-in** | CrewAI executes tasks sequentially or hierarchically. There is no native `Send`-like primitive for "create N parallel workers from a dynamic list." Processing 500 repositories would require custom parallelism outside the framework. |
 | **Limited conditional routing** | Task flow is linear or delegated. The complex state machine (cost gate -> analysis -> human review -> refactor -> test -> retry loop -> human review -> report) cannot be expressed natively. |
 | **Opaque execution** | Agent delegation and task routing decisions are made by the framework internally (often via LLM-driven delegation). In a regulated environment, the orchestration layer itself must be deterministic, not LLM-driven. |
 | **Observability** | No native integration with Langfuse or OpenTelemetry. Tracing requires custom instrumentation. |
 
-**Assessment:** CrewAI is optimized for rapid prototyping of conversational agent teams. It lacks the infrastructure primitives (state machines, checkpoints, fan-out, human gates) required for a production compliance pipeline in a regulated environment.
+**Assessment:** CrewAI is optimized for rapid prototyping of conversational agent teams. It lacks the infrastructure primitives (state machines, checkpoints, fan-out) required for a production compliance pipeline in a regulated environment.
 
 ---
 
@@ -114,7 +114,7 @@ AutoGen is a framework for building multi-agent conversational systems. Agents c
 | **Observability gap** | No native Langfuse integration. OpenTelemetry support is limited. Achieving the audit-first observability requirement would require significant custom instrumentation. |
 | **Overhead for structured workflows** | AutoGen's power is in flexible, emergent agent conversations. For the regulatory-agent-kit's rigid, auditable pipeline, this flexibility becomes overhead — the framework would fight against the conversational paradigm rather than leverage it. |
 
-**Assessment:** AutoGen excels at conversational multi-agent systems where agents negotiate, debate, and iterate through dialogue. The regulatory-agent-kit requires a deterministic workflow engine, not a conversation. The gaps in state persistence, human gates, and fan-out are structural, not feature gaps that will be filled in future releases.
+**Assessment:** AutoGen excels at conversational multi-agent systems where agents negotiate, debate, and iterate through dialogue. The regulatory-agent-kit requires a deterministic workflow engine, not a conversation. The gaps in state persistence, checkpoints, and fan-out are structural, not feature gaps that will be filled in future releases.
 
 ---
 
@@ -145,7 +145,7 @@ LangGraph is selected because it is the **only framework among the three that na
 
 2. **Durable checkpointing** — `langgraph-checkpoint-postgres` provides crash recovery and resume without custom implementation. This is non-negotiable for a system that processes hundreds of repositories in a single pipeline run.
 
-3. **Non-bypassable human gates** — `interrupt_before`/`interrupt_after` are graph-level primitives, not application-level hacks. The approval checkpoint cannot be accidentally bypassed by a code change because it is enforced by the graph execution engine itself.
+3. **Non-bypassable human checkpoints** — `interrupt_before`/`interrupt_after` are graph-level primitives, not application-level hacks. The approval checkpoint cannot be accidentally bypassed by a code change because it is enforced by the graph execution engine itself.
 
 4. **Fan-out/fan-in** — The `Send` API enables dynamic parallelism: Analyzer produces N analyses, N Refactor workers execute concurrently. This maps directly to the horizontal scaling architecture (Kubernetes Jobs or Temporal activities).
 

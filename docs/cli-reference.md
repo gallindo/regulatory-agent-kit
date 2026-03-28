@@ -1,5 +1,7 @@
 # CLI Reference
 
+This reference documents all CLI commands for running compliance pipelines, managing regulation plugins, and operating the framework. For a quick first run, see [`getting-started.md`](getting-started.md).
+
 **Framework:** Typer (see [ADR-004](adr/004-python-stack.md))
 **Entry point:** `python -m regulatory_agent_kit.cli` or `rak` (after `pip install`)
 
@@ -61,6 +63,19 @@ rak status --run-id <uuid> [--filter <pending|in_progress|completed|failed|skipp
 | `--filter` | No | — | Filter repositories by status |
 
 **Output:** Summary of pipeline state, per-repository progress, cost tracking, and checkpoint decisions.
+
+Example output:
+
+```
+Run:    a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Status: running
+Phase:  AWAITING_IMPACT_REVIEW (waiting for human approval)
+Repos:  12 total
+  - 4 completed
+  - 1 in_progress (https://github.com/org/service-e)
+  - 7 pending
+Cost:   $1.24 estimated / $0.42 actual
+```
 
 ### `rak retry-failures`
 
@@ -205,3 +220,7 @@ Queries the plugin registry by keyword, regulation name, or jurisdiction.
 | `MLFLOW_TRACKING_URI` | No | — | MLflow tracking server URL (if not set, traces go to stdout) |
 | `KAFKA_BOOTSTRAP_SERVERS` | No | — | Kafka broker addresses (for KafkaEventSource) |
 | `RAK_CACHE_TTL_DAYS` | No | `7` | File analysis cache expiration in days |
+
+---
+
+*See also: [`plugin-template-guide.md`](plugin-template-guide.md) for writing regulation templates, [`infrastructure.md`](infrastructure.md) for deployment options including Lite Mode, and [`operations/runbook.md`](operations/runbook.md) for failure recovery procedures.*

@@ -471,3 +471,17 @@ LangGraph's advantages (declarative graph inspection, simpler deployment, native
 - [PydanticAI — Durability recommendation](https://ai.pydantic.dev/multi-agent-applications/#nested-agent-calls)
 - [`docs/architecture.md`](../architecture.md) — Framework architecture specification
 - [ADR-001](001-agent-orchestration-framework.md) — Initial framework selection (LangGraph vs CrewAI vs AutoGen)
+
+---
+
+## Key Terms
+
+| Term | Definition |
+|---|---|
+| **Activity** | A Temporal unit of work — a function call that can be retried, timed out, and executed on a separate worker machine |
+| **Event Sourcing** | A pattern where all state changes are stored as immutable events; on recovery, the workflow is deterministically replayed from the event log |
+| **Signal** | A durable message sent to a running Temporal workflow to mutate its state (e.g., delivering an approval decision) |
+| **Workflow Replay** | Deterministic re-execution of workflow code using recorded event history as state — enables crash recovery without data loss |
+| **Fan-out/Fan-in** | Dynamic parallelism where one task creates N parallel branches (fan-out) that reconverge into a single result (fan-in) |
+
+For a full glossary, see [`glossary.md`](../glossary.md).

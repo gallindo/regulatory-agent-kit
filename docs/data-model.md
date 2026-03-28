@@ -1014,4 +1014,4 @@ The three schemas (`temporal`, `rak`, `mlflow`) are logically independent. There
 
 ---
 
-*This document describes the data model. For schema DDL with full SQL, see [`lld.md` Section 5](lld.md#5-database-schema-details). For the database design overview and topology, see [`hld.md` Section 4](hld.md#4-database-design-overview). For the PostgreSQL selection rationale, see [ADR-003](adr/003-database-selection.md).*
+*This document describes the data model. For schema DDL with full SQL, see [`lld.md` Section 5](lld.md#5-database-schema-details). For the database design overview and topology, see [`hld.md` Section 4](hld.md#4-database-design-overview). For the PostgreSQL selection rationale, see [ADR-003](adr/003-database-selection.md). For partition maintenance and operational procedures, see [`operations/runbook.md`](operations/runbook.md).*

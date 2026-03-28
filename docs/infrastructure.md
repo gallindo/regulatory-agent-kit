@@ -28,16 +28,50 @@
 
 ### 1.1 Deployment Models
 
+> **New to regulatory-agent-kit?** Start with [`getting-started.md`](getting-started.md) for a 5-minute walkthrough using Lite Mode.
+
 | Model | Infrastructure | Best For | Documented In |
 |---|---|---|---|
-| **Lite Mode** | Developer machine (Python only) | Evaluation (< 5 min setup) | Section 8.5 |
+| **Lite Mode** | Developer machine (Python only) | Evaluation (< 5 min setup) | Section 1.3 + Section 8.5 |
 | **Docker Compose** | Single machine with Docker | Development, POC | [`hld.md` SS2.3](hld.md) |
 | **Kubernetes (self-managed)** | EKS / GKE / AKS / on-prem | Production | This document |
 | **AWS Native** | EKS + RDS + MSK + S3 | AWS-native orgs | Section 2 |
 | **GCP Native** | GKE + Cloud SQL + S3-compat + GCS | GCP-native orgs | Section 3 |
 | **Azure Native** | AKS + Azure DB + Event Hubs + Blob | Azure-native orgs | Section 4 |
 
-### 1.2 Service Inventory
+### 1.2 Deployment Decision Matrix
+
+Use this matrix to choose the right deployment model for your stage:
+
+| | Lite Mode | Docker Compose | Kubernetes |
+|---|---|---|---|
+| **Setup time** | 5 minutes | 15-30 minutes | 2-4 hours |
+| **Infra cost** | $0 (local machine) | $0 (local) or ~$50/mo (VM) | $500-2000/mo (cloud) |
+| **Ops burden** | None | Low (single `docker compose up`) | Medium-High (K8s expertise required) |
+| **Crash recovery** | None (restart loses state) | Temporal auto-recovery | Temporal auto-recovery + pod rescheduling |
+| **Concurrent repos** | Sequential only | Parallel (limited by single machine) | Horizontally scalable (N workers) |
+| **Audit durability** | SQLite / local files | PostgreSQL + S3 | PostgreSQL + S3 + HA |
+| **Best for** | Evaluation, plugin dev | Development, POC, small teams | Production, enterprise |
+
+**Graduation path:** Start with Lite Mode to evaluate. Move to Docker Compose for development. Deploy Kubernetes for production. Each tier is a superset of the previous.
+
+### 1.3 Quick Evaluation (Lite Mode)
+
+Lite Mode requires **no infrastructure** — only Python 3.12+, git, and an LLM API key:
+
+```bash
+pip install regulatory-agent-kit
+export ANTHROPIC_API_KEY=sk-...
+
+rak run --lite \
+  --regulation regulations/dora/dora-ict-risk-2025.yaml \
+  --repos ./my-local-repo \
+  --checkpoint-mode terminal
+```
+
+Lite Mode replaces Temporal with sequential execution, PostgreSQL with SQLite, and Elasticsearch with LLM-only context. Human checkpoints are interactive terminal prompts. For the full feature parity comparison, see [Section 8.5](#85-lite-mode-no-orchestration).
+
+### 1.4 Service Inventory
 
 All deployment models run the same application containers. Only the backing services differ.
 

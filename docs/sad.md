@@ -14,19 +14,20 @@
 1. [Introduction](#1-introduction)
 2. [Architectural Goals and Constraints](#2-architectural-goals-and-constraints)
 3. [Architectural Decisions](#3-architectural-decisions)
-4. [C4 Model](#4-c4-model)
-5. [Technology Stack](#5-technology-stack)
-6. [Component Architecture](#6-component-architecture)
-7. [Data Architecture](#7-data-architecture)
-8. [Orchestration Architecture](#8-orchestration-architecture)
-9. [Agent Architecture](#9-agent-architecture)
-10. [Event Architecture](#10-event-architecture)
-11. [LLM Gateway](#11-llm-gateway)
-12. [Observability Architecture](#12-observability-architecture)
-13. [Security Architecture](#13-security-architecture)
-14. [Deployment Architecture](#14-deployment-architecture)
-15. [Project Structure](#15-project-structure)
-16. [Technical Risks and Mitigations](#16-technical-risks-and-mitigations)
+4. [Key Technology Primer](#4-key-technology-primer)
+5. [C4 Model](#5-c4-model)
+6. [Technology Stack](#6-technology-stack)
+7. [Component Architecture](#7-component-architecture)
+8. [Data Architecture](#8-data-architecture)
+9. [Orchestration Architecture](#9-orchestration-architecture)
+10. [Agent Architecture](#10-agent-architecture)
+11. [Event Architecture](#11-event-architecture)
+12. [LLM Gateway](#12-llm-gateway)
+13. [Observability Architecture](#13-observability-architecture)
+14. [Security Architecture](#14-security-architecture)
+15. [Deployment Architecture](#15-deployment-architecture)
+16. [Project Structure](#16-project-structure)
+17. [Technical Risks and Mitigations](#17-technical-risks-and-mitigations)
 
 ---
 
@@ -112,7 +113,7 @@ The framework is built on four non-negotiable principles:
 |---|---|---|---|---|
 | AG-1 | **Crash resilience** — the pipeline must survive process crashes, server restarts, and infrastructure failures without data loss or duplicate work | Reliability | Zero data loss on crash. Automatic recovery without manual intervention. No duplicate merge requests on retry. | Critical |
 | AG-2 | **Audit completeness** — every decision made by the system (human or AI) must be permanently recorded with tamper-evident integrity | Auditability | 100% of LLM calls, tool invocations, state transitions, and human approvals are captured. Audit entries are cryptographically signed. | Critical |
-| AG-3 | **Human-in-the-loop non-bypassability** — no code change can reach a merge request without explicit human approval | Safety | Two mandatory approval gates (post-analysis, pre-merge). No code path exists that skips them. | Critical |
+| AG-3 | **Human-in-the-loop non-bypassability** — no code change can reach a merge request without explicit human approval | Safety | Two mandatory checkpoints (post-analysis, pre-merge). No code path exists that skips them. | Critical |
 | AG-4 | **Horizontal scalability** — the system must process hundreds of repositories concurrently | Scalability | Process 500+ repositories per pipeline run. Linear throughput scaling by adding worker replicas. | High |
 | AG-5 | **Regulation extensibility** — adding support for a new regulation must require zero code changes | Extensibility | New regulation = new YAML plugin + Jinja2 templates. No framework code modified. | High |
 | AG-6 | **Operational simplicity** — minimize the number of infrastructure services and operational expertise required | Maintainability | Single database (PostgreSQL). Python-only application runtime. No ClickHouse, no Redis, no JVM, no Node.js in the application stack. | High |
@@ -173,7 +174,23 @@ The four non-negotiable architectural principles (from SS1.3) are supported by f
 
 ---
 
-## 4. C4 Model
+## 4. Key Technology Primer
+
+> Unfamiliar with any of these? See the full [`glossary.md`](glossary.md) for all terms.
+
+This system is built on four key technologies. Understanding their roles is essential before reading subsequent sections:
+
+**Temporal** is a distributed workflow engine (Go binary) that provides durable execution for the pipeline. When a workflow step (called an *activity*) fails or the process crashes, Temporal automatically replays the workflow from its event history — no data is lost, no manual restart is needed. Human approvals are delivered via *signals*, durable messages that persist until the workflow processes them. See [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md) for why Temporal was chosen over LangGraph.
+
+**PydanticAI** is a Python agent framework that gives each AI agent (Analyzer, Refactor, TestGenerator, Reporter) strongly-typed inputs and outputs via Pydantic models. This means LLM responses are validated against a schema before the pipeline acts on them — malformed output is caught immediately, not downstream. Each agent has an explicitly declared set of tools (e.g., Analyzer gets read-only tools; Refactor gets read-write tools).
+
+**LiteLLM** is a proxy server that provides a unified API across LLM providers (Anthropic Claude, OpenAI GPT, AWS Bedrock, Azure OpenAI, self-hosted models). Switching providers is a config change, not a code change. LiteLLM also handles rate limiting, fallback routing, and cost tracking.
+
+**tree-sitter** is an incremental parser generator used to build Abstract Syntax Trees (ASTs) from source code. The framework uses tree-sitter to identify code patterns structurally — for example, finding all classes that implement a given interface — rather than relying on fragile text matching.
+
+---
+
+## 5. C4 Model
 
 The system architecture is described using the [C4 model](https://c4model.com/) at four levels of abstraction: Context, Containers, Components, and Code.
 
@@ -459,7 +476,7 @@ class GitClient:
 
 ---
 
-## 5. Technology Stack
+## 6. Technology Stack
 
 ```
 +-------------------------------------------------------+
@@ -528,7 +545,7 @@ class GitClient:
 
 ---
 
-## 6. Component Architecture
+## 7. Component Architecture
 
 ### 6.1 Component Diagram
 
@@ -622,7 +639,7 @@ graph LR
 
 ---
 
-## 7. Data Architecture
+## 8. Data Architecture
 
 ### 7.1 PostgreSQL Schema Layout
 
@@ -765,7 +782,7 @@ flowchart LR
 
 ---
 
-## 8. Orchestration Architecture
+## 9. Orchestration Architecture
 
 ### 8.1 Temporal Workflow Design
 
@@ -867,7 +884,7 @@ class CompliancePipeline:
 
 ---
 
-## 9. Agent Architecture
+## 10. Agent Architecture
 
 ### 9.1 PydanticAI Agent Design
 
@@ -897,7 +914,7 @@ Four PydanticAI agents (Analyzer, Refactor, TestGenerator, Reporter) with typed 
 
 ---
 
-## 10. Event Architecture
+## 11. Event Architecture
 
 The framework treats regulatory changes as domain events from pluggable sources (Kafka, Webhook, SQS, File), all implementing a common `EventSource` interface and producing a normalized `RegulatoryEvent`. It also supports shift-left integration via CI/CD pipeline gates, PR review bots, and pre-commit hooks.
 
@@ -905,7 +922,7 @@ For the canonical event schema, source table, and shift-left integration details
 
 ---
 
-## 11. LLM Gateway
+## 12. LLM Gateway
 
 All LLM calls are routed through **LiteLLM**, deployed as a proxy behind a load balancer.
 
@@ -936,7 +953,7 @@ LiteLLM (proxy, 2+ replicas)
 
 ---
 
-## 12. Observability Architecture
+## 13. Observability Architecture
 
 ### 12.1 Two-Layer Model
 
@@ -991,7 +1008,7 @@ Observability is split into two complementary layers:
 
 ---
 
-## 13. Security Architecture
+## 14. Security Architecture
 
 ### 13.1 Security Boundaries
 
@@ -1010,7 +1027,7 @@ For the canonical threat mitigation table and credential management requirements
 
 ---
 
-## 14. Deployment Architecture
+## 15. Deployment Architecture
 
 ### 14.1 Deployment Options
 
@@ -1083,7 +1100,7 @@ For the detailed integration specification table including protocols, authentica
 
 ---
 
-## 15. Project Structure
+## 16. Project Structure
 
 The project follows a standard Python `src/` layout. Key top-level directories:
 
@@ -1100,7 +1117,7 @@ For the full directory tree with per-file descriptions, see [`lld.md` Section 2 
 
 ---
 
-## 16. Technical Risks and Mitigations
+## 17. Technical Risks and Mitigations
 
 For the canonical risk table, see [`architecture.md` Section 10 — Technical Risks & Mitigations](architecture.md#10-technical-risks--mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
 

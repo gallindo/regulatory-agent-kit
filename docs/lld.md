@@ -34,6 +34,8 @@ This Low-Level Design (LLD) document describes the internal structure and behavi
 
 ## 2. Class Diagrams
 
+> **Pydantic v2 primer:** [Pydantic](https://docs.pydantic.dev/) is a Python data validation library. All data shapes in this project are `BaseModel` subclasses — Python classes with type-annotated fields that are automatically validated on construction. `model_validate()` parses raw data (dicts, JSON) into a typed model, raising errors if the data doesn't match. `Literal["a", "b"]` restricts a field to specific values. This pattern replaces manual validation, DTO classes, and schema definitions with a single source of truth. See also: [`glossary.md`](glossary.md).
+
 ### 2.1 Domain Models (`models/`)
 
 All data shapes are Pydantic v2 `BaseModel` subclasses. These models are the single source of truth for serialization, validation, API schemas, and database DTOs.

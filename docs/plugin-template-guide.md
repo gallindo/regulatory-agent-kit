@@ -5,6 +5,43 @@
 
 ---
 
+> **Glossary:** Unfamiliar with AST, tree-sitter, or Jinja2? See [`glossary.md`](glossary.md).
+
+## Quick Example: Your First Template
+
+Before diving into the full template API, here is a minimal end-to-end example. Given a regulation rule that requires all service classes to have an `@AuditLog` annotation:
+
+**1. Rule (in your plugin YAML):**
+```yaml
+rules:
+  - id: audit-log-required
+    description: "All service classes must have @AuditLog annotation"
+    severity: high
+    condition: "class implements Service AND NOT has_annotation(@AuditLog)"
+    remediation:
+      strategy: add_annotation
+      template: templates/add-audit-log.j2
+```
+
+**2. Template (`templates/add-audit-log.j2`):**
+```jinja2
+{# Adds @AuditLog annotation above the class declaration #}
+{% for line in file_content.split('\n') %}
+{% if 'class ' in line and 'implements' in line and '@AuditLog' not in file_content %}
+@AuditLog
+{% endif %}
+{{ line }}
+{% endfor %}
+```
+
+**3. Validate and test:**
+```bash
+rak plugin validate regulations/my-regulation.yaml
+rak plugin test regulations/my-regulation.yaml --repo ./test-repo
+```
+
+The sections below explain the template context variables, all available strategies, Jinja2 filters, and security constraints in detail.
+
 ## 1. Overview
 
 Each regulation plugin rule can reference two Jinja2 templates:
@@ -244,3 +281,7 @@ The `rak plugin test` command:
 3. Renders remediation templates for each match
 4. Renders test templates and executes them in a sandboxed container
 5. Reports pass/fail results
+
+---
+
+*See also: [`architecture.md` Section 12](architecture.md#12-plugin-schema-reference) for the full plugin YAML schema, [`regulations/dora/`](../regulations/dora/) for a real-world plugin example, and [`cli-reference.md`](cli-reference.md) for all `rak plugin` commands.*

@@ -5,6 +5,19 @@
 
 ---
 
+## Severity Matrix
+
+Use this matrix to assess urgency when responding to incidents:
+
+| Severity | Auto-Recovers? | Response | Examples |
+|---|---|---|---|
+| **P1 — Critical** | No | Immediate action required | PostgreSQL primary crash, Temporal server down, LiteLLM proxy outage |
+| **P2 — High** | Partially | Investigate within 30 min | Elevated repo failure rate (>20%), Elasticsearch cluster yellow, worker OOM |
+| **P3 — Medium** | Yes (usually) | Investigate within 2 hours | Single worker pod crash (Temporal replays), high LLM latency, checkpoint timeout |
+| **P4 — Low** | Yes | Next business day | Cache hit rate drop, non-critical log volume spike, MLflow UI slow |
+
+**Healthy baselines:** LLM latency <3s p95, repo failure rate <5%, activities/min 50-200, Temporal schedule-to-start <1s.
+
 ## 1. Pipeline Failure Scenarios
 
 ### 1.1 Pipeline Stuck (No Progress for > 2 Hours)

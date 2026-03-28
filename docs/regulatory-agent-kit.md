@@ -6,6 +6,7 @@
 > **Status:** Active Development
 > **Classification:** Open Source (Apache 2.0 License)
 > **Last Updated:** 2026-03-26
+> **Glossary:** See [`glossary.md`](glossary.md) for technical and regulatory term definitions.
 
 ---
 
@@ -44,11 +45,11 @@ This repository's documentation is split into three layers to maintain regulatio
 
 The framework operates on a foundational architectural principle: **regulatory change is a software engineering problem.** When a financial regulator publishes a new directive, when an API contract shifts, or when a compliance standard is revised, software teams must identify every affected system, understand the impact, apply coordinated changes, generate validation tests, and produce an auditable trail — all under time pressure, across dozens or hundreds of repositories. Without automation, this process is error-prone, expensive, and dangerously slow.
 
-Research demonstrates that 50–70% of compliance activities could be automated, with typical cost reductions of 30–50% [9]. Multi-agent AI systems have shown the ability to decompose complex software engineering tasks into specialized roles — analysis, refactoring, testing, reporting — coordinating through explicit state machines and human approval gates [1][2][4].
+Research demonstrates that 50–70% of compliance activities could be automated, with typical cost reductions of 30–50% [9]. Multi-agent AI systems have shown the ability to decompose complex software engineering tasks into specialized roles — analysis, refactoring, testing, reporting — coordinating through explicit state machines and human-in-the-loop checkpoints [1][2][4].
 
 `regulatory-agent-kit` solves this by providing:
 
-- A **pluggable, regulation-as-configuration model** where any regulatory ruleset — DORA, PSD2, PCI-DSS, BACEN, SOX, HIPAA, NIS2, MiCA, EU AI Act — is expressed as a declarative YAML plugin, not hardcoded logic. This approach aligns with the OECD's "Regulation as Code" initiative, which advocates for machine-readable regulatory expressions [7].
+- A **pluggable, regulation-as-configuration model** where any regulatory ruleset — DORA (Digital Operational Resilience Act), PSD2 (Payment Services Directive 2), PCI-DSS (Payment Card Industry Data Security Standard), BACEN (Central Bank of Brazil), SOX (Sarbanes-Oxley Act), HIPAA (Health Insurance Portability and Accountability Act), NIS2 (Network and Information Security Directive 2), MiCA (Markets in Crypto-Assets Regulation), EU AI Act — is expressed as a declarative YAML plugin, not hardcoded logic. This approach aligns with the OECD's "Regulation as Code" initiative, which advocates for machine-readable regulatory expressions [7].
 - A **composable multi-agent orchestration engine**, built on **Temporal + PydanticAI** (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)), where specialized AI agents (Analyzer, Refactor, TestGenerator, Reporter) collaborate in defined workflows with explicit state management, retry logic, and human-in-the-loop checkpoints [21][22].
 - A **generic event-driven architecture** where regulatory change events from any upstream source trigger the pipeline and deliver results downstream — decoupled from any specific regulator's publication channel.
 - **Full observability** of every agent decision, every LLM call, every tool invocation, and every generated artifact — enabling the audit trails that regulated environments legally require, as mandated by the EU AI Act (Regulation (EU) 2024/1689) [24] and the NIST AI Risk Management Framework [25].
@@ -1063,6 +1064,17 @@ For the complete plugin YAML schema with all required and optional fields, see [
 
 ---
 
-*Document maintained by the `regulatory-agent-kit` core team. For contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). For the application layer built on this framework, see [openfinance-agent](https://github.com/your-org/openfinance-agent).*
+---
+
+## 10. Next Steps
+
+| Your goal | Start here |
+|---|---|
+| Understand the architecture | [`architecture.md`](architecture.md) — framework contracts, plugin system, orchestration |
+| Deploy and evaluate | [`getting-started.md`](getting-started.md) — 5-minute Lite Mode walkthrough |
+| Write a regulation plugin | [`plugin-template-guide.md`](plugin-template-guide.md) — Jinja2 template authoring |
+| Deploy to production | [`infrastructure.md`](infrastructure.md) — Docker, Kubernetes, AWS/GCP/Azure |
+
+*Document maintained by the `regulatory-agent-kit` core team. For the application layer built on this framework, see [openfinance-agent](https://github.com/your-org/openfinance-agent).*
 
 *This document incorporates findings from multi-agent research analysis covering regulatory landscape, competitive positioning, technical architecture, open-source strategy, and academic citations. All claims are sourced; see Section 9 for full references.*

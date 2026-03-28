@@ -349,7 +349,7 @@ The deciding factors align with the architectural principles established in prev
 
 6. **Operational metrics remain separate.** OpenTelemetry -> Prometheus -> Grafana handles operational metrics (pipeline latency, error rates, queue depths). MLflow handles LLM-specific observability (prompts, completions, token usage, cost, agent decisions). This separation is intentional — operational dashboards and LLM audit trails serve different audiences and have different retention requirements.
 
-7. **ADR-004 update.** The `L19 — Observability SDK` section in ADR-004 should be updated to replace `langfuse` with `mlflow` as the LLM tracing platform. The OpenTelemetry SDK remains unchanged.
+7. **ADR-004 alignment.** The `L19 — Observability SDK` section in [ADR-004](004-python-stack.md) has been updated to reflect MLflow as the LLM tracing platform. The OpenTelemetry SDK remains unchanged.
 
 ---
 
@@ -379,3 +379,16 @@ The deciding factors align with the architectural principles established in prev
 - [`docs/architecture.md`](../architecture.md) — Framework architecture specification
 - [ADR-003](003-database-selection.md) — PostgreSQL selection
 - [ADR-004](004-python-stack.md) — Python stack selection
+
+---
+
+## Key Terms
+
+| Term | Definition |
+|---|---|
+| **OTLP (OpenTelemetry Protocol)** | The standard wire protocol for transmitting traces, metrics, and logs from applications to observability backends |
+| **OpenTelemetry (OTel)** | A vendor-neutral observability framework for generating and exporting telemetry data (traces, metrics, logs) |
+| **Autolog** | An SDK-level integration that automatically traces function calls, inputs, outputs, and metadata without manual instrumentation |
+| **ClickHouse** | A columnar analytics database — used by Langfuse but avoided in this project to minimize infrastructure complexity |
+
+For a full glossary, see [`glossary.md`](../glossary.md).

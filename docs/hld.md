@@ -50,6 +50,21 @@ All technology choices are documented in ADRs. This HLD designs the physical sys
 | LLM gateway | LiteLLM (proxy mode, 2+ replicas) | `architecture.md` SS6 |
 | Search/knowledge base | Elasticsearch 8.x | `architecture.md` SS5 |
 
+### 1.4 Kubernetes Concepts Primer
+
+This document references Kubernetes concepts extensively. Key terms:
+
+- **Pod**: The smallest deployable unit — one or more containers sharing network and storage. Each RAK service runs as a pod.
+- **Deployment**: Manages a set of identical pods with rolling updates and rollback. Used for stateless services (rak-worker, rak-api, litellm, mlflow).
+- **StatefulSet**: Like a Deployment but with stable network identities and persistent storage. Used for databases (PostgreSQL, Elasticsearch).
+- **Namespace**: A logical partition within a cluster. RAK uses `rak`, `temporal`, `data`, and `monitoring` namespaces to isolate concerns.
+- **Ingress**: Routes external HTTP/HTTPS traffic to internal services. The RAK API and Temporal UI are exposed via Ingress.
+- **PVC (PersistentVolumeClaim)**: A request for storage that outlives pod restarts. Used by PostgreSQL and Elasticsearch for data durability.
+- **HPA (Horizontal Pod Autoscaler)**: Automatically scales the number of pods based on CPU/memory utilization. Used for rak-worker to scale with pipeline load.
+- **Service**: An internal load balancer that routes traffic to pods by label selector. Every RAK component has a corresponding Service.
+
+For a full glossary of all terms, see [`glossary.md`](glossary.md).
+
 ---
 
 ## 2. System Architecture Diagrams
@@ -1069,4 +1084,4 @@ FROM python:3.12-slim AS runtime
 
 ---
 
-*This document describes the high-level system design. For software architecture (C4 model, component design, code abstractions), see [`sad.md`](sad.md). For the abstract framework specification, see [`architecture.md`](architecture.md). For technology decision rationale, see [`adr/`](adr/).*
+*This document describes the high-level system design. For software architecture (C4 model, component design, code abstractions), see [`sad.md`](sad.md). For the abstract framework specification, see [`architecture.md`](architecture.md). For technology decision rationale, see [`adr/`](adr/). For detailed deployment configurations and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For failure recovery procedures, see [`operations/runbook.md`](operations/runbook.md).*
