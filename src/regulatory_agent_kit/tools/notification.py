@@ -69,8 +69,8 @@ class SlackNotifier:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(self.webhook_url, json=payload)
                 resp.raise_for_status()
-        except Exception:
-            logger.warning("Failed to send Slack notification", exc_info=True)
+        except httpx.HTTPError:
+            logger.warning("Failed to post to %s", self.webhook_url, exc_info=True)
 
     def _format_checkpoint_message(
         self,
@@ -210,8 +210,8 @@ class WebhookNotifier:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(self.url, json=payload, headers=self.headers)
                 resp.raise_for_status()
-        except Exception:
-            logger.warning("Failed to send webhook notification", exc_info=True)
+        except httpx.HTTPError:
+            logger.warning("Failed to post to %s", self.url, exc_info=True)
 
     def _format_checkpoint_payload(
         self,

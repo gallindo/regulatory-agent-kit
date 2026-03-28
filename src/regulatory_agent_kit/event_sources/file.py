@@ -62,7 +62,7 @@ class FileEventSource:
                 await self._scan_once()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except OSError:
                 logger.exception("Error during file scan")
             await asyncio.sleep(self._poll_interval)
 

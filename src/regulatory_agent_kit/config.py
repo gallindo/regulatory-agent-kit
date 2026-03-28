@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Nested settings models
@@ -118,6 +121,7 @@ class Settings(BaseSettings):
             yaml = YAML(typ="safe")
             yaml_data = yaml.load(path)
         except Exception:
+            logger.debug("Failed to load YAML overlay from '%s'", path, exc_info=True)
             return values
 
         if not isinstance(yaml_data, dict):

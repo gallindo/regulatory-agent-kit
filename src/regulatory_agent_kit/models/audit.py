@@ -70,3 +70,11 @@ class CheckpointDecision(BaseModel):
         default_factory=lambda: datetime.now(UTC),
         description="When the decision was made.",
     )
+
+    def to_summary_dict(self) -> dict[str, str]:
+        """Return a summary dict for storage/logging."""
+        return {
+            "checkpoint_type": self.checkpoint_type,
+            "decision": self.decision,
+            "actor": self.actor,
+        }

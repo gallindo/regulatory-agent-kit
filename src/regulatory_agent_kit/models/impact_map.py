@@ -51,6 +51,10 @@ class FileImpact(BaseModel):
         """Return all matched rule IDs for this file."""
         return [m.rule_id for m in self.matched_rules]
 
+    def shares_file_with(self, other: FileImpact) -> bool:
+        """Check if this impact targets the same file as another."""
+        return self.file_path == other.file_path
+
 
 class ConflictRecord(BaseModel):
     """A conflict between rules from different regulations affecting the same code region."""

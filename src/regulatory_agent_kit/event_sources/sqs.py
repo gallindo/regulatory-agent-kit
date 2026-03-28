@@ -80,7 +80,7 @@ class SQSEventSource:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Error in SQS poll loop")
+                logger.warning("Error in SQS poll loop", exc_info=True)
 
     def _receive_messages(self) -> dict[str, Any]:
         """Synchronous SQS receive call (run in executor)."""

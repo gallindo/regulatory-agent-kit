@@ -15,7 +15,7 @@ router = APIRouter(tags=["approvals"])
 # In-memory store (replaced by Temporal signals + DB in production)
 # ---------------------------------------------------------------------------
 
-# Maps run_id -> list of decisions received.
+# Maps run_id -> list of decision summary dicts.
 _pending_runs: dict[UUID, list[dict[str, str]]] = {}
 
 
@@ -67,11 +67,5 @@ async def submit_approval(run_id: UUID, decision: CheckpointDecision) -> Approva
             detail=f"Run {run_id} not found.",
         )
 
-    _pending_runs[run_id].append(
-        {
-            "checkpoint_type": decision.checkpoint_type,
-            "decision": decision.decision,
-            "actor": decision.actor,
-        }
-    )
+    _pending_runs[run_id].append(decision.to_summary_dict())
     return ApprovalAck(run_id=str(run_id))

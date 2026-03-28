@@ -8,6 +8,11 @@ from typing import Any
 
 from regulatory_agent_kit.exceptions import ToolError
 
+try:
+    from elasticsearch import ElasticsearchException
+except ImportError:
+    ElasticsearchException = Exception  # type: ignore[misc,assignment]
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -104,7 +109,7 @@ class SearchClient:
                 if not exists:
                     await client.indices.create(index=index_name, body=mapping)
                     logger.info("Created index: %s", index_name)
-        except Exception:
+        except ElasticsearchException:
             logger.warning("Elasticsearch unavailable — skipping index creation", exc_info=True)
 
     # ------------------------------------------------------------------
@@ -135,7 +140,7 @@ class SearchClient:
                 document=doc,
             )
             logger.info("Indexed regulation: %s", plugin.id)
-        except Exception:
+        except ElasticsearchException:
             logger.warning(
                 "Elasticsearch unavailable — could not index regulation %s",
                 getattr(plugin, "id", "?"),
@@ -173,7 +178,7 @@ class SearchClient:
 
             resp = await client.search(index=self.regulations_index, body=body)
             return _extract_hits(resp)
-        except Exception:
+        except ElasticsearchException:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
             return []
 
@@ -191,7 +196,7 @@ class SearchClient:
             }
             resp = await client.search(index=self.context_index, body=body)
             return _extract_hits(resp)
-        except Exception:
+        except ElasticsearchException:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
             return []
 
@@ -204,7 +209,7 @@ class SearchClient:
         if self._client is not None:
             try:
                 await self._client.close()
-            except Exception:
+            except ElasticsearchException:
                 logger.warning("Error closing Elasticsearch client", exc_info=True)
             finally:
                 self._client = None

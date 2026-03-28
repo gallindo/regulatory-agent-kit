@@ -95,7 +95,7 @@ class KafkaEventSource:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Error in Kafka poll loop")
+                logger.warning("Error in Kafka poll loop", exc_info=True)
 
     async def _handle_message(self, msg: Any) -> None:
         """Deserialize and dispatch a single Kafka message."""

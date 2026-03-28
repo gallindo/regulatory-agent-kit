@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path  # noqa: TC003
 
+from regulatory_agent_kit.exceptions import AuditSigningError
 from regulatory_agent_kit.util.crypto import AuditSigner
 
 logger = logging.getLogger(__name__)
@@ -33,9 +34,12 @@ class MlflowSetup:
 
             mlflow.set_tracking_uri(tracking_uri)
             logger.info("MLflow tracking configured: %s", tracking_uri)
+        except ImportError:
+            logger.info("mlflow not installed — skipping")
+            return False
         except Exception:
             logger.warning(
-                "Failed to configure MLflow at %s — continuing without MLflow.",
+                "MLflow configuration failed at %s",
                 tracking_uri,
                 exc_info=True,
             )
@@ -60,12 +64,8 @@ class OtelSetup:
         try:
             # Stub: actual OTEL setup will be added when the SDK is wired in.
             logger.info("OpenTelemetry endpoint registered (stub): %s", endpoint)
-        except Exception:
-            logger.warning(
-                "Failed to configure OpenTelemetry at %s — continuing without OTEL.",
-                endpoint,
-                exc_info=True,
-            )
+        except ImportError:
+            logger.info("OpenTelemetry SDK not installed — skipping")
             return False
         else:
             return True
@@ -90,7 +90,7 @@ class AuditSignerLoader:
         try:
             signer = AuditSigner.load_key(key_path)
             logger.info("Audit signer loaded from %s", key_path)
-        except Exception:
+        except (FileNotFoundError, AuditSigningError):
             logger.warning(
                 "Failed to load audit signer from %s — audit entries will be unsigned.",
                 key_path,

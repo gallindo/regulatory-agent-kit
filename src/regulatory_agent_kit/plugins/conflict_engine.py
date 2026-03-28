@@ -75,7 +75,7 @@ class ConflictEngine:
 
         for file_a in map_a.files:
             for file_b in map_b.files:
-                if file_a.file_path != file_b.file_path:
+                if not file_a.shares_file_with(file_b):
                     continue
 
                 for region_a in file_a.affected_regions:

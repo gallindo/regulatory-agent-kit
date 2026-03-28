@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 from pathlib import Path  # noqa: TC003
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
@@ -95,7 +97,7 @@ class AuditSigner:
         try:
             sig_bytes = base64.b64decode(signature)
             self._public_key.verify(sig_bytes, canonical)
-        except Exception:
+        except (InvalidSignature, ValueError, binascii.Error):
             return False
         return True
 
