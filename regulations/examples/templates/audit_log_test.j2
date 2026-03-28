@@ -1,0 +1,15 @@
+// Generated test for {{ rule_id }}
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+class {{ class_name }}AuditLogTest {
+    @Test
+    void testAuditLogAnnotationPresent() {
+        var annotations = {{ class_name }}.class.getAnnotations();
+        assertTrue(
+            java.util.Arrays.stream(annotations)
+                .anyMatch(a -> a.annotationType().getSimpleName().equals("AuditLog")),
+            "{{ class_name }} must have @AuditLog annotation per {{ regulation_id }}"
+        );
+    }
+}
