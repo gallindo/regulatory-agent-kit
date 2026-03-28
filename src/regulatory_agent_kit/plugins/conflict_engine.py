@@ -61,11 +61,8 @@ class ConflictEngine:
         """Build an index of precedence relationships from cross-references."""
         index: dict[tuple[str, str], str] = {}
         for plugin in plugins:
-            if plugin.cross_references is None:
-                continue
-            for ref in plugin.cross_references:
-                if ref.relationship in ("takes_precedence", "supersedes"):
-                    index[(plugin.id, ref.regulation_id)] = plugin.id
+            for reg_id, _rel in plugin.get_precedence_refs():
+                index[(plugin.id, reg_id)] = plugin.id
         return index
 
     @staticmethod
@@ -83,8 +80,8 @@ class ConflictEngine:
                 for region_a in file_a.affected_regions:
                     for region_b in file_b.affected_regions:
                         if _regions_overlap(region_a, region_b):
-                            rule_ids_a = [m.rule_id for m in file_a.matched_rules]
-                            rule_ids_b = [m.rule_id for m in file_b.matched_rules]
+                            rule_ids_a = file_a.get_rule_ids()
+                            rule_ids_b = file_b.get_rule_ids()
                             all_rules = list(dict.fromkeys(rule_ids_a + rule_ids_b))
                             if len(all_rules) >= 2:
                                 overlaps.append((all_rules, [region_a, region_b]))

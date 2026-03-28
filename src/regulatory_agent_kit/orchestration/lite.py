@@ -53,6 +53,14 @@ class LiteModeResult:
     repo_results: list[dict[str, Any]] = field(default_factory=list)
     report: dict[str, Any] = field(default_factory=dict)
 
+    def record_phase(self, phase_name: str) -> None:
+        """Record that a phase was executed."""
+        self.phases_executed.append(phase_name)
+
+    def add_repo_result(self, result: dict[str, Any]) -> None:
+        """Add a repository processing result."""
+        self.repo_results.append(result)
+
 
 # ---------------------------------------------------------------------------
 # Pipeline context — shared state passed between phases
@@ -74,6 +82,11 @@ class PipelineContext:
     progress_repo: RepositoryProgressStore
     audit_repo: AuditStore
     checkpoint_repo: CheckpointStore
+
+    def get_model(self) -> str:
+        """Return the configured LLM model name."""
+        model: str = self.config.get("default_model", "claude-sonnet-4-20250514")
+        return model
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +112,7 @@ class CostEstimationPhase:
 
     async def execute(self, context: PipelineContext) -> None:
         logger.info("[Lite] Phase: COST_ESTIMATION")
-        model = context.config.get("default_model", "claude-sonnet-4-20250514")
+        model = context.get_model()
         per_repo = {url: 1.50 for url in context.repo_urls}
         context.result.cost_estimate = {
             "estimated_total_cost": sum(per_repo.values()),
@@ -127,7 +140,7 @@ class AnalysisPhase:
                 "conflicts": [],
                 "analysis_confidence": 0.85,
             }
-            context.result.repo_results.append(
+            context.result.add_repo_result(
                 {
                     "repo_url": repo_url,
                     "impact_map": analysis,
@@ -380,6 +393,6 @@ class LiteModeExecutor:
 
         for phase in _DEFAULT_PHASES:
             await phase.execute(context)
-            result.phases_executed.append(phase.name)
+            result.record_phase(phase.name)
 
         return result

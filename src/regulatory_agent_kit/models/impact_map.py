@@ -47,6 +47,10 @@ class FileImpact(BaseModel):
         default_factory=list, description="AST regions affected by matched rules."
     )
 
+    def get_rule_ids(self) -> list[str]:
+        """Return all matched rule IDs for this file."""
+        return [m.rule_id for m in self.matched_rules]
+
 
 class ConflictRecord(BaseModel):
     """A conflict between rules from different regulations affecting the same code region."""

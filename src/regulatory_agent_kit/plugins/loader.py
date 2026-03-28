@@ -168,16 +168,12 @@ class PluginLoader:
             return errors
 
         for rule in plugin.rules:
-            template_path = base_dir / rule.remediation.template
+            template_path, test_path = rule.get_template_paths(base_dir)
             result = validator.validate_template(template_path)
             if result:
-                errors.append(f"Rule '{rule.id}' template '{rule.remediation.template}': {result}")
-            if rule.remediation.test_template:
-                test_path = base_dir / rule.remediation.test_template
+                errors.append(f"Rule '{rule.id}' template '{template_path.name}': {result}")
+            if test_path is not None:
                 result = validator.validate_template(test_path)
                 if result:
-                    errors.append(
-                        f"Rule '{rule.id}' test template "
-                        f"'{rule.remediation.test_template}': {result}"
-                    )
+                    errors.append(f"Rule '{rule.id}' test template '{test_path.name}': {result}")
         return errors

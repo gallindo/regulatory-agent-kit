@@ -39,7 +39,12 @@ class AuditLogger:
         """Build an entry, sign it, and write it to the database."""
         entry = AuditEntry(run_id=run_id, event_type=event_type, payload=payload)
         entry.signature = self._signer.sign(payload)
+        await self._insert_entry(entry)
+        logger.debug("Audit entry persisted: %s / %s", event_type, entry.entry_id)
+        return entry
 
+    async def _insert_entry(self, entry: AuditEntry) -> None:
+        """Persist a single audit entry — encapsulates field unpacking."""
         await self._repo.insert(
             run_id=entry.run_id,
             event_type=entry.event_type,
@@ -47,8 +52,6 @@ class AuditLogger:
             payload=entry.payload,
             signature=entry.signature,
         )
-        logger.debug("Audit entry persisted: %s / %s", event_type, entry.entry_id)
-        return entry
 
     # ------------------------------------------------------------------
     # Public log methods

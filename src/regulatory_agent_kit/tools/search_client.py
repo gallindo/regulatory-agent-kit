@@ -53,6 +53,11 @@ _CONTEXT_MAPPING: dict[str, Any] = {
 }
 
 
+def _extract_hits(resp: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract source documents from an Elasticsearch search response."""
+    return [h["_source"] for h in resp.get("hits", {}).get("hits", [])]
+
+
 # ---------------------------------------------------------------------------
 # Search client
 # ---------------------------------------------------------------------------
@@ -165,8 +170,7 @@ class SearchClient:
                 body["query"]["bool"]["filter"] = [{"term": {"regulation_id": regulation_id}}]
 
             resp = await client.search(index=REGULATIONS_INDEX, body=body)
-            hits: list[dict[str, Any]] = [h["_source"] for h in resp["hits"]["hits"]]
-            return hits
+            return _extract_hits(resp)
         except Exception:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
             return []
@@ -184,8 +188,7 @@ class SearchClient:
                 "size": limit,
             }
             resp = await client.search(index=CONTEXT_INDEX, body=body)
-            hits: list[dict[str, Any]] = [h["_source"] for h in resp["hits"]["hits"]]
-            return hits
+            return _extract_hits(resp)
         except Exception:
             logger.warning("Elasticsearch unavailable — returning empty results", exc_info=True)
             return []

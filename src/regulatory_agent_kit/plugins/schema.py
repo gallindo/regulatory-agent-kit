@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date  # noqa: TC003
+from pathlib import Path  # noqa: TC003
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
@@ -47,6 +48,13 @@ class Rule(BaseModel):
         ..., min_length=1, description="Code patterns this rule targets."
     )
     remediation: Remediation = Field(..., description="How to fix violations.")
+
+    def get_template_paths(self, base_dir: Path) -> tuple[Path, Path | None]:
+        """Return resolved (remediation_template, test_template) paths."""
+        test_path = (
+            base_dir / self.remediation.test_template if self.remediation.test_template else None
+        )
+        return base_dir / self.remediation.template, test_path
 
 
 class CrossReference(BaseModel):
@@ -121,6 +129,16 @@ class RegulationPlugin(BaseModel):
     event_trigger: EventTrigger | None = Field(
         default=None, description="Event trigger configuration."
     )
+
+    def get_precedence_refs(self) -> list[tuple[str, str]]:
+        """Return (regulation_id, relationship) pairs for precedence relationships."""
+        if not self.cross_references:
+            return []
+        return [
+            (ref.regulation_id, ref.relationship)
+            for ref in self.cross_references
+            if ref.relationship in ("takes_precedence", "supersedes")
+        ]
 
     @model_validator(mode="after")
     def _validate_disclaimer(self) -> RegulationPlugin:
