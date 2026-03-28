@@ -215,6 +215,8 @@ PostgreSQL 16 is the minimum required version. Key features used:
 
 ### Schema Design
 
+> **Note:** This DDL is a decision-time snapshot. For the canonical schema with all constraints, indexes, and security grants, see [`data-model.md`](../data-model.md).
+
 ```sql
 -- Separate schema from Temporal's internal tables
 CREATE SCHEMA rak;

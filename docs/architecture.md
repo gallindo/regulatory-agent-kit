@@ -308,6 +308,8 @@ stateDiagram-v2
     ERROR --> [*]
 ```
 
+> **Implementation mapping:** The conceptual state names above (IDLE, COMPLETE, ERROR) map to implementation-level states (PENDING, COMPLETED, FAILED, REJECTED, COST_REJECTED, CANCELLED) in the Temporal workflow and PostgreSQL `pipeline_runs.status` column. For the full mapping table, see [`lld.md` Section 4.1.1 — Pipeline Status vs Temporal Phase](lld.md#41-pipeline-run-lifecycle).
+
 ### 4.2 Orchestration Features
 
 - **Cost estimation gate** — estimated LLM cost displayed before analysis begins
@@ -464,7 +466,19 @@ When two regulations loaded in the same pipeline run produce contradictory remed
 3. **Resolves or escalates** based on the plugin's `conflict_handling` setting — `escalate_to_human` (default) routes to the human checkpoint; `apply_both` applies both remediations; `defer_to_referenced` defers to the referenced regulation. The default behavior is escalation, as conflict resolution is ultimately a legal decision
 4. **Logs** the conflict in the audit trail with both rule IDs, affected code, and the human's resolution
 
-### 8.3 Duplicate Prevention
+### 8.3 Conflict Resolution Workflow
+
+When `escalate_to_human` is triggered, the conflict is surfaced at the **Impact Review** checkpoint (Checkpoint #1):
+
+1. The Analyzer Agent includes the conflict in the `ImpactMap.conflicts` field with both rule IDs, affected file paths, and conflicting remediation descriptions
+2. The pipeline pauses at `AWAITING_IMPACT_REVIEW`, and the conflict is highlighted in the review notification (Slack/email/webhook)
+3. The human reviewer sees the conflicting rules side-by-side and selects a resolution: apply Rule A, apply Rule B, apply both, or skip the conflicted region
+4. The decision is recorded in `conflict_log` with a reference to the `checkpoint_decisions` entry and signed with Ed25519
+5. The Refactor Agent receives the resolution as part of its input and applies only the approved remediation
+
+If multiple conflicts exist in a single run, they are all presented at the same checkpoint. The reviewer resolves each independently.
+
+### 8.4 Duplicate Prevention
 
 When a `takes_precedence` relationship exists between two regulations, the engine suppresses the lower-priority regulation's rules for entities in scope, preventing duplicate remediations.
 
@@ -510,6 +524,18 @@ SECURITY BOUNDARIES
 | Notification tokens | Secrets manager |
 
 **Environment variables are acceptable for development only.** Production deployments must use a secrets manager.
+
+### 9.3 API Authentication
+
+The RAK API (FastAPI) endpoints (`POST /events`, `POST /approvals/{run_id}`, `GET /runs/{run_id}`) must be protected by an authentication layer appropriate to the deployment context:
+
+| Deployment | Recommended Authentication |
+|---|---|
+| Lite Mode (local) | None (localhost only, bind to `127.0.0.1`) |
+| Docker Compose (dev) | Bearer token via environment variable |
+| Kubernetes (production) | OAuth2 / OIDC via API gateway (e.g., Istio, Kong, AWS ALB with Cognito) or FastAPI middleware with JWT validation |
+
+API authentication is the responsibility of the deployer. The framework provides a `RakAuthMiddleware` extension point for custom authentication backends. Production deployments must not expose the API without authentication.
 
 ---
 

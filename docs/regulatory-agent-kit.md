@@ -438,6 +438,8 @@ stateDiagram-v2
     end note
 ```
 
+> The state names above are conceptual. The canonical state machine is defined in [`architecture.md` Section 4](architecture.md#4-agent-orchestration). For the implementation-level state mapping (DB status vs Temporal phase), see [`lld.md` Section 4.1](lld.md#41-pipeline-run-lifecycle).
+
 **Key additions to the orchestration model:**
 
 - **Cost estimation gate** before analysis begins — operators see estimated LLM cost before approving
@@ -704,7 +706,7 @@ For detailed integration specifications including rate limits, retry strategies,
 
 ### 5.3 Deployment Options
 
-The framework supports five deployment models ranging from zero-infrastructure evaluation to production Kubernetes with full HA. Options include Lite Mode (evaluation in < 5 minutes with Python 3.12+ and an LLM API key), Docker Compose, Kubernetes (Helm), AWS ECS + MSK, and Serverless (Lambda + EventBridge). For detailed deployment configurations, hardware sizing, and cloud-specific guides (AWS, GCP, Azure), see [`infrastructure.md`](infrastructure.md).
+The framework supports multiple deployment models ranging from zero-infrastructure evaluation to production Kubernetes with full HA. For the canonical list of deployment options (including Lite Mode, Docker Compose, Kubernetes, and cloud-native configurations for AWS, GCP, and Azure), hardware sizing, and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
 
 ### 5.4 Analysis Scope — Beyond Application Code
 

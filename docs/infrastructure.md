@@ -4,6 +4,7 @@
 > **Date:** 2026-03-27
 > **Status:** Active Development
 > **Audience:** Platform engineers, DevOps, SRE, and infrastructure teams.
+> **Related:** For integration protocols, authentication, rate limits, and retry strategies per external system, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table).
 
 ---
 

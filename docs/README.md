@@ -43,8 +43,9 @@ To avoid drift between documents, each topic has one canonical source. Other doc
 | Plugin YAML schema | `architecture.md` Section 12 | `regulatory-agent-kit.md`, `lld.md` |
 | Workflow state machine | `architecture.md` Section 4 | `regulatory-agent-kit.md`, `sad.md`, `hld.md` |
 | Agent contracts | `architecture.md` Section 4.3 | `regulatory-agent-kit.md`, `sad.md` |
-| Security boundaries | `architecture.md` Section 9 | `regulatory-agent-kit.md`, `sad.md` |
+| Security boundaries & threats | `architecture.md` Section 9–10 | `regulatory-agent-kit.md`, `sad.md` |
 | Event schema & sources | `architecture.md` Section 5 | `sad.md` |
+| DDL / Table schemas | `data-model.md` | `sad.md`, `lld.md`, `adr/003` |
 | Deployment options (detailed) | `infrastructure.md` | `architecture.md`, `regulatory-agent-kit.md`, `sad.md`, `hld.md` |
 | Integration specs (detailed) | `hld.md` Section 6.2 | `architecture.md`, `sad.md`, `regulatory-agent-kit.md` |
 | DB status vs Temporal phase | `lld.md` Section 4.1.1 | `data-model.md` |

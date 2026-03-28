@@ -1046,6 +1046,8 @@ stateDiagram-v2
 
 ## 5. Database Schema Details
 
+> **Cross-reference:** The canonical data dictionary, indexing strategy, JSONB payload schemas, Elasticsearch mappings, partitioning/retention policies, and migration plan are in [`data-model.md`](data-model.md). The DDL below focuses on constraints, indexes, roles, and security grants relevant to code-level implementation.
+
 ### 5.1 Complete DDL with Constraints, Indexes, and Security
 
 ```sql

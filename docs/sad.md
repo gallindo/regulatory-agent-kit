@@ -169,6 +169,7 @@ The four non-negotiable architectural principles (from SS1.3) are supported by f
 | [ADR-003](adr/003-database-selection.md) | **PostgreSQL** as the single database | All data categories (workflow state, pipeline metadata, audit trail, checkpoint decisions) fit PostgreSQL. No NoSQL store justified. Minimizes operational complexity. |
 | [ADR-004](adr/004-python-stack.md) | **Python 3.12+, uv, Pydantic v2, Psycopg 3, FastAPI, Ruff, mypy** | Coherent, minimal dependency set. Pydantic-centric data layer. Astral toolchain (uv + Ruff). No ORM. |
 | [ADR-005](adr/005-llm-observability-platform.md) | **MLflow** (self-hosted) for LLM observability | No ClickHouse dependency (uses PostgreSQL + S3). Native PydanticAI autolog. Python server. Apache 2.0 / Linux Foundation governance. |
+| [ADR-006](adr/006-elasticsearch-selection.md) | **Elasticsearch 8.x** as regulatory knowledge base | Mature kNN vector search + BM25 + structured filtering in one engine. Optional dependency — Lite Mode degrades gracefully. |
 
 ---
 
@@ -649,21 +650,25 @@ PostgreSQL 16+
 
 ### 7.2 Application Schema (rak)
 
+> **Abbreviated schema** — the canonical DDL with all constraints, indexes, roles, and security grants is in [`data-model.md`](data-model.md). The listing below is a structural overview only.
+
 ```sql
 CREATE SCHEMA rak;
 
 -- Pipeline run metadata
 CREATE TABLE rak.pipeline_runs (
-    run_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    regulation_id   TEXT NOT NULL,
-    status          TEXT NOT NULL CHECK (status IN
-                        ('pending','running','completed','failed','cancelled')),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at    TIMESTAMPTZ,
-    total_repos     INTEGER NOT NULL,
-    estimated_cost  NUMERIC(10,4),
-    actual_cost     NUMERIC(10,4),
-    config_snapshot JSONB NOT NULL
+    run_id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    regulation_id        TEXT NOT NULL,
+    status               TEXT NOT NULL CHECK (status IN
+                             ('pending','running','cost_rejected',
+                              'completed','failed','rejected','cancelled')),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at         TIMESTAMPTZ,
+    total_repos          INTEGER NOT NULL CHECK (total_repos > 0),
+    estimated_cost       NUMERIC(10,4),
+    actual_cost          NUMERIC(10,4) DEFAULT 0,
+    config_snapshot      JSONB NOT NULL,
+    temporal_workflow_id TEXT UNIQUE
 );
 
 -- Per-repository progress tracking
@@ -674,7 +679,7 @@ CREATE TABLE rak.repository_progress (
     status      TEXT NOT NULL CHECK (status IN
                     ('pending','in_progress','completed','failed','skipped')),
     branch_name TEXT,
-    commit_sha  TEXT,
+    commit_sha  CHAR(40),   -- SHA-1 hash, always 40 hex characters
     pr_url      TEXT,
     error       TEXT,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -716,6 +721,16 @@ CREATE TABLE rak.conflict_log (
     human_decision_id UUID REFERENCES rak.checkpoint_decisions(id),
     detected_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- File-level analysis cache (incremental analysis)
+CREATE TABLE rak.file_analysis_cache (
+    cache_key   CHAR(64) PRIMARY KEY,  -- SHA-256(content + plugin_version + agent_version)
+    repo_url    TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    result      JSONB NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '7 days')
+);
 ```
 
 ### 7.3 Audit Trail Immutability
@@ -756,35 +771,7 @@ flowchart LR
 
 The pipeline is implemented as a Temporal workflow with child workflows for per-repository processing. Temporal's event-sourced execution provides durable state, automatic crash recovery, and distributed fan-out.
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-
-    IDLE --> COST_ESTIMATION : Event received
-
-    COST_ESTIMATION --> ANALYZING : Cost approved
-    COST_ESTIMATION --> IDLE : Cost rejected
-
-    ANALYZING --> IMPACT_REVIEW : Impact map produced
-    ANALYZING --> ERROR : Agent failure
-
-    IMPACT_REVIEW --> REFACTORING : Approved (Temporal Signal)
-    IMPACT_REVIEW --> IDLE : Rejected (false positive)
-
-    REFACTORING --> TESTING : Changes applied
-    REFACTORING --> ERROR : Agent failure
-
-    TESTING --> MERGE_REVIEW : Tests passing
-    TESTING --> REFACTORING : Tests failing (retry)
-
-    MERGE_REVIEW --> REPORTING : Approved (Temporal Signal)
-    MERGE_REVIEW --> REFACTORING : Modifications requested
-
-    REPORTING --> COMPLETE : Outputs delivered
-
-    COMPLETE --> [*]
-    ERROR --> [*]
-```
+The canonical state machine diagram is defined in [`architecture.md` Section 4.1 — Workflow Engine](architecture.md#41-workflow-engine). The conceptual states (IDLE, COMPLETE, ERROR) used in the architecture-level diagram map to implementation-level states documented in [`lld.md` Section 4.1 — Pipeline Run Lifecycle](lld.md#41-pipeline-run-lifecycle), which also provides the mapping between Temporal workflow phases and PostgreSQL `pipeline_runs.status` values.
 
 ### 8.2 Workflow Structure
 
@@ -1012,28 +999,12 @@ The framework enforces eight security boundaries. For the canonical listing, see
 
 ### 13.2 Threat Mitigations
 
-| Threat | Mitigation |
-|---|---|
-| **LLM prompt injection via regulatory documents** | Input sanitization; Pydantic structured output validation; tool-level isolation (Analyzer = read-only tools); human checkpoints as primary defense |
-| **Test execution as RCE vector** | Sandboxed containers (`--network=none --read-only`); static AST analysis before execution; CPU/memory/time limits |
-| **Credential exposure** | Mandatory secrets manager (Vault, AWS SM, GCP SM); short-lived Git tokens (GitHub App tokens expire in 1h); rotation without restart |
-| **Data classification leakage** | LiteLLM routing enforces region-based model selection; content with privacy-sensitive patterns is redacted before LLM calls |
-| **Supply chain compromise** | `uv.lock` with hash verification; `pip-audit` in CI; SBOM generation (Syft/CycloneDX); signed container images (Sigstore/cosign) |
-| **Mid-pipeline crash** | Temporal event-sourced state; automatic replay on restart; per-repo progress tracking; deterministic workflow IDs |
-| **Concurrent pipeline conflicts** | Temporal workflow ID uniqueness prevents duplicate processing; repository-scoped child workflow IDs |
-| **Audit log tampering** | Ed25519 signatures per entry; append-only PostgreSQL table (no UPDATE/DELETE grants); monthly export to immutable object storage |
-| **Plugin template injection** | Jinja2 `SandboxedEnvironment` prevents arbitrary code execution in user-contributed templates |
+For the canonical threat mitigation table and credential management requirements, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture). Key highlights:
 
-### 13.3 Credential Management
-
-| Credential Type | Required Approach |
-|---|---|
-| LLM API keys | Secrets manager; LiteLLM Vault integration |
-| Git provider tokens | Short-lived: GitHub App installation tokens (1h), GitLab tokens with expiry, Bitbucket OAuth2 with refresh |
-| Kafka credentials | SASL/SCRAM or mTLS; rotatable without restart |
-| Elasticsearch credentials | API Key with expiry; OAuth2 |
-| PostgreSQL credentials | Username/Password with SSL; connection pooling via Psycopg 3 `AsyncConnectionPool` |
-| Notification tokens | Secrets manager |
+- **LLM prompt injection** — input sanitization, Pydantic structured output, tool-level isolation, human checkpoints
+- **Test execution as RCE** — sandboxed containers (`--network=none --read-only`), static AST analysis, resource limits
+- **Audit log tampering** — Ed25519 signatures, append-only PostgreSQL (no UPDATE/DELETE), immutable object storage export
+- **Plugin template injection** — Jinja2 `SandboxedEnvironment` in all rendering paths
 
 **Environment variables are acceptable for development only.** Production deployments must use a secrets manager.
 
@@ -1043,7 +1014,7 @@ The framework enforces eight security boundaries. For the canonical listing, see
 
 ### 14.1 Deployment Options
 
-Four deployment models are supported: Lite Mode, Docker Compose, Kubernetes (Helm), and AWS ECS + MSK. For the canonical deployment options with hardware sizing, cloud-specific configurations (AWS, GCP, Azure), and Helm chart values, see [`infrastructure.md`](infrastructure.md).
+Multiple deployment models are supported — from Lite Mode (zero-infrastructure evaluation) through Docker Compose and Kubernetes (Helm) to cloud-native configurations (AWS, GCP, Azure). For the canonical deployment options with hardware sizing, cloud-specific configurations, and Helm chart values, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
 
 ### 14.2 Docker Compose Topology
 
@@ -1114,134 +1085,31 @@ For the detailed integration specification table including protocols, authentica
 
 ## 15. Project Structure
 
-```
-regulatory-agent-kit/
-+-- pyproject.toml                     # Project metadata, dependencies (PEP 621)
-+-- uv.lock                           # Lockfile with hashes (supply chain security)
-+-- justfile                           # Task runner commands
-+-- alembic.ini                        # Migration configuration
-+-- docker-compose.yml                 # Full development stack
-+-- Dockerfile                         # Worker + API container image
-+-- helm/                              # Kubernetes Helm chart
-|
-+-- src/
-|   +-- regulatory_agent_kit/
-|       +-- __init__.py
-|       +-- cli.py                     # Typer CLI (rak run, status, resume, ...)
-|       +-- config.py                  # Pydantic Settings (env vars, .env)
-|       |
-|       +-- api/                       # FastAPI application
-|       |   +-- app.py                 # FastAPI app factory
-|       |   +-- routes/
-|       |       +-- events.py          # POST /events (WebhookEventSource)
-|       |       +-- approvals.py       # POST /approvals/{run_id}
-|       |       +-- status.py          # GET /runs/{run_id}
-|       |
-|       +-- workflows/                 # Temporal workflows
-|       |   +-- compliance_pipeline.py # Top-level workflow
-|       |   +-- repository_processor.py# Per-repo child workflow
-|       |
-|       +-- activities/                # Temporal activities
-|       |   +-- analyze.py             # Analyzer activity
-|       |   +-- refactor.py            # Refactor activity
-|       |   +-- test.py                # TestGenerator activity
-|       |   +-- report.py              # Reporter activity
-|       |   +-- cost_estimation.py     # Pre-run cost estimation
-|       |
-|       +-- agents/                    # PydanticAI agent definitions
-|       |   +-- analyzer.py            # AnalyzerAgent + tools
-|       |   +-- refactor.py            # RefactorAgent + tools
-|       |   +-- testgen.py             # TestGeneratorAgent + tools
-|       |   +-- reporter.py            # ReporterAgent + tools
-|       |
-|       +-- tools/                     # Agent tools (isolated per agent)
-|       |   +-- git.py                 # GitClient (subprocess wrapper)
-|       |   +-- ast.py                 # tree-sitter AST operations
-|       |   +-- test_runner.py         # Sandboxed test execution
-|       |   +-- search.py              # Elasticsearch search
-|       |   +-- templates.py           # Jinja2 template rendering
-|       |
-|       +-- plugins/                   # Plugin system
-|       |   +-- loader.py              # PluginLoader (ruamel.yaml + Pydantic)
-|       |   +-- schema.py              # Plugin Pydantic models
-|       |   +-- condition_dsl.py       # Condition expression parser
-|       |   +-- conflict_engine.py     # Cross-regulation conflict detection
-|       |
-|       +-- events/                    # Event sources
-|       |   +-- base.py                # EventSource protocol
-|       |   +-- kafka.py               # KafkaEventSource
-|       |   +-- webhook.py             # WebhookEventSource (uses FastAPI)
-|       |   +-- sqs.py                 # SQSEventSource
-|       |   +-- file.py                # FileEventSource (lite mode)
-|       |
-|       +-- repositories/             # Data access layer (Psycopg 3)
-|       |   +-- base.py                # Base repository with connection pool
-|       |   +-- pipeline_runs.py       # PipelineRunRepository
-|       |   +-- progress.py            # RepositoryProgressRepository
-|       |   +-- audit.py               # AuditRepository (append-only)
-|       |   +-- checkpoints.py         # CheckpointDecisionRepository
-|       |   +-- conflicts.py           # ConflictLogRepository
-|       |
-|       +-- models/                    # Pydantic models (shared)
-|       |   +-- events.py              # RegulatoryEvent, etc.
-|       |   +-- pipeline.py            # PipelineInput, PipelineResult, etc.
-|       |   +-- impact.py              # ImpactMap, ChangeSet, etc.
-|       |   +-- audit.py               # AuditEntry, CheckpointDecision, etc.
-|       |
-|       +-- observability/            # Tracing and metrics setup
-|       |   +-- mlflow_setup.py        # MLflow autolog configuration
-|       |   +-- otel_setup.py          # OpenTelemetry + Temporal interceptor
-|       |   +-- audit_signer.py        # Ed25519 signing for audit entries
-|       |
-|       +-- worker.py                  # Temporal worker entrypoint
-|
-+-- migrations/                        # Alembic migrations for rak schema
-|   +-- versions/
-|
-+-- regulations/                       # Regulation YAML plugins
-|   +-- README.md
-|   +-- dora/
-|       +-- README.md
-|       +-- dora-ict-risk-2025.yaml
-|       +-- templates/
-|       +-- tests/
-|
-+-- tests/
-|   +-- unit/                          # Fast, no external dependencies
-|   +-- integration/                   # testcontainers (PostgreSQL, ES)
-|   +-- e2e/                           # Full stack (Docker Compose)
-|
-+-- docs/
-    +-- architecture.md                # Abstract framework specification
-    +-- sad.md                         # This document
-    +-- regulatory-agent-kit.md        # Product requirements
-    +-- adr/                           # Architecture Decision Records
-        +-- 001-agent-orchestration-framework.md
-        +-- 002-langgraph-vs-temporal-pydanticai.md
-        +-- 003-database-selection.md
-        +-- 004-python-stack.md
-        +-- 005-llm-observability-platform.md
-```
+The project follows a standard Python `src/` layout. Key top-level directories:
+
+| Directory | Purpose |
+|---|---|
+| `src/regulatory_agent_kit/` | Application code — CLI, API, workflows, activities, agents, tools, plugins, events, repositories, models, observability |
+| `migrations/` | Alembic migrations for the `rak` schema |
+| `regulations/` | Regulation YAML plugins (e.g., `dora/`) |
+| `tests/` | Unit (no external deps), integration (testcontainers), e2e (Docker Compose) |
+| `docs/` | Architecture documentation and ADRs |
+| `helm/` | Kubernetes Helm chart |
+
+For the full directory tree with per-file descriptions, see [`lld.md` Section 2 — Class Diagrams](lld.md#2-class-diagrams), which maps each source file to its class hierarchy and responsibilities.
 
 ---
 
 ## 16. Technical Risks and Mitigations
 
+For the canonical risk table, see [`architecture.md` Section 10 — Technical Risks & Mitigations](architecture.md#10-technical-risks--mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
+
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
-| Mid-pipeline crash | CRITICAL | HIGH | Temporal event-sourced state with automatic replay. Per-repo child workflows isolate failures. `rak resume` not needed — Temporal auto-recovers. |
-| Test execution as RCE vector | CRITICAL | MEDIUM | Sandboxed containers (`--network=none --read-only`); static AST analysis; CPU/memory/time limits. |
-| No rollback mechanism | CRITICAL | HIGH | Rollback manifests generated per run; `rak rollback --run-id` reverses all changes. |
-| LLM prompt injection | HIGH | MEDIUM | Input sanitization; Pydantic structured output; tool isolation; human checkpoints. |
-| Concurrent pipeline conflicts | HIGH | MEDIUM | Temporal workflow ID uniqueness per repository; deterministic child workflow IDs. |
-| Credential exposure | HIGH | HIGH | Mandatory secrets manager; short-lived tokens; `pydantic-settings` for config (no hardcoded secrets). |
 | Temporal server operational complexity | HIGH | MEDIUM | Docker Compose for dev; Temporal Helm chart for production; documented runbooks; Temporal Cloud as managed fallback option. |
-| LLM non-determinism across model versions | HIGH | MEDIUM | Model version pinning via LiteLLM; version recorded in every MLflow trace and audit entry; validation test suite per model+plugin. |
 | PostgreSQL as single point of failure | HIGH | LOW | Streaming replication with automatic failover (Patroni or managed PostgreSQL with HA). Separate connection pools for Temporal and application. |
 | MLflow LLM tracing maturity | MEDIUM | MEDIUM | Audit trail lives in `rak.audit_entries` (application-owned), not in MLflow. MLflow is the visualization layer, not the system of record. |
-| No incremental analysis | MEDIUM | HIGH | File-level caching via `SHA256(content + plugin_version + agent_version)`; `git diff` change detection; analysis results cached in PostgreSQL. |
-| Plugin template injection | MEDIUM | LOW | Jinja2 `SandboxedEnvironment` in all template rendering. Static analysis of templates during `rak plugin validate`. |
 
 ---
 
-*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`architecture.md`](architecture.md). For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements, see [`regulatory-agent-kit.md`](regulatory-agent-kit.md).*
+*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`architecture.md`](architecture.md). For the canonical database schema, see [`data-model.md`](data-model.md). For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements, see [`regulatory-agent-kit.md`](regulatory-agent-kit.md).*
