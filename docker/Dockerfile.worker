@@ -6,37 +6,44 @@
 # Build:  docker build -f docker/Dockerfile.worker -t rak:worker .
 # ---------------------------------------------------------------
 
+# --- Stage 1: Builder ---
 FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
+# Install uv for fast dependency resolution
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency manifests first for layer caching
+COPY pyproject.toml uv.lock ./
 
-# ---
+# Install dependencies into the system site-packages
+RUN uv pip install --system --no-cache -r pyproject.toml
 
+# --- Stage 2: Runtime ---
 FROM python:3.12-slim
 
 LABEL org.opencontainers.image.source="https://github.com/your-org/regulatory-agent-kit"
 LABEL org.opencontainers.image.description="regulatory-agent-kit worker"
 
+# Create non-root user
 RUN groupadd --gid 1000 rak && \
     useradd --uid 1000 --gid rak --create-home rak
 
 WORKDIR /app
 
+# Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Copy application source and regulation plugins
 COPY src/ ./src/
 COPY regulations/ ./regulations/
 COPY pyproject.toml ./
 
+# Install the package itself (no deps, already copied)
 RUN pip install --no-cache-dir --no-deps -e .
 
 USER rak
 
-ENTRYPOINT ["python", "-m", "regulatory_agent_kit.cli"]
-CMD ["run", "--help"]
+ENTRYPOINT ["python", "-m", "regulatory_agent_kit.orchestration.worker"]

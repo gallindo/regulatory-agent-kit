@@ -10,10 +10,16 @@ FROM python:3.12-slim
 
 LABEL org.opencontainers.image.description="regulatory-agent-kit MLflow server"
 
-RUN pip install --no-cache-dir mlflow[postgres]>=2.18.0 psycopg2-binary
+RUN pip install --no-cache-dir \
+    "mlflow[postgres]>=2.18.0" \
+    psycopg2-binary \
+    boto3
 
 RUN groupadd --gid 1000 mlflow && \
     useradd --uid 1000 --gid mlflow --create-home mlflow
+
+# Create artifact directory owned by mlflow user
+RUN mkdir -p /mlflow-artifacts && chown mlflow:mlflow /mlflow-artifacts
 
 USER mlflow
 
@@ -23,6 +29,6 @@ ENTRYPOINT ["mlflow", "server"]
 CMD [ \
     "--host", "0.0.0.0", \
     "--port", "5000", \
-    "--backend-store-uri", "postgresql://rak:rak_dev_password@postgres:5432/mlflow", \
-    "--default-artifact-root", "/tmp/mlflow-artifacts" \
+    "--default-artifact-root", "/mlflow-artifacts" \
 ]
+# Backend store URI is set via MLFLOW_BACKEND_STORE_URI env var in docker-compose.yml

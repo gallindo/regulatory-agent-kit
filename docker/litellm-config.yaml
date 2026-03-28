@@ -2,9 +2,13 @@
 # LiteLLM Proxy — Model Configuration
 # ---------------------------------------------------------------
 # Docs: https://docs.litellm.ai/docs/proxy/configs
+#
+# API keys are read from environment variables at runtime —
+# never hardcode secrets in this file.
 # ---------------------------------------------------------------
 
 model_list:
+  # --- Anthropic Claude (primary) ---
   - model_name: "anthropic/claude-sonnet-4-6"
     litellm_params:
       model: "claude-sonnet-4-6"
@@ -15,5 +19,20 @@ model_list:
       model: "claude-haiku-4-5-20251001"
       api_key: "os.environ/ANTHROPIC_API_KEY"
 
+  # --- OpenAI (fallback) ---
+  - model_name: "openai/gpt-4o"
+    litellm_params:
+      model: "gpt-4o"
+      api_key: "os.environ/OPENAI_API_KEY"
+
+  - model_name: "openai/gpt-4o-mini"
+    litellm_params:
+      model: "gpt-4o-mini"
+      api_key: "os.environ/OPENAI_API_KEY"
+
 general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
+
+litellm_settings:
+  success_callback: ["mlflow"]
+  mlflow_tracking_uri: "http://mlflow:5000"
