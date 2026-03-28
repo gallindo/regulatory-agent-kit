@@ -1,6 +1,33 @@
-"""CLI entry point for regulatory-agent-kit."""
+"""CLI entry point for regulatory-agent-kit.
+
+Provides the ``rak`` command with subcommands for running compliance pipelines,
+managing pipeline state, validating regulation plugins, and database maintenance.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from pathlib import Path
+from typing import Annotated
 
 import typer
+from rich.console import Console
+from rich.table import Table
+
+from regulatory_agent_kit.config import load_settings
+from regulatory_agent_kit.exceptions import (
+    PluginLoadError,
+    PluginValidationError,
+)
+from regulatory_agent_kit.plugins.loader import PluginLoader
+
+logger = logging.getLogger(__name__)
+console = Console()
+
+# ---------------------------------------------------------------------------
+# Top-level app
+# ---------------------------------------------------------------------------
 
 app = typer.Typer(
     name="rak",
@@ -8,25 +35,350 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+# ---------------------------------------------------------------------------
+# Sub-groups: plugin, db
+# ---------------------------------------------------------------------------
+
+plugin_app = typer.Typer(
+    name="plugin",
+    help="Manage regulation plugins.",
+    no_args_is_help=True,
+)
+app.add_typer(plugin_app, name="plugin")
+
+db_app = typer.Typer(
+    name="db",
+    help="Database maintenance commands.",
+    no_args_is_help=True,
+)
+app.add_typer(db_app, name="db")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _validate_uuid(value: str) -> str:
+    """Validate that a string is a valid UUID."""
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        msg = f"Invalid UUID: {value}"
+        raise typer.BadParameter(msg) from None
+    return value
+
+
+# ---------------------------------------------------------------------------
+# rak run
+# ---------------------------------------------------------------------------
+
 
 @app.command()
 def run(
-    regulation: str = typer.Option(..., help="Path to regulation plugin YAML"),
-    repos: list[str] = typer.Option(..., help="Repository URLs or local paths to analyze"),
-    checkpoint_mode: str = typer.Option("terminal", help="Approval mode: terminal|slack|email|webhook"),
-    lite: bool = typer.Option(False, help="Run in Lite Mode (no external services)"),
+    regulation: Annotated[
+        str,
+        typer.Option(help="Path to regulation plugin YAML."),
+    ],
+    repos: Annotated[
+        list[str],
+        typer.Option(help="Repository URLs or local paths to analyze."),
+    ],
+    checkpoint_mode: Annotated[
+        str,
+        typer.Option(help="Approval mode: terminal|slack|email|webhook."),
+    ] = "terminal",
+    lite: Annotated[
+        bool,
+        typer.Option(help="Run in Lite Mode (no external services)."),
+    ] = False,
+    config: Annotated[
+        str | None,
+        typer.Option(help="Path to rak-config.yaml for pipeline configuration."),
+    ] = None,
 ) -> None:
     """Run the compliance pipeline against target repositories."""
-    typer.echo(f"Running regulation: {regulation}")
+    # Load settings with optional YAML overlay
+    overrides: dict[str, object] = {}
+    if lite:
+        overrides["lite_mode"] = True
+    if checkpoint_mode != "terminal":
+        overrides["checkpoint_mode"] = checkpoint_mode
+
+    settings = load_settings(
+        yaml_path=config,
+        overrides=overrides,
+    )
+
+    # Validate the regulation plugin
+    plugin_path = Path(regulation)
+    loader = PluginLoader()
+    try:
+        plugin = loader.load(plugin_path)
+    except (PluginLoadError, PluginValidationError) as exc:
+        console.print(f"[red]Error loading plugin:[/red] {exc}")
+        raise typer.Exit(code=1) from None
+
+    mode = "Lite Mode" if settings.lite_mode else "Temporal"
+    console.print(f"[bold green]Pipeline starting[/bold green] ({mode})")
+    console.print(f"  Regulation : {plugin.name} ({plugin.id})")
+    console.print(f"  Repos      : {', '.join(repos)}")
+    console.print(f"  Checkpoint : {settings.checkpoint_mode}")
+
+    if settings.lite_mode:
+        typer.echo("Lite Mode pipeline execution is not yet implemented.")
+    else:
+        typer.echo("Temporal pipeline execution is not yet implemented.")
+
+
+# ---------------------------------------------------------------------------
+# rak status
+# ---------------------------------------------------------------------------
 
 
 @app.command()
 def status(
-    run_id: str = typer.Option(..., help="Pipeline run ID"),
+    run_id: Annotated[
+        str,
+        typer.Option(help="Pipeline run ID (UUID)."),
+    ],
 ) -> None:
-    """Check pipeline run status."""
-    typer.echo(f"Status for run: {run_id}")
+    """Query and display pipeline run status."""
+    run_id = _validate_uuid(run_id)
 
+    table = Table(title=f"Pipeline Status: {run_id}")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("Run ID", run_id)
+    table.add_row("Status", "unknown (not yet connected to backend)")
+    table.add_row("Repos", "—")
+    table.add_row("Progress", "—")
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# rak retry-failures
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="retry-failures")
+def retry_failures(
+    run_id: Annotated[
+        str,
+        typer.Option(help="Pipeline run ID (UUID) to retry failed repos."),
+    ],
+) -> None:
+    """Find failed repos in a pipeline run and trigger re-dispatch."""
+    run_id = _validate_uuid(run_id)
+    typer.echo(f"Retrying failures for run: {run_id}")
+    typer.echo("Not yet implemented — would query failed repos and re-dispatch.")
+
+
+# ---------------------------------------------------------------------------
+# rak rollback
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def rollback(
+    run_id: Annotated[
+        str,
+        typer.Option(help="Pipeline run ID (UUID) to rollback."),
+    ],
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview rollback without executing."),
+    ] = False,
+) -> None:
+    """Read rollback manifest and preview or execute cleanup."""
+    run_id = _validate_uuid(run_id)
+    if dry_run:
+        typer.echo(f"[DRY RUN] Would rollback run: {run_id}")
+        typer.echo("Not yet implemented — would read rollback manifest and preview.")
+    else:
+        typer.echo(f"Rolling back run: {run_id}")
+        typer.echo("Not yet implemented — would read rollback manifest and execute.")
+
+
+# ---------------------------------------------------------------------------
+# rak resume
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def resume(
+    run_id: Annotated[
+        str,
+        typer.Option(help="Pipeline run ID (UUID) to resume."),
+    ],
+) -> None:
+    """Resume an interrupted Lite Mode pipeline from its last checkpoint."""
+    run_id = _validate_uuid(run_id)
+    typer.echo(f"Resuming run: {run_id}")
+    typer.echo("Not yet implemented — would reload WAL and resume from last checkpoint.")
+
+
+# ---------------------------------------------------------------------------
+# rak cancel
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def cancel(
+    run_id: Annotated[
+        str,
+        typer.Option(help="Pipeline run ID (UUID) to cancel."),
+    ],
+) -> None:
+    """Cancel a running pipeline."""
+    run_id = _validate_uuid(run_id)
+    typer.echo(f"Cancelling run: {run_id}")
+    typer.echo("Not yet implemented — would signal pipeline cancellation.")
+
+
+# ---------------------------------------------------------------------------
+# rak plugin validate
+# ---------------------------------------------------------------------------
+
+
+@plugin_app.command(name="validate")
+def plugin_validate(
+    path: Annotated[
+        str,
+        typer.Argument(help="Path to regulation plugin YAML file."),
+    ],
+) -> None:
+    """Validate a regulation plugin YAML file against the schema."""
+    plugin_path = Path(path)
+    loader = PluginLoader()
+    errors = loader.validate(plugin_path)
+    if errors:
+        console.print(f"[red]Validation failed for {path}:[/red]")
+        for err in errors:
+            console.print(f"  - {err}")
+        raise typer.Exit(code=1)
+    console.print(f"[green]Plugin {path} is valid.[/green]")
+
+
+# ---------------------------------------------------------------------------
+# rak plugin init
+# ---------------------------------------------------------------------------
+
+_SCAFFOLD_PLUGIN_YAML = """\
+# Regulation Plugin: {name}
+# Edit this file to define your regulatory rules.
+
+id: {slug}
+name: "{name}"
+version: "1.0.0"
+effective_date: "2025-01-01"
+jurisdiction: "CHANGE_ME"
+authority: "CHANGE_ME"
+source_url: "https://example.com/regulations/{slug}"
+disclaimer: >
+  DISCLAIMER: Replace this with an appropriate legal disclaimer.
+
+changelog: "1.0.0: Initial plugin scaffold."
+
+rules:
+  - id: {upper_slug}-001
+    description: >
+      Replace this with a description of the regulatory rule.
+    severity: medium
+    affects:
+      - pattern: "**/*.java"
+        condition: "has_annotation(@Example)"
+    remediation:
+      strategy: add_annotation
+      template: templates/example.j2
+      confidence_threshold: 0.85
+"""
+
+_SCAFFOLD_TEMPLATE = """\
+{{# Jinja2 template for {name} rule remediation #}}
+{{{{ content }}}}
+"""
+
+_SCAFFOLD_README = """\
+# {name}
+
+Regulation plugin scaffold. Edit `{slug}.yaml` to define your rules.
+"""
+
+
+@plugin_app.command(name="init")
+def plugin_init(
+    name: Annotated[
+        str,
+        typer.Option(help="Name for the new regulation plugin."),
+    ],
+    output_dir: Annotated[
+        str,
+        typer.Option(help="Parent directory for the plugin scaffold."),
+    ] = "regulations",
+) -> None:
+    """Scaffold a new regulation plugin directory structure."""
+    slug = name.lower().replace(" ", "-")
+    base = Path(output_dir) / slug
+    if base.exists():
+        console.print(f"[red]Directory already exists: {base}[/red]")
+        raise typer.Exit(code=1)
+
+    # Create directory structure
+    templates_dir = base / "templates"
+    templates_dir.mkdir(parents=True)
+
+    # Write scaffold files
+    plugin_yaml = base / f"{slug}.yaml"
+    upper_slug = slug.upper().replace("-", "_")
+    plugin_yaml.write_text(
+        _SCAFFOLD_PLUGIN_YAML.format(name=name, slug=slug, upper_slug=upper_slug)
+    )
+
+    template_file = templates_dir / "example.j2"
+    template_file.write_text(_SCAFFOLD_TEMPLATE.format(name=name))
+
+    readme_file = base / "README.md"
+    readme_file.write_text(_SCAFFOLD_README.format(name=name, slug=slug))
+
+    console.print(f"[green]Plugin scaffold created at {base}[/green]")
+    console.print(f"  {plugin_yaml}")
+    console.print(f"  {template_file}")
+    console.print(f"  {readme_file}")
+
+
+# ---------------------------------------------------------------------------
+# rak db clean-cache
+# ---------------------------------------------------------------------------
+
+
+@db_app.command(name="clean-cache")
+def db_clean_cache() -> None:
+    """Invoke cache cleanup on the file analysis cache."""
+    typer.echo("Cleaning analysis cache...")
+    typer.echo("Not yet implemented — would delete expired cache entries.")
+
+
+# ---------------------------------------------------------------------------
+# rak db create-partitions
+# ---------------------------------------------------------------------------
+
+
+@db_app.command(name="create-partitions")
+def db_create_partitions(
+    months: Annotated[
+        int,
+        typer.Option(help="Number of months of audit partitions to create."),
+    ] = 3,
+) -> None:
+    """Create the next N months of audit_entries table partitions."""
+    typer.echo(f"Creating {months} month(s) of audit partitions...")
+    typer.echo("Not yet implemented — would create PostgreSQL range partitions.")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     app()
