@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 
 from regulatory_agent_kit.plugins.schema import (
-    AffectsClause,
     CrossReference,
     RegulationPlugin,
     Remediation,
@@ -56,7 +55,7 @@ class TestRegulationPlugin:
             RegulationPlugin.model_validate(_minimal_plugin(disclaimer=""))
 
     def test_whitespace_only_disclaimer(self) -> None:
-        with pytest.raises(ValidationError, match="[Dd]isclaimer"):
+        with pytest.raises(ValidationError, match=r"[Dd]isclaimer"):
             RegulationPlugin.model_validate(_minimal_plugin(disclaimer="   \n  "))
 
     def test_missing_required_fields(self) -> None:

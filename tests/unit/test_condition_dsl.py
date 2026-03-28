@@ -6,7 +6,6 @@ import pytest
 
 from regulatory_agent_kit.exceptions import ConditionParseError
 from regulatory_agent_kit.plugins.condition_dsl import (
-    ConditionAST,
     can_evaluate_statically,
     parse,
     to_llm_prompt,
@@ -94,11 +93,11 @@ class TestParse:
         assert ast.children[0].node_type == "AND"
 
     def test_empty_expression_raises(self) -> None:
-        with pytest.raises(ConditionParseError, match="[Ee]mpty"):
+        with pytest.raises(ConditionParseError, match=r"[Ee]mpty"):
             parse("")
 
     def test_whitespace_only_raises(self) -> None:
-        with pytest.raises(ConditionParseError, match="[Ee]mpty"):
+        with pytest.raises(ConditionParseError, match=r"[Ee]mpty"):
             parse("   ")
 
     def test_unclosed_paren_raises(self) -> None:
@@ -106,7 +105,7 @@ class TestParse:
             parse("(has_method(foo)")
 
     def test_unknown_predicate_raises(self) -> None:
-        with pytest.raises(ConditionParseError, match="[Uu]nknown"):
+        with pytest.raises(ConditionParseError, match=r"[Uu]nknown"):
             parse("unknown_pred(x)")
 
     def test_unexpected_end_raises(self) -> None:

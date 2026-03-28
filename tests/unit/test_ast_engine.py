@@ -7,7 +7,6 @@ import pytest
 from regulatory_agent_kit.exceptions import ASTError
 from regulatory_agent_kit.tools.ast_engine import ASTEngine, NodeRange, _detect_language
 
-
 # ======================================================================
 # Language detection
 # ======================================================================

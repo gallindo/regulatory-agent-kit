@@ -7,11 +7,11 @@ with real PostgreSQL are in tests/integration/test_repositories.py.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import ClassVar
 
 import pytest
 
-from regulatory_agent_kit.database.pool import close_pool, create_pool, get_pool
+from regulatory_agent_kit.database.pool import get_pool
 from regulatory_agent_kit.database.repositories.audit_entries import AuditRepository
 from regulatory_agent_kit.database.repositories.base import BaseRepository
 from regulatory_agent_kit.database.repositories.checkpoint_decisions import (
@@ -44,7 +44,7 @@ class TestPoolManagement:
 class TestRepositoryInheritance:
     """All repositories inherit from BaseRepository."""
 
-    REPO_CLASSES = [
+    REPO_CLASSES: ClassVar[list[type]] = [
         PipelineRunRepository,
         RepositoryProgressRepository,
         AuditRepository,

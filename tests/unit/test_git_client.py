@@ -6,14 +6,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from regulatory_agent_kit.exceptions import GitError
+from regulatory_agent_kit.exceptions import GitError, ToolError
 from regulatory_agent_kit.tools.git_client import GitClient
 from regulatory_agent_kit.tools.git_provider import (
     GitHubClient,
     GitLabClient,
     create_git_provider,
 )
-
 
 # ======================================================================
 # GitClient — subprocess mocking
@@ -30,7 +29,7 @@ class TestGitClient:
         mock_proc.returncode = 0
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
-            result = await client.clone("https://github.com/org/repo.git", "/tmp/dest")
+            result = await client.clone("https://github.com/org/repo.git", "/tmp/dest")  # noqa: S108
 
         assert result.returncode == 0
         assert "Cloning" in result.stdout
@@ -74,12 +73,12 @@ class TestGitClient:
         assert result.returncode == 0
 
     async def test_token_injection(self) -> None:
-        client = GitClient(token="ghp_secret")
+        client = GitClient(token="ghp_secret")  # noqa: S106
         url = client._inject_token("https://github.com/org/repo.git")
         assert "x-access-token:ghp_secret@" in url
 
     async def test_no_token_injection_for_ssh(self) -> None:
-        client = GitClient(token="ghp_secret")
+        client = GitClient(token="ghp_secret")  # noqa: S106
         url = client._inject_token("git@github.com:org/repo.git")
         assert url == "git@github.com:org/repo.git"
 
@@ -138,5 +137,5 @@ class TestCreateGitProvider:
             create_git_provider("https://bitbucket.org/org/repo.git")
 
     def test_bad_url_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ToolError):
             create_git_provider("https://github.com/")

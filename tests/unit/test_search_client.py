@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 
 from regulatory_agent_kit.tools.search_client import SearchClient
 
-
 # ======================================================================
 # Graceful degradation when ES is unavailable
 # ======================================================================

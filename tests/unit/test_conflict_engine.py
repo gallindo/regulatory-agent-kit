@@ -10,7 +10,6 @@ from regulatory_agent_kit.models.impact_map import (
 )
 from regulatory_agent_kit.plugins.conflict_engine import ConflictEngine
 from regulatory_agent_kit.plugins.schema import RegulationPlugin
-
 from tests.unit.test_plugin_schema import _minimal_plugin
 
 

@@ -1,12 +1,14 @@
 """Unit tests for all domain models (Phase 1)."""
 
 from datetime import datetime
+from typing import ClassVar
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
 
 from regulatory_agent_kit.models import (
+    TERMINAL_STATUSES,
     ASTRegion,
     AuditEntry,
     ChangeSet,
@@ -25,11 +27,9 @@ from regulatory_agent_kit.models import (
     RepoResult,
     ReportBundle,
     RuleMatch,
-    TERMINAL_STATUSES,
     TestFailure,
     TestResult,
 )
-
 
 # ======================================================================
 # RegulatoryEvent
@@ -52,22 +52,16 @@ class TestRegulatoryEvent:
 
     def test_valid_change_types(self) -> None:
         for ct in ("new_requirement", "amendment", "withdrawal"):
-            event = RegulatoryEvent(
-                regulation_id="test", change_type=ct, source="test"
-            )
+            event = RegulatoryEvent(regulation_id="test", change_type=ct, source="test")
             assert event.change_type == ct
 
     def test_invalid_change_type(self) -> None:
         with pytest.raises(ValidationError, match="change_type"):
-            RegulatoryEvent(
-                regulation_id="test", change_type="invalid", source="test"
-            )
+            RegulatoryEvent(regulation_id="test", change_type="invalid", source="test")
 
     def test_empty_regulation_id_rejected(self) -> None:
         with pytest.raises(ValidationError, match="regulation_id"):
-            RegulatoryEvent(
-                regulation_id="", change_type="amendment", source="test"
-            )
+            RegulatoryEvent(regulation_id="", change_type="amendment", source="test")
 
     def test_missing_required_fields(self) -> None:
         with pytest.raises(ValidationError):
@@ -83,17 +77,13 @@ class TestRegulatoryEvent:
         assert event.payload["article"] == "5.1"
 
     def test_round_trip_dict(self) -> None:
-        event = RegulatoryEvent(
-            regulation_id="test", change_type="withdrawal", source="file"
-        )
+        event = RegulatoryEvent(regulation_id="test", change_type="withdrawal", source="file")
         dumped = event.model_dump()
         restored = RegulatoryEvent.model_validate(dumped)
         assert restored == event
 
     def test_round_trip_json(self) -> None:
-        event = RegulatoryEvent(
-            regulation_id="test", change_type="new_requirement", source="sqs"
-        )
+        event = RegulatoryEvent(regulation_id="test", change_type="new_requirement", source="sqs")
         json_str = event.model_dump_json()
         restored = RegulatoryEvent.model_validate_json(json_str)
         assert restored == event
@@ -223,9 +213,9 @@ class TestPipelineResult:
     def test_completed_with_report(self) -> None:
         report = ReportBundle(
             pr_urls=["https://github.com/org/repo/pull/1"],
-            audit_log_path="/tmp/audit.json",
-            report_path="/tmp/report.html",
-            rollback_manifest_path="/tmp/rollback.json",
+            audit_log_path="/tmp/audit.json",  # noqa: S108
+            report_path="/tmp/report.html",  # noqa: S108
+            rollback_manifest_path="/tmp/rollback.json",  # noqa: S108
         )
         result = PipelineResult(status="completed", report=report)
         assert result.status == "completed"
@@ -285,8 +275,13 @@ class TestPipelineStatus:
 
     def test_all_valid_statuses(self) -> None:
         for status in (
-            "pending", "running", "cost_rejected", "completed",
-            "failed", "rejected", "cancelled",
+            "pending",
+            "running",
+            "cost_rejected",
+            "completed",
+            "failed",
+            "rejected",
+            "cancelled",
         ):
             ps = PipelineStatus(run_id=uuid4(), status=status)
             assert ps.status == status
@@ -328,14 +323,10 @@ class TestASTRegion:
 
     def test_zero_line_rejected(self) -> None:
         with pytest.raises(ValidationError, match="start_line"):
-            ASTRegion(
-                start_line=0, end_line=5, start_col=0, end_col=10, node_type="method"
-            )
+            ASTRegion(start_line=0, end_line=5, start_col=0, end_col=10, node_type="method")
 
     def test_round_trip(self) -> None:
-        region = ASTRegion(
-            start_line=1, end_line=5, start_col=0, end_col=80, node_type="function"
-        )
+        region = ASTRegion(start_line=1, end_line=5, start_col=0, end_col=80, node_type="function")
         assert ASTRegion.model_validate(region.model_dump()) == region
 
 
@@ -395,9 +386,7 @@ class TestFileImpact:
 
 class TestConflictRecord:
     def test_valid_conflict(self) -> None:
-        region = ASTRegion(
-            start_line=1, end_line=10, start_col=0, end_col=80, node_type="class"
-        )
+        region = ASTRegion(start_line=1, end_line=10, start_col=0, end_col=80, node_type="class")
         conflict = ConflictRecord(
             conflicting_rule_ids=["DORA-001", "GDPR-005"],
             affected_regions=[region],
@@ -406,9 +395,7 @@ class TestConflictRecord:
         assert len(conflict.conflicting_rule_ids) == 2
 
     def test_single_rule_rejected(self) -> None:
-        region = ASTRegion(
-            start_line=1, end_line=1, start_col=0, end_col=1, node_type="x"
-        )
+        region = ASTRegion(start_line=1, end_line=1, start_col=0, end_col=1, node_type="x")
         with pytest.raises(ValidationError, match="conflicting_rule_ids"):
             ConflictRecord(
                 conflicting_rule_ids=["only-one"],
@@ -485,9 +472,7 @@ class TestTestFailure:
 
 class TestTestResult:
     def test_all_passing(self) -> None:
-        tr = TestResult(
-            pass_rate=1.0, total_tests=10, passed=10, failed=0
-        )
+        tr = TestResult(pass_rate=1.0, total_tests=10, passed=10, failed=0)
         assert tr.failures == []
 
     def test_with_failures(self) -> None:
@@ -515,9 +500,9 @@ class TestReportBundle:
     def test_valid_bundle(self) -> None:
         rb = ReportBundle(
             pr_urls=["https://github.com/org/repo/pull/1"],
-            audit_log_path="/tmp/audit.json",
-            report_path="/tmp/report.html",
-            rollback_manifest_path="/tmp/rollback.json",
+            audit_log_path="/tmp/audit.json",  # noqa: S108
+            report_path="/tmp/report.html",  # noqa: S108
+            rollback_manifest_path="/tmp/rollback.json",  # noqa: S108
         )
         assert len(rb.pr_urls) == 1
 
@@ -536,7 +521,7 @@ class TestReportBundle:
 
 
 class TestAuditEntry:
-    VALID_EVENT_TYPES = [
+    VALID_EVENT_TYPES: ClassVar[list[str]] = [
         "llm_call",
         "tool_invocation",
         "state_transition",
@@ -623,9 +608,7 @@ class TestCheckpointDecision:
 
     def test_valid_decisions(self) -> None:
         for dec in ("approved", "rejected", "modifications_requested"):
-            d = CheckpointDecision(
-                checkpoint_type="merge_review", actor="admin", decision=dec
-            )
+            d = CheckpointDecision(checkpoint_type="merge_review", actor="admin", decision=dec)
             assert d.decision == dec
 
     def test_invalid_decision(self) -> None:
@@ -674,7 +657,7 @@ class TestCheckpointDecision:
 class TestModelExports:
     """Verify all public model classes are importable from regulatory_agent_kit.models."""
 
-    EXPECTED_CLASSES = [
+    EXPECTED_CLASSES: ClassVar[list[str]] = [
         "RegulatoryEvent",
         "PipelineConfig",
         "PipelineInput",

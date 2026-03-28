@@ -13,7 +13,6 @@ from regulatory_agent_kit.tools.notification import (
     create_notifier,
 )
 
-
 # ======================================================================
 # create_notifier factory
 # ======================================================================

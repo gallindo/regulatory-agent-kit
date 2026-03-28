@@ -14,8 +14,6 @@ class TestStructuredLogging:
         logger = logging.getLogger("test.json_output")
         logger.info("hello world")
 
-        import sys
-
         handler = logging.getLogger().handlers[0]
         assert handler is not None
 
