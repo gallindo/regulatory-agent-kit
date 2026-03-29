@@ -1,0 +1,104 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Container Build & Sign
+# ---------------------------------------------------------------
+# Builds Docker images, generates per-image SBOMs with Syft, and
+# signs images with cosign (Sigstore keyless).
+# See architecture.md Section 9 (supply chain security).
+#
+# Triggered on release tags and manual dispatch.
+# Security: All expressions in run: steps use env: blocks.
+# ---------------------------------------------------------------
+
+name: Container Build & Sign
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # required for cosign keyless signing
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-sign:
+    name: Build, SBOM, Sign
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: api
+            dockerfile: docker/Dockerfile.api
+          - name: worker
+            dockerfile: docker/Dockerfile.worker
+          - name: mlflow
+            dockerfile: docker/Dockerfile.mlflow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with cosign (keyless)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image.name }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate container SBOM
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image.name }}
+          IMAGE_NAME: ${{ matrix.image.name }}
+        run: syft "${IMAGE}@${DIGEST}" --output "cyclonedx-json=sbom-${IMAGE_NAME}.json"
+
+      - name: Attach SBOM to image with cosign
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image.name }}
+          IMAGE_NAME: ${{ matrix.image.name }}
+        run: cosign attach sbom --sbom "sbom-${IMAGE_NAME}.json" "${IMAGE}@${DIGEST}"
+
+      - name: Upload container SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.image.name }}
+          path: sbom-${{ matrix.image.name }}.json

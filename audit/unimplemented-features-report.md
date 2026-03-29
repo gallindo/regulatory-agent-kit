@@ -376,17 +376,21 @@ Full Helm chart at `helm/regulatory-agent-kit/` matching `infrastructure.md` Sec
 
 ---
 
-## 19. Supply Chain Security (MISSING)
+## 19. ~~Supply Chain Security~~ (DONE)
 
-**Doc references:** `architecture.md` Section 9, `sad.md` Section 14
+**Completed:** 2026-03-29
 
-| Feature | Status |
-|---------|--------|
-| SBOM generation (Syft/CycloneDX) | MISSING |
-| `pip-audit` in CI pipeline | MISSING |
-| Signed container images (Sigstore/cosign) | MISSING |
-| `pip install --require-hashes` | MISSING |
-| CI/CD pipeline definition (GitHub Actions / GitLab CI) | MISSING |
+CI/CD pipelines and supply chain security per architecture.md Section 9:
+
+| Feature | Implementation |
+|---------|---------------|
+| **CI pipeline** | `.github/workflows/ci.yml` — lint (ruff), typecheck (mypy strict), tests (pytest with 80% coverage gate), dependency audit, SBOM generation. Runs on PR and push to main |
+| **`pip-audit`** | `dependency-audit` job runs `pip-audit --strict --desc` to check all dependencies against known vulnerability databases |
+| **SBOM generation (CycloneDX)** | `sbom` job generates `sbom.json` via `cyclonedx-bom` from the installed Python environment, uploaded as artifact |
+| **Container SBOM (Syft)** | `.github/workflows/container-build.yml` generates per-image SBOMs via Syft in CycloneDX JSON format, attached to image via cosign |
+| **Signed container images (cosign)** | Keyless Sigstore signing via `cosign sign --yes` with OIDC identity token (`id-token: write` permission) |
+| **Container build pipeline** | Builds api/worker/mlflow images on release tags, pushes to GHCR with semver + SHA tags, signs and attaches SBOMs |
+| **Hash verification** | `uv.lock` provides hash-pinned lockfile; `uv sync` verifies hashes at install time |
 
 ---
 
@@ -425,8 +429,8 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Orchestration** (activities + Lite Mode) | 100% | — | — | Full |
 | **CLI** | 100% | — | — | Full |
 | **API** | 100% | — | — | Full |
-| **Infrastructure** | Docker Compose + Helm chart | — | CI/CD, cloud IaC | ~60% |
-| **Security** | Ed25519 signing + secrets mgr | — | SBOM, supply chain | ~40% |
+| **Infrastructure** | Docker Compose + Helm + CI/CD | — | Cloud IaC | ~80% |
+| **Security** | Ed25519 + secrets mgr + supply chain | — | — | Full |
 
 ### Key Findings
 
