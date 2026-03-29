@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from regulatory_agent_kit.models.impact_map import ASTRegion, ConflictRecord, ImpactMap
 from regulatory_agent_kit.plugins.schema import RegulationPlugin  # noqa: TC001
 
@@ -10,7 +12,7 @@ class ConflictEngine:
     """Detects conflicts between rules from different regulation plugins."""
 
     def __init__(self, plugins: list[RegulationPlugin]) -> None:
-        self._plugins = {p.id: p for p in plugins}
+        self._plugins = {plugin.id: plugin for plugin in plugins}
         self._cross_refs = self._build_cross_ref_index(plugins)
 
     def detect(self, impact_maps: dict[str, ImpactMap]) -> list[ConflictRecord]:
@@ -67,32 +69,53 @@ class ConflictEngine:
 
     def _find_overlapping_regions(
         self,
-        map_a: ImpactMap,
-        map_b: ImpactMap,
+        first_map: ImpactMap,
+        second_map: ImpactMap,
     ) -> list[tuple[list[str], list[ASTRegion]]]:
         """Find overlapping AST regions between two impact maps."""
         overlaps: list[tuple[list[str], list[ASTRegion]]] = []
 
-        for file_a in map_a.files:
-            for file_b in map_b.files:
-                if not file_a.shares_file_with(file_b):
-                    continue
-
-                for region_a in file_a.affected_regions:
-                    for region_b in file_b.affected_regions:
-                        if _regions_overlap(region_a, region_b):
-                            rule_ids_a = file_a.get_rule_ids()
-                            rule_ids_b = file_b.get_rule_ids()
-                            all_rules = list(dict.fromkeys(rule_ids_a + rule_ids_b))
-                            if len(all_rules) >= 2:
-                                overlaps.append((all_rules, [region_a, region_b]))
+        for file_a in first_map.files:
+            for file_b in second_map.files:
+                if file_a.shares_file_with(file_b):
+                    self._collect_region_overlaps(file_a, file_b, overlaps)
         return overlaps
 
+    @staticmethod
+    def _collect_region_overlaps(
+        file_a: Any,
+        file_b: Any,
+        overlaps: list[tuple[list[str], list[ASTRegion]]],
+    ) -> None:
+        """Check all region pairs between two file impacts for overlaps."""
+        for region_a in file_a.affected_regions:
+            for region_b in file_b.affected_regions:
+                if _regions_overlap(region_a, region_b):
+                    rule_ids = list(
+                        dict.fromkeys(file_a.get_rule_ids() + file_b.get_rule_ids())
+                    )
+                    if len(rule_ids) >= 2:
+                        overlaps.append((rule_ids, [region_a, region_b]))
 
-def _regions_overlap(a: ASTRegion, b: ASTRegion) -> bool:
-    """Check if two AST regions overlap (same file assumed)."""
-    if a.end_line < b.start_line or b.end_line < a.start_line:
+
+def _regions_overlap(region_a: ASTRegion, region_b: ASTRegion) -> bool:
+    """Check if two AST regions overlap (same file assumed).
+
+    Uses positive conditionals: returns True when overlap is confirmed.
+    """
+    regions_are_disjoint = (
+        region_a.end_line < region_b.start_line
+        or region_b.end_line < region_a.start_line
+    )
+    if regions_are_disjoint:
         return False
-    if a.end_line == b.start_line and a.end_col <= b.start_col:
-        return False
-    return not (b.end_line == a.start_line and b.end_col <= a.start_col)
+
+    touches_at_boundary_ab = (
+        region_a.end_line == region_b.start_line
+        and region_a.end_col <= region_b.start_col
+    )
+    touches_at_boundary_ba = (
+        region_b.end_line == region_a.start_line
+        and region_b.end_col <= region_a.start_col
+    )
+    return not touches_at_boundary_ab and not touches_at_boundary_ba

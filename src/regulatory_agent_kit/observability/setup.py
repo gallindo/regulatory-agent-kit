@@ -252,14 +252,14 @@ class OtelSetup:
     ) -> None:
         """Record an LLM call with latency, tokens, and cost."""
         attrs = {"agent": agent, "model": model}
-        if c := self._metrics.get("llm_calls_total"):
-            c.add(1, attrs)
-        if h := self._metrics.get("llm_call_duration"):
-            h.record(duration_ms, attrs)
-        if c := self._metrics.get("llm_tokens_total"):
-            c.add(tokens, attrs)
-        if c := self._metrics.get("llm_cost_total"):
-            c.add(cost_usd, attrs)
+        if counter := self._metrics.get("llm_calls_total"):
+            counter.add(1, attrs)
+        if histogram := self._metrics.get("llm_call_duration"):
+            histogram.record(duration_ms, attrs)
+        if counter := self._metrics.get("llm_tokens_total"):
+            counter.add(tokens, attrs)
+        if counter := self._metrics.get("llm_cost_total"):
+            counter.add(cost_usd, attrs)
 
     def record_tool_invocation(
         self,
@@ -271,22 +271,22 @@ class OtelSetup:
     ) -> None:
         """Record a tool invocation."""
         attrs = {"tool": tool, "agent": agent, "success": str(success)}
-        if c := self._metrics.get("tool_invocations_total"):
-            c.add(1, attrs)
-        if h := self._metrics.get("tool_invocation_duration"):
-            h.record(duration_ms, attrs)
+        if counter := self._metrics.get("tool_invocations_total"):
+            counter.add(1, attrs)
+        if histogram := self._metrics.get("tool_invocation_duration"):
+            histogram.record(duration_ms, attrs)
 
     def record_repo_processed(self, *, status: str = "") -> None:
         """Record a repository processing completion."""
-        if c := self._metrics.get("repos_processed_total"):
-            c.add(1, {"status": status})
+        if counter := self._metrics.get("repos_processed_total"):
+            counter.add(1, {"status": status})
 
     def record_checkpoint_decision(
         self, *, checkpoint_type: str = "", decision: str = ""
     ) -> None:
         """Record a human checkpoint decision."""
-        if c := self._metrics.get("checkpoint_decisions_total"):
-            c.add(1, {"checkpoint_type": checkpoint_type, "decision": decision})
+        if counter := self._metrics.get("checkpoint_decisions_total"):
+            counter.add(1, {"checkpoint_type": checkpoint_type, "decision": decision})
 
     # ------------------------------------------------------------------
     # Accessors

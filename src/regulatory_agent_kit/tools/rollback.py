@@ -347,16 +347,16 @@ def format_rollback_summary(results: list[RollbackResult]) -> dict[str, Any]:
         "@type": "RollbackExecution",
         "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
         "total_actions": len(results),
-        "successful": sum(1 for r in results if r.success),
-        "failed": sum(1 for r in results if not r.success),
+        "successful": sum(1 for result in results if result.success),
+        "failed": sum(1 for result in results if not result.success),
         "actions": [
             {
-                "repo_url": r.repo_url,
-                "action": r.action,
-                "success": r.success,
-                "detail": r.detail,
-                "error": r.error,
+                "repo_url": result.repo_url,
+                "action": result.action,
+                "success": result.success,
+                "detail": result.detail,
+                "error": result.error,
             }
-            for r in results
+            for result in results
         ],
     }

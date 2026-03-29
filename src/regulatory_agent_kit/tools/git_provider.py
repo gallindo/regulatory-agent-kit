@@ -218,14 +218,14 @@ def create_git_provider(
     hostname = (parsed.hostname or "").lower()
 
     # Extract owner/repo from path (e.g., "/owner/repo.git")
-    parts = [p for p in parsed.path.strip("/").split("/") if p]
+    path_segments = [seg for seg in parsed.path.strip("/").split("/") if seg]
     min_path_parts = 2
-    if len(parts) < min_path_parts:
+    if len(path_segments) < min_path_parts:
         msg = f"Cannot parse owner/repo from URL: {repo_url}"
         raise ToolError(msg)
 
-    owner = parts[0]
-    repo = parts[1].removesuffix(".git")
+    owner = path_segments[0]
+    repo = path_segments[1].removesuffix(".git")
 
     for pattern, factory in _PROVIDER_REGISTRY.items():
         if pattern in hostname:

@@ -83,7 +83,7 @@ async def list_runs(
 
     if status_filter is None:
         return list(_runs.values())
-    return [r for r in _runs.values() if r.status == status_filter]
+    return [run for run in _runs.values() if run.status == status_filter]
 
 
 # ---------------------------------------------------------------------------

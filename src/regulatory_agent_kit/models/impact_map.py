@@ -49,7 +49,7 @@ class FileImpact(BaseModel):
 
     def get_rule_ids(self) -> list[str]:
         """Return all matched rule IDs for this file."""
-        return [m.rule_id for m in self.matched_rules]
+        return [match.rule_id for match in self.matched_rules]
 
     def shares_file_with(self, other: FileImpact) -> bool:
         """Check if this impact targets the same file as another."""

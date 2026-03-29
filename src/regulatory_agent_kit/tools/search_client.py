@@ -186,7 +186,7 @@ def _extract_hits(resp: dict[str, Any]) -> list[dict[str, Any]]:
     hit_list: list[dict[str, Any]] = (
         hits_wrapper.get("hits", []) if isinstance(hits_wrapper, dict) else []
     )
-    return [h["_source"] for h in hit_list]
+    return [hit["_source"] for hit in hit_list]
 
 
 # ---------------------------------------------------------------------------
