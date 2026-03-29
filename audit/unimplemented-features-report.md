@@ -172,19 +172,24 @@ Additional changes:
 
 ---
 
-## 10. Object Storage Integration (PARTIAL)
+## 10. ~~Object Storage Integration~~ (DONE)
 
-**Doc references:** `architecture.md` Section 7, `infrastructure.md`, `sad.md` Section 8
+**Completed:** 2026-03-29
 
-| Component | Status |
-|-----------|--------|
-| `StorageBackend` protocol | Implemented |
-| `LocalStorageBackend` | Implemented |
-| S3 storage backend | MISSING — only protocol defined |
-| GCS storage backend | MISSING — only protocol defined |
-| Azure Blob storage backend | MISSING — only protocol defined |
-| `AuditArchiver.export_partition()` | STUB — method exists but body is a placeholder |
-| Audit log replication to immutable object storage | MISSING |
+All storage backends and the audit archiver are now fully implemented:
+
+| Component | Implementation |
+|-----------|---------------|
+| `StorageBackend` protocol | Implemented (unchanged) |
+| `LocalStorageBackend` | Implemented (unchanged) |
+| `S3StorageBackend` | Implemented — uses boto3 `put_object`/`get_object`, supports bucket + prefix, standard AWS credential chain |
+| `GCSStorageBackend` | Implemented — uses `google-cloud-storage` with Application Default Credentials, optional import with `_HAS_GCS` guard |
+| `AzureBlobStorageBackend` | Implemented — uses `azure-storage-blob` with connection string auth, optional import with `_HAS_AZURE` guard |
+| `create_storage_backend()` | Factory function creates the right backend from a `backend_type` string (`local`, `s3`, `gcs`, `azure`) |
+| `AuditArchiver.export_partition()` | Real implementation — serialises entries list to JSONL, falls back to metadata placeholder when no entries provided |
+| `AuditArchiver.archive_partition()` | New method — combines export + upload in one call following `data-model.md` Section 7.1 bucket structure (`audit-archives/{year}/{month}/`) |
+
+All three cloud backends follow the optional-import pattern (same as `sqs.py`), raising `ImportError` with install instructions when the SDK is missing.
 
 ---
 
@@ -362,7 +367,7 @@ Additional changes:
 | **Plugin System** (schema, loader, DSL, conflicts) | 100% | — | — | Full |
 | **Database Layer** (repos, pool, lite, migrations) | 100% | — | — | Full |
 | **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
-| **Observability** (audit logger, WAL, crypto) | ~70% | OTel setup | S3 storage, JSON-LD | ~70% |
+| **Observability** (audit logger, WAL, crypto, storage) | ~85% | OTel setup | JSON-LD format | ~85% |
 | **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
 | **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |

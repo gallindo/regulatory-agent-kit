@@ -11,8 +11,12 @@ from regulatory_agent_kit.observability.setup import (
 )
 from regulatory_agent_kit.observability.storage import (
     AuditArchiver,
+    AzureBlobStorageBackend,
+    GCSStorageBackend,
     LocalStorageBackend,
+    S3StorageBackend,
     StorageBackend,
+    create_storage_backend,
 )
 from regulatory_agent_kit.observability.wal import WriteAheadLog
 
@@ -20,10 +24,14 @@ __all__ = [
     "AuditArchiver",
     "AuditLogger",
     "AuditSignerLoader",
+    "AzureBlobStorageBackend",
+    "GCSStorageBackend",
     "LocalStorageBackend",
     "MlflowSetup",
     "ObservabilitySetup",
     "OtelSetup",
+    "S3StorageBackend",
     "StorageBackend",
     "WriteAheadLog",
+    "create_storage_backend",
 ]
