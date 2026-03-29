@@ -1,1 +1,1 @@
-"""Shared utilities — crypto, logging, hashing."""
+"""Shared utilities — crypto, logging, hashing, secrets."""

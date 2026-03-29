@@ -332,15 +332,22 @@ Full rollback pipeline from manifest generation through execution:
 
 ---
 
-## 20. Secrets Manager Integration (MISSING)
+## 20. ~~Secrets Manager Integration~~ (DONE)
 
-**Doc references:** `architecture.md` Section 9.2, `hld.md`
+**Completed:** 2026-03-29
 
-- No HashiCorp Vault integration
-- No AWS Secrets Manager integration
-- No GCP Secret Manager integration
-- All credentials are consumed exclusively via environment variables
-- Documentation states: "Environment variables are acceptable for development only. Production deployments must use a secrets manager."
+Pluggable secrets backends matching architecture.md Section 9.2:
+
+| Backend | Implementation |
+|---------|---------------|
+| `EnvVarSecretsBackend` | Default — reads from `os.environ`, suitable for development/Lite Mode |
+| `AWSSecretsManagerBackend` | Uses boto3 `get_secret_value`, standard AWS credential chain, configurable region |
+| `GCPSecretManagerBackend` | Uses `google-cloud-secret-manager`, Application Default Credentials, supports full resource names and short names with project_id |
+| `VaultSecretsBackend` | Uses `hvac` for HashiCorp Vault KV v2, configurable URL/token/mount_point |
+| `create_secrets_backend()` | Factory function creates backend from type string (`env`, `aws`, `gcp`, `vault`) |
+| `resolve_secret()` | URI-based routing: `vault://`, `aws-sm://`, `gcp-sm://`, `env://` schemes, with fallback to literal values or pre-configured backend |
+
+All cloud backends follow the optional-import pattern with `_HAS_*` guards and clear install instructions on `ImportError`.
 
 ---
 
@@ -399,7 +406,7 @@ Full rollback pipeline from manifest generation through execution:
 | **CLI** | 100% | — | — | Full |
 | **API** | 100% | — | — | Full |
 | **Infrastructure** | Docker Compose only | — | K8s, Helm, CI/CD, cloud IaC | ~20% |
-| **Security** | Ed25519 signing only | — | SBOM, secrets mgr, supply chain | ~15% |
+| **Security** | Ed25519 signing + secrets mgr | — | SBOM, supply chain | ~40% |
 
 ### Key Findings
 
