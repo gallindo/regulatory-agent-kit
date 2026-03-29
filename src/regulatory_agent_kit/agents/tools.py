@@ -17,7 +17,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from regulatory_agent_kit.exceptions import RAKError
+
 logger = logging.getLogger(__name__)
+
+
+def _tool_error(tool: str, error: str, **context: Any) -> dict[str, Any]:
+    """Build a standardised error response dict for agent tools."""
+    return {"status": "error", "tool": tool, "error": error, **context}
 
 
 # ---------------------------------------------------------------------------
@@ -46,9 +53,9 @@ async def git_clone(repo_url: str, target_dir: str) -> dict[str, Any]:
             "target_dir": target_dir,
             "stdout": result.stdout,
         }
-    except Exception as exc:
+    except (RAKError, OSError, RuntimeError) as exc:
         logger.warning("git_clone failed for %s: %s", repo_url, exc)
-        return {"status": "error", "repo_url": repo_url, "error": str(exc)}
+        return _tool_error("git_clone", str(exc), repo_url=repo_url)
 
 
 async def ast_parse(file_path: str, language: str = "") -> dict[str, Any]:
@@ -80,14 +87,9 @@ async def ast_parse(file_path: str, language: str = "") -> dict[str, Any]:
             "annotations": len(annotations),
             "root_node_type": tree.root_node.type if tree else "",
         }
-    except Exception as exc:
+    except (RAKError, OSError, ValueError) as exc:
         logger.warning("ast_parse failed for %s: %s", file_path, exc)
-        return {
-            "status": "error",
-            "file_path": file_path,
-            "language": language,
-            "error": str(exc),
-        }
+        return _tool_error("ast_parse", str(exc), file_path=file_path)
 
 
 async def ast_search(
@@ -164,9 +166,9 @@ async def es_search(
         if "context" in index:
             return await client.search_context(query, limit=max_results)
         return await client.search_rules(query)
-    except Exception as exc:
+    except (RAKError, ConnectionError) as exc:
         logger.warning("es_search failed: %s", exc)
-        return [{"error": str(exc)}]
+        return [_tool_error("es_search", str(exc))]
     finally:
         await client.close()
 
@@ -197,9 +199,9 @@ async def git_branch(repo_dir: str, branch_name: str) -> dict[str, Any]:
             "branch_name": branch_name,
             "stdout": result.stdout,
         }
-    except Exception as exc:
+    except (RAKError, OSError) as exc:
         logger.warning("git_branch failed: %s", exc)
-        return {"status": "error", "branch_name": branch_name, "error": str(exc)}
+        return _tool_error("git_branch", str(exc), branch_name=branch_name)
 
 
 async def git_commit(
@@ -230,9 +232,9 @@ async def git_commit(
             "message": message,
             "stdout": result.stdout,
         }
-    except Exception as exc:
+    except (RAKError, OSError) as exc:
         logger.warning("git_commit failed: %s", exc)
-        return {"status": "error", "message": message, "error": str(exc)}
+        return _tool_error("git_commit", str(exc))
 
 
 async def ast_transform(
@@ -284,9 +286,9 @@ async def ast_transform(
             "lines_before": len(original.splitlines()),
             "lines_after": len(modified.splitlines()),
         }
-    except Exception as exc:
+    except (RAKError, OSError) as exc:
         logger.warning("ast_transform failed for %s: %s", file_path, exc)
-        return {"status": "error", "file_path": file_path, "rule_id": rule_id, "error": str(exc)}
+        return _tool_error("ast_transform", str(exc), file_path=file_path)
 
 
 async def jinja_render(
@@ -364,18 +366,9 @@ async def run_tests(
             "stderr": result.stderr[:2000],
             "timed_out": result.timed_out,
         }
-    except Exception as exc:
+    except (RAKError, OSError, RuntimeError) as exc:
         logger.warning("run_tests failed: %s", exc)
-        return {
-            "status": "error",
-            "test_dir": test_dir,
-            "error": str(exc),
-            "passed": False,
-            "returncode": -1,
-            "stdout": "",
-            "stderr": "",
-            "timed_out": False,
-        }
+        return _tool_error("run_tests", str(exc), test_dir=test_dir)
 
 
 async def jinja_render_test(
@@ -441,14 +434,9 @@ async def git_pr_create(
             "pr_url": result.get("html_url", result.get("web_url", "")),
             "pr_number": result.get("number", result.get("iid", 0)),
         }
-    except Exception as exc:
+    except (RAKError, OSError, RuntimeError, ConnectionError) as exc:
         logger.warning("git_pr_create failed: %s", exc)
-        return {
-            "status": "error",
-            "title": title,
-            "error": str(exc),
-            "pr_url": "",
-        }
+        return _tool_error("git_pr_create", str(exc))
 
 
 async def notification_send(
@@ -475,9 +463,9 @@ async def notification_send(
         else:
             await notifier.send_pipeline_complete(run_id="", summary=message)
         return {"status": "sent", "channel": channel, "severity": severity}
-    except Exception as exc:
+    except (RAKError, OSError, ConnectionError) as exc:
         logger.warning("notification_send failed: %s", exc)
-        return {"status": "error", "channel": channel, "error": str(exc)}
+        return _tool_error("notification_send", str(exc), channel=channel)
 
 
 async def jinja_render_report(

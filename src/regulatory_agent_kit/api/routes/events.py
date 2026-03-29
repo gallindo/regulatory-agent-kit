@@ -52,5 +52,5 @@ async def submit_event(
     return EventAccepted(
         workflow_id=workflow_id,
         event_id=str(event.event_id),
-        run_id=run_id,
+        run_id=run_id or "",
     )

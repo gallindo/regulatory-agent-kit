@@ -19,13 +19,13 @@ async def create_pipeline_run(
     regulation_id: str,
     payload: dict[str, Any],
     workflow_id: str,
-) -> str:
+) -> str | None:
     """Create a pipeline_runs row and return the run UUID as a string.
 
-    Returns empty string if the pool is unavailable or the insert fails.
+    Returns ``None`` if the pool is unavailable or the insert fails.
     """
     if db_pool is None:
-        return ""
+        return None
     try:
         from regulatory_agent_kit.database.repositories.pipeline_runs import (
             PipelineRunRepository,
@@ -40,9 +40,9 @@ async def create_pipeline_run(
                 temporal_workflow_id=workflow_id,
             )
             return str(run_uuid)
-    except Exception:
-        logger.warning("Failed to persist pipeline run", exc_info=True)
-        return ""
+    except (OSError, RuntimeError) as exc:
+        logger.warning("Failed to persist pipeline run: %s", exc, exc_info=True)
+        return None
 
 
 async def start_temporal_workflow(
@@ -65,8 +65,8 @@ async def start_temporal_workflow(
             plugin={},
             config={"regulation_id": event.regulation_id},
         )
-    except Exception:
-        logger.warning("Failed to start Temporal workflow", exc_info=True)
+    except (OSError, RuntimeError, ConnectionError) as exc:
+        logger.warning("Failed to start Temporal workflow: %s", exc, exc_info=True)
         return workflow_id
 
 
@@ -77,8 +77,7 @@ async def persist_approval(
 ) -> dict[str, Any] | None:
     """Validate run exists and persist a checkpoint decision.
 
-    Returns the run_info dict on success, or None if the run is not found.
-    Raises if the pool is None (caller should handle in-memory fallback).
+    Returns the run_info dict on success, or ``None`` if the run is not found.
     """
     from regulatory_agent_kit.database.repositories.checkpoint_decisions import (
         CheckpointDecisionRepository,
@@ -119,7 +118,10 @@ async def signal_temporal_approval(
 
         starter = WorkflowStarter(temporal_client)
         await starter.signal_approval(workflow_id, decision_summary)
-    except Exception:
+    except (OSError, RuntimeError, ConnectionError) as exc:
         logger.warning(
-            "Failed to signal Temporal workflow %s", workflow_id, exc_info=True
+            "Failed to signal Temporal workflow %s: %s",
+            workflow_id,
+            exc,
+            exc_info=True,
         )

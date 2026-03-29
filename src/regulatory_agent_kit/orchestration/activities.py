@@ -73,6 +73,55 @@ async def estimate_cost(
 
 
 # ---------------------------------------------------------------------------
+# Rule scanning helpers (extracted from analyze_repository for clarity)
+# ---------------------------------------------------------------------------
+
+
+def _scan_rules_against_repo(
+    rules: list[dict[str, Any]], clone_dest: Path
+) -> list[dict[str, Any]]:
+    """Match plugin rules against files in a cloned repository."""
+    file_impacts: list[dict[str, Any]] = []
+    for rule in rules:
+        impacts = _match_rule_files(rule, clone_dest)
+        file_impacts.extend(impacts)
+    return file_impacts
+
+
+def _match_rule_files(
+    rule: dict[str, Any], clone_dest: Path
+) -> list[dict[str, Any]]:
+    """Find files matching a single rule's affects patterns."""
+    rule_id = rule.get("id", "")
+    description = rule.get("description", "")
+    severity = rule.get("severity", "medium")
+    strategy = _get_rule_strategy(rule)
+    impacts: list[dict[str, Any]] = []
+
+    for affects in rule.get("affects", []):
+        pattern = affects.get("pattern", "")
+        condition = affects.get("condition", "")
+        matched = list(clone_dest.glob(pattern)) if clone_dest.is_dir() else []
+
+        for matched_file in matched:
+            if matched_file.is_file():
+                rel_path = str(matched_file.relative_to(clone_dest))
+                impacts.append({
+                    "file_path": rel_path,
+                    "matched_rules": [{
+                        "rule_id": rule_id,
+                        "description": description,
+                        "severity": severity,
+                        "confidence": DEFAULT_ANALYSIS_CONFIDENCE,
+                        "condition_evaluated": condition,
+                    }],
+                    "suggested_approach": strategy,
+                    "affected_regions": [],
+                })
+    return impacts
+
+
+# ---------------------------------------------------------------------------
 # analyze_repository
 # ---------------------------------------------------------------------------
 
@@ -103,42 +152,9 @@ async def analyze_repository(
         )
         return {"files": [], "conflicts": [], "analysis_confidence": 0.0}
 
-    # Scan files against plugin rules
-    rules = plugin_data.get("rules", [])
-    file_impacts: list[dict[str, Any]] = []
-
-    for rule in rules:
-        rule_id = rule.get("id", "")
-        description = rule.get("description", "")
-        severity = rule.get("severity", "medium")
-        affects_list = rule.get("affects", [])
-
-        for affects in affects_list:
-            pattern = affects.get("pattern", "")
-            condition = affects.get("condition", "")
-
-            matched_files = (
-                list(clone_dest.glob(pattern)) if clone_dest.is_dir() else []
-            )
-
-            for matched_file in matched_files:
-                if matched_file.is_file():
-                    rel_path = str(matched_file.relative_to(clone_dest))
-                    file_impacts.append({
-                        "file_path": rel_path,
-                        "matched_rules": [{
-                            "rule_id": rule_id,
-                            "description": description,
-                            "severity": severity,
-                            "confidence": DEFAULT_ANALYSIS_CONFIDENCE,
-                            "condition_evaluated": condition,
-                        }],
-                        "suggested_approach": (
-                            _get_rule_strategy(rule)
-                        ),
-                        "affected_regions": [],
-                    })
-
+    file_impacts = _scan_rules_against_repo(
+        plugin_data.get("rules", []), clone_dest
+    )
     confidence = DEFAULT_ANALYSIS_CONFIDENCE if file_impacts else 0.0
     activity.logger.info(
         "Analysis complete for %s: %d file impacts", repo_url, len(file_impacts)
