@@ -275,15 +275,22 @@ Full file analysis cache with both PostgreSQL and SQLite backends:
 
 ---
 
-## 14. Data Residency / Region-Based LLM Routing (MISSING)
+## 14. ~~Data Residency / Region-Based LLM Routing~~ (DONE)
 
-**Doc references:** `architecture.md` Section 6, `sad.md` Section 12
+**Completed:** 2026-03-29
 
-- No implementation of region-based model routing via LiteLLM
-- No content classification logic for determining data residency requirements
-- No GDPR-aware routing (e.g., EU data to EU-region models)
-- No LGPD-aware routing (e.g., Brazil data to Brazil-region models)
-- LiteLLM config in `docker/litellm-config.yaml` defines models but no routing rules
+Region-based model routing per architecture.md Section 6 and sad.md RC-1:
+
+| Component | Implementation |
+|-----------|---------------|
+| `JURISDICTION_REGION_MAP` | Maps 30+ jurisdiction codes (ISO 3166-1) to canonical regions: `eu` (all EU/EEA + UK), `br` (Brazil/LGPD), `us`, `ap` (Australia/APAC), `default` |
+| `MODEL_ROUTING_TABLE` | Maps (region, tier) to LiteLLM model identifiers: EU → `bedrock/eu/*`, BR → `bedrock/br/*`, AP → `bedrock/ap/*`, US/default → `anthropic/*` |
+| `DataResidencyRouter` | Configurable router with `select_model(jurisdiction, tier)` for jurisdiction-based routing and `select_model_for_content()` for PII-aware escalation |
+| `contains_pii()` | Regex-based PII detection: email, phone, SSN, IBAN, CPF, CNPJ patterns |
+| Content-aware routing | When PII is detected in EU/BR/AP jurisdictions, always escalates to the primary regional model regardless of requested tier |
+| `get_routing_metadata()` | Returns jurisdiction, region, model, tier dict for audit trail logging |
+| LiteLLM config | Updated `docker/litellm-config.yaml` with Bedrock EU (eu-west-1), BR (sa-east-1), AP (ap-southeast-2) model entries alongside default Anthropic and OpenAI |
+| Custom routing | Both maps and tables are constructor-injectable for org-specific overrides |
 
 ---
 
