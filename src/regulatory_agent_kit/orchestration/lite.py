@@ -28,8 +28,6 @@ from regulatory_agent_kit.database.protocols import (  # noqa: TC001
 )
 from regulatory_agent_kit.orchestration.activities import (
     DEFAULT_ANALYSIS_CONFIDENCE,
-    ESTIMATED_COST_PER_REPO_USD,
-    ESTIMATED_TOKENS_PER_REPO,
     MOCK_PASS_RATE,
     MOCK_TOTAL_TESTS,
 )
@@ -182,16 +180,13 @@ class CostEstimationPhase:
         return "COST_ESTIMATION"
 
     async def execute(self, context: PipelineContext) -> None:
+        from regulatory_agent_kit.tools.cost_estimator import CostEstimator
+
         logger.info("[Lite] Phase: COST_ESTIMATION")
         model = context.get_model()
-        per_repo = {url: ESTIMATED_COST_PER_REPO_USD for url in context.repo_urls}
-        context.result.cost_estimate = {
-            "estimated_total_cost": sum(per_repo.values()),
-            "per_repo_cost": per_repo,
-            "estimated_total_tokens": len(context.repo_urls) * ESTIMATED_TOKENS_PER_REPO,
-            "model_used": model,
-            "exceeds_threshold": False,
-        }
+        threshold = context.config.get("cost_threshold", 50.0)
+        estimator = CostEstimator(model=model, cost_threshold=float(threshold))
+        context.result.cost_estimate = estimator.estimate_for_repos(context.repo_urls)
 
 
 class AnalysisPhase:

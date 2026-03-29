@@ -39,25 +39,23 @@ async def estimate_cost(
     repo_urls: list[str],
     regulation_id: str,
     model: str,
+    cost_threshold: float = 50.0,
 ) -> dict[str, Any]:
     """Estimate LLM cost for processing the given repositories.
 
-    Wraps the cost estimation logic (stub for now).
+    Uses ``CostEstimator`` with model-aware pricing tables and
+    file-size-based token estimation when local clones are available.
     """
+    from regulatory_agent_kit.tools.cost_estimator import CostEstimator
+
     activity.logger.info(
-        "Estimating cost for %d repos with regulation %s",
+        "Estimating cost for %d repos with regulation %s (model=%s)",
         len(repo_urls),
         regulation_id,
+        model,
     )
-    per_repo = {url: ESTIMATED_COST_PER_REPO_USD for url in repo_urls}
-    total = sum(per_repo.values())
-    return {
-        "estimated_total_cost": total,
-        "per_repo_cost": per_repo,
-        "estimated_total_tokens": len(repo_urls) * ESTIMATED_TOKENS_PER_REPO,
-        "model_used": model,
-        "exceeds_threshold": False,
-    }
+    estimator = CostEstimator(model=model, cost_threshold=cost_threshold)
+    return estimator.estimate_for_repos(repo_urls)
 
 
 @activity.defn

@@ -231,14 +231,23 @@ Full rollback pipeline from manifest generation through execution:
 
 ---
 
-## 12. Cost Estimation (STUB)
+## 12. ~~Cost Estimation~~ (DONE)
 
-**Doc references:** `architecture.md` Section 4.2, `lld.md` Section 2.3 (`CostEstimationActivity`)
+**Completed:** 2026-03-29
 
-- `estimate_cost()` activity returns hardcoded values using a constant multiplier
-- No real token estimation per repository based on file count/size
-- No model-aware cost calculation (different rates per LLM provider/model)
-- `CostEstimate` model is fully defined but never populated with real data
+Real cost estimation with file-level token counting and model-aware pricing:
+
+| Component | Implementation |
+|-----------|---------------|
+| `estimate_tokens_for_file()` | Estimates tokens from content length using ~4 chars/token heuristic + 500-token overhead per file |
+| `estimate_tokens_for_repo()` | Scans local clone by glob patterns, sums per-file token estimates + 2000-token repo overhead |
+| `MODEL_PRICING` table | Per-model input/output pricing (USD/1M tokens) for Claude Opus/Sonnet/Haiku, GPT-4o/4o-mini/4-turbo, o1/o1-mini, with default fallback |
+| `get_model_pricing()` | Prefix-matching lookup (e.g. `anthropic/claude-sonnet-4-6` matches `anthropic/claude-sonnet`) |
+| `estimate_cost_for_tokens()` | Splits tokens into input/output (70/30 ratio), applies per-model rates |
+| `CostEstimator` | High-level service: `estimate_for_repos()` scans local clones when available, falls back to heuristic for remote-only repos, computes `per_repo_cost`, `exceeds_threshold` |
+| `estimate_cost` activity | Now delegates to `CostEstimator` with model and threshold from config |
+| `CostEstimationPhase` (Lite Mode) | Now delegates to `CostEstimator` with model and threshold from context |
+| Heuristic fallback | For repos not cloned locally: assumes ~50 files * ~200 lines each |
 
 ---
 

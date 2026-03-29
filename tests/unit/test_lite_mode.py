@@ -44,8 +44,9 @@ class TestLiteModeExecutor:
             repo_urls=["https://github.com/a/b", "https://github.com/c/d"],
             plugin_data={},
         )
-        assert result.cost_estimate["estimated_total_cost"] == 3.0
+        assert result.cost_estimate["estimated_total_cost"] > 0
         assert len(result.cost_estimate["per_repo_cost"]) == 2
+        assert result.cost_estimate["model_used"] != ""
 
     async def test_repo_results_populated(self, lite_db: Path) -> None:
         executor = LiteModeExecutor(db_path=lite_db)
