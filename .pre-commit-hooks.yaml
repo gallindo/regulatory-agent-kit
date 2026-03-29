@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Pre-commit hook
+# ---------------------------------------------------------------
+# Lightweight compliance scan that checks staged files against a
+# regulation plugin before allowing a commit.
+#
+# Usage in your repo's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/your-org/regulatory-agent-kit
+#       rev: v0.1.0
+#       hooks:
+#         - id: rak-compliance-check
+#           args: [--regulation, regulations/dora/dora-ict-risk-2025.yaml]
+# ---------------------------------------------------------------
+
+- id: rak-compliance-check
+  name: RAK Compliance Check
+  description: Scan staged files for regulation compliance violations
+  entry: python -m regulatory_agent_kit.ci.compliance_scanner
+  language: python
+  types_or: [python, java, kotlin, javascript, ts, yaml, json]
+  args: [--regulation, regulations/examples/example.yaml]
+  pass_filenames: true

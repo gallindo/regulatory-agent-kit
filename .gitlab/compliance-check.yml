@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Compliance Gate (GitLab CI)
+# ---------------------------------------------------------------
+# Include this in your .gitlab-ci.yml to add a compliance scan job
+# that runs on merge requests targeting the default branch.
+#
+# Usage:
+#   include:
+#     - project: 'your-org/regulatory-agent-kit'
+#       file: '.gitlab/compliance-check.yml'
+#
+#   variables:
+#     RAK_REGULATION_PLUGIN: regulations/dora/dora-ict-risk-2025.yaml
+# ---------------------------------------------------------------
+
+variables:
+  RAK_REGULATION_PLUGIN: "regulations/examples/example.yaml"
+  PYTHON_VERSION: "3.12"
+
+compliance-scan:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+  before_script:
+    - pip install uv
+    - uv sync --all-extras
+
+  script:
+    # Validate the plugin
+    - uv run rak plugin validate "$RAK_REGULATION_PLUGIN"
+
+    # Detect changed files (MR diff or last commit)
+    - |
+      if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        git diff --name-only "$CI_MERGE_REQUEST_DIFF_BASE_SHA"..."$CI_COMMIT_SHA" > changed_files.txt
+      else
+        git diff --name-only HEAD~1 > changed_files.txt || echo "" > changed_files.txt
+      fi
+
+    # Run compliance scan
+    - >
+      uv run python -m regulatory_agent_kit.ci.compliance_scanner
+      --regulation "$RAK_REGULATION_PLUGIN"
+      --changed-files changed_files.txt
+      --output compliance-report.json
+
+  artifacts:
+    when: always
+    paths:
+      - compliance-report.json
+    reports:
+      codequality: compliance-report.json
+    expire_in: 30 days
+
+  allow_failure: false

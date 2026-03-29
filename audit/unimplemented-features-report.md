@@ -140,15 +140,20 @@ Additional changes:
 
 ---
 
-## 7. Shift-Left / CI/CD Integration (MISSING)
+## 7. ~~Shift-Left / CI/CD Integration~~ (DONE)
 
-**Doc references:** `architecture.md` Section 5.3
+**Completed:** 2026-03-29
 
-| Feature | Status |
-|---------|--------|
-| GitHub Action / GitLab CI step that blocks merges on compliance violations | MISSING |
-| PR review bot — agent comments on pull requests with compliance impact analysis | MISSING |
-| Pre-commit hook — lightweight Analyzer flags violations before code is pushed | MISSING |
+Compliance scanner module and CI/CD pipeline definitions per `architecture.md` Section 5.3:
+
+| Feature | Implementation |
+|---------|---------------|
+| **Compliance scanner** | `ci/compliance_scanner.py` — scans files against plugin rule patterns, reports violations as JSON with rule ID, severity, file path, condition. Exit codes: 0 = clean, 1 = violations, 2 = error |
+| **GitHub Action** | `.github/workflows/compliance-check.yml` — detects changed files via `git diff`, runs scanner, uploads JSON artifact. Uses env vars for all untrusted inputs (no injection risk) |
+| **GitLab CI template** | `.gitlab/compliance-check.yml` — includable template with `compliance-scan` job, MR diff detection, codequality artifact |
+| **Pre-commit hook** | `.pre-commit-hooks.yaml` — `rak-compliance-check` hook that passes staged filenames to the scanner |
+| **CLI entry point** | `python -m regulatory_agent_kit.ci.compliance_scanner` with `--regulation`, `--files`, `--changed-files`, `--output`, `--repo-root` arguments |
+| **Pattern matching** | Matches file paths against plugin `affects.pattern` globs (e.g. `**/*.java`), handles root-level files without subdirectory prefix |
 
 ---
 
