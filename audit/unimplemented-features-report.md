@@ -313,15 +313,29 @@ Full rollback pipeline from manifest generation through execution:
 
 ---
 
-## 18. Kubernetes / Helm Chart (MISSING)
+## 18. ~~Kubernetes / Helm Chart~~ (DONE)
 
-**Doc references:** `infrastructure.md` Section 5, `hld.md` Section 2.2
+**Completed:** 2026-03-29
 
-- No Helm chart exists
-- No Kubernetes manifests (Deployments, StatefulSets, Services, HPAs, Ingress)
-- No namespace definitions (`rak`, `temporal`, `data`, `monitoring`)
-- Only Docker Compose exists for deployment
-- All cloud topology diagrams in `infrastructure.md` (AWS, GCP, Azure) have no corresponding IaC
+Full Helm chart at `helm/regulatory-agent-kit/` matching `infrastructure.md` Section 5 and `hld.md` Section 2.2:
+
+| Resource | Template | Namespace | Spec |
+|----------|----------|-----------|------|
+| `rak-api` | Deployment + Service + ServiceAccount | `rak` | 2 replicas, health probes, env from secrets |
+| `rak-worker` | Deployment + ServiceAccount + HPA + PDB | `rak` | 2-10 replicas, CPU-based HPA with scale-up/down policies, PodDisruptionBudget `minAvailable: 1` |
+| `litellm-proxy` | Deployment + Service + ServiceAccount | `rak` | 2 replicas, health probes |
+| `mlflow-server` | Deployment + Service + ServiceAccount | `rak` | 1 replica, health probes |
+| `postgresql` | StatefulSet + Service | `data` | 100Gi PVC, pg_isready probes |
+| `elasticsearch` | StatefulSet + Service | `data` | 3 replicas, 50Gi PVC each, cluster health probe |
+| `prometheus` | StatefulSet + Service | `monitoring` | 50Gi PVC, readiness probe |
+| `grafana` | Deployment + Service | `monitoring` | Configurable admin password |
+| Namespaces | `rak`, `temporal`, `data`, `monitoring` | — | Conditionally created |
+| Secrets | `rak-secrets`, `db-credentials`, `signing-keys` | `rak` | LLM keys, Git tokens, DB URL, Ed25519 key |
+| Ingress | Ingress | `rak` | Configurable class, TLS, host-based routing to API/Temporal UI/MLflow/Grafana |
+
+`values.yaml` has all per-pod resource requests/limits from `hld.md` Section 3.4, all toggleable via `enabled` flags.
+
+**Not included** (use dedicated Helm charts): Temporal server components — deploy via the official `temporalio/helm-charts` into the `temporal` namespace.
 
 ---
 
@@ -412,7 +426,7 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
 | **CLI** | 100% | — | — | Full |
 | **API** | 100% | — | — | Full |
-| **Infrastructure** | Docker Compose only | — | K8s, Helm, CI/CD, cloud IaC | ~20% |
+| **Infrastructure** | Docker Compose + Helm chart | — | CI/CD, cloud IaC | ~60% |
 | **Security** | Ed25519 signing + secrets mgr | — | SBOM, supply chain | ~40% |
 
 ### Key Findings

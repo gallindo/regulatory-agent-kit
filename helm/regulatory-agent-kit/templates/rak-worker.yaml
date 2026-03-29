@@ -1,0 +1,110 @@
+{{- if .Values.rakWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rak-worker
+  namespace: rak
+  labels:
+    app: rak-worker
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.rakWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app: rak-worker
+  template:
+    metadata:
+      labels:
+        app: rak-worker
+        {{- include "rak.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: rak-worker
+      containers:
+        - name: rak-worker
+          image: {{ .Values.rakWorker.image.repository }}:{{ .Values.rakWorker.image.tag }}
+          imagePullPolicy: {{ .Values.rakWorker.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: 9464
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: rak-secrets
+            - secretRef:
+                name: db-credentials
+          env:
+            - name: RAK_TEMPORAL_ADDRESS
+              value: "temporal-frontend.temporal.svc.cluster.local:7233"
+            - name: RAK_ELASTICSEARCH_URL
+              value: "http://elasticsearch.data.svc.cluster.local:9200"
+            - name: RAK_LLM_URL
+              value: "http://litellm-proxy.rak.svc.cluster.local:4000"
+            - name: RAK_OBSERVABILITY_MLFLOW_TRACKING_URI
+              value: "http://mlflow-server.rak.svc.cluster.local:5000"
+            - name: RAK_OBSERVABILITY_OTEL_EXPORTER_ENDPOINT
+              value: "http://prometheus.monitoring.svc.cluster.local:4317"
+            {{- range $k, $v := .Values.rakWorker.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.rakWorker.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rak-worker
+  namespace: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+---
+{{- if .Values.rakWorker.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rak-worker-hpa
+  namespace: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rak-worker
+  minReplicas: {{ .Values.rakWorker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.rakWorker.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.rakWorker.autoscaling.targetCPUUtilization }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rak-worker-pdb
+  namespace: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: rak-worker
+{{- end }}
+{{- end }}

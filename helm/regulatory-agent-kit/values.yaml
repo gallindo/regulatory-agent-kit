@@ -1,0 +1,234 @@
+# ---------------------------------------------------------------
+# regulatory-agent-kit — Helm Chart Values
+# ---------------------------------------------------------------
+# See docs/hld.md Section 3.4 for per-pod sizing reference.
+# See docs/infrastructure.md Section 5 for namespace layout.
+# ---------------------------------------------------------------
+
+# -- Global settings --
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# -- Namespace creation --
+namespaces:
+  rak: true
+  temporal: true
+  data: true
+  monitoring: true
+
+# ---------------------------------------------------------------
+# RAK API
+# ---------------------------------------------------------------
+rakApi:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: rak
+    tag: api
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  env: {}
+  # API token for bearer auth (leave empty to disable)
+  apiToken: ""
+
+# ---------------------------------------------------------------
+# RAK Worker
+# ---------------------------------------------------------------
+rakWorker:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: rak
+    tag: worker
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  env: {}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70
+
+# ---------------------------------------------------------------
+# LiteLLM Proxy
+# ---------------------------------------------------------------
+litellm:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/berriai/litellm
+    tag: main
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 4000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  env: {}
+
+# ---------------------------------------------------------------
+# MLflow Server
+# ---------------------------------------------------------------
+mlflow:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: rak
+    tag: mlflow
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+  env: {}
+
+# ---------------------------------------------------------------
+# PostgreSQL (data namespace)
+# ---------------------------------------------------------------
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  storage:
+    size: 100Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  auth:
+    database: rak
+    username: rak_app
+    # Set via secrets; these are defaults for development only
+    password: rak_dev_password
+    adminPassword: rak_admin_dev_password
+
+# ---------------------------------------------------------------
+# Elasticsearch (data namespace)
+# ---------------------------------------------------------------
+elasticsearch:
+  enabled: true
+  replicas: 3
+  image:
+    repository: elasticsearch
+    tag: "8.13.0"
+  storage:
+    size: 50Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  env:
+    discovery.type: single-node
+    xpack.security.enabled: "false"
+
+# ---------------------------------------------------------------
+# Prometheus (monitoring namespace)
+# ---------------------------------------------------------------
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: latest
+  storage:
+    size: 50Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# ---------------------------------------------------------------
+# Grafana (monitoring namespace)
+# ---------------------------------------------------------------
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  adminPassword: admin
+
+# ---------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: rak.example.com
+      paths:
+        - path: /
+          service: rak-api
+          port: 8000
+        - path: /temporal
+          service: temporal-ui
+          port: 8080
+        - path: /mlflow
+          service: mlflow-server
+          port: 5000
+        - path: /grafana
+          service: grafana
+          port: 3000
+  tls: []
+
+# ---------------------------------------------------------------
+# Secrets (referenced by deployments)
+# ---------------------------------------------------------------
+secrets:
+  # LLM API keys
+  anthropicApiKey: ""
+  openaiApiKey: ""
+  # Git tokens
+  githubToken: ""
+  gitlabToken: ""
+  # Ed25519 signing key (base64-encoded PEM)
+  signingKey: ""

@@ -1,0 +1,80 @@
+{{- if .Values.elasticsearch.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: data
+  labels:
+    app: elasticsearch
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  serviceName: elasticsearch
+  replicas: {{ .Values.elasticsearch.replicas }}
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: {{ .Values.elasticsearch.image.repository }}:{{ .Values.elasticsearch.image.tag }}
+          ports:
+            - name: http
+              containerPort: 9200
+              protocol: TCP
+            - name: transport
+              containerPort: 9300
+              protocol: TCP
+          env:
+            {{- range $k, $v := .Values.elasticsearch.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: esdata
+              mountPath: /usr/share/elasticsearch/data
+          resources:
+            {{- toYaml .Values.elasticsearch.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health?local=true
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 15
+  volumeClaimTemplates:
+    - metadata:
+        name: esdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.elasticsearch.storage.storageClass }}
+        storageClassName: {{ .Values.elasticsearch.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.elasticsearch.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: data
+  labels:
+    app: elasticsearch
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9200
+      targetPort: 9200
+      protocol: TCP
+      name: http
+    - port: 9300
+      targetPort: 9300
+      protocol: TCP
+      name: transport
+  selector:
+    app: elasticsearch
+{{- end }}

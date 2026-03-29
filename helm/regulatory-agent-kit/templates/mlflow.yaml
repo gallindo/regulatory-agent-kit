@@ -1,0 +1,72 @@
+{{- if .Values.mlflow.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-server
+  namespace: rak
+  labels:
+    app: mlflow-server
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mlflow.replicaCount }}
+  selector:
+    matchLabels:
+      app: mlflow-server
+  template:
+    metadata:
+      labels:
+        app: mlflow-server
+        {{- include "rak.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: mlflow
+      containers:
+        - name: mlflow
+          image: {{ .Values.mlflow.image.repository }}:{{ .Values.mlflow.image.tag }}
+          imagePullPolicy: {{ .Values.mlflow.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: db-credentials
+          {{- range $k, $v := .Values.mlflow.env }}
+          env:
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.mlflow.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-server
+  namespace: rak
+  labels:
+    app: mlflow-server
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mlflow.service.type }}
+  ports:
+    - port: {{ .Values.mlflow.service.port }}
+      targetPort: 5000
+      protocol: TCP
+      name: http
+  selector:
+    app: mlflow-server
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mlflow
+  namespace: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,36 @@
+{{- if .Values.namespaces.rak }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+---
+{{- end }}
+{{- if .Values.namespaces.temporal }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: temporal
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+---
+{{- end }}
+{{- if .Values.namespaces.data }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+---
+{{- end }}
+{{- if .Values.namespaces.monitoring }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+---
+{{- end }}

@@ -1,0 +1,72 @@
+{{- if .Values.litellm.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-proxy
+  namespace: rak
+  labels:
+    app: litellm-proxy
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.litellm.replicaCount }}
+  selector:
+    matchLabels:
+      app: litellm-proxy
+  template:
+    metadata:
+      labels:
+        app: litellm-proxy
+        {{- include "rak.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: litellm
+      containers:
+        - name: litellm
+          image: {{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}
+          imagePullPolicy: {{ .Values.litellm.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: rak-secrets
+          {{- range $k, $v := .Values.litellm.env }}
+          env:
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.litellm.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-proxy
+  namespace: rak
+  labels:
+    app: litellm-proxy
+    {{- include "rak.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.litellm.service.type }}
+  ports:
+    - port: {{ .Values.litellm.service.port }}
+      targetPort: 4000
+      protocol: TCP
+      name: http
+  selector:
+    app: litellm-proxy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: litellm
+  namespace: rak
+  labels:
+    {{- include "rak.labels" . | nindent 4 }}
+{{- end }}
