@@ -37,33 +37,35 @@ All CLI commands have been implemented with real logic:
 
 ---
 
-## 2. Agent Tool Implementations (STUB)
+## 2. ~~Agent Tool Implementations~~ (DONE)
 
-**Doc references:** `architecture.md` Section 4.3, `sad.md` Section 10, `lld.md` Section 2.4
+**Completed:** 2026-03-29
 
-All 13 agent tools in `agents/tools.py` return dummy dictionaries instead of delegating to real service implementations:
+All 13 agent tools now delegate to real service implementations with structured error handling:
 
 **Analyzer (read-only) tools:**
-- `git_clone()` — returns stub dict
-- `ast_parse()` — returns stub dict
-- `ast_search()` — returns stub dict
-- `es_search()` — returns stub dict
+- `git_clone()` — delegates to `GitClient.clone()`, returns stdout and path info
+- `ast_parse()` — delegates to `ASTEngine.parse()` with auto language detection, returns class/method/annotation counts
+- `ast_search()` — scans files by extension, parses each with `ASTEngine`, checks `check_implements()` against pattern
+- `es_search()` — delegates to `SearchClient.search_rules()` or `search_context()` based on index name
 
 **Refactor (read-write) tools:**
-- `git_branch()` — returns stub dict
-- `git_commit()` — returns stub dict
-- `ast_transform()` — returns stub dict
-- `jinja_render()` — returns stub dict
+- `git_branch()` — delegates to `GitClient.create_branch()`
+- `git_commit()` — delegates to `GitClient.add()` + `GitClient.commit()`
+- `ast_transform()` — reads file, applies insert/replace/append actions by line, writes back
+- `jinja_render()` — delegates to `TemplateEngine.render()` with `SandboxedEnvironment`
 
 **TestGenerator (sandboxed) tools:**
-- `git_read()` — returns stub dict
-- `run_tests()` — returns stub dict
-- `jinja_render_test()` — returns stub dict
+- `git_read()` — reads file via `Path.read_text()` (read-only)
+- `run_tests()` — delegates to `TestRunner.run_tests()` (Docker sandboxed), returns pass/fail/stdout/stderr
+- `jinja_render_test()` — delegates to `TemplateEngine.render()`
 
 **Reporter (external) tools:**
-- `git_pr_create()` — returns stub dict
-- `notification_send()` — returns stub dict
-- `jinja_render_report()` — returns stub dict
+- `git_pr_create()` — delegates to `create_git_provider()` → `GitProviderClient.create_pull_request()`
+- `notification_send()` — delegates to `create_notifier()` → `NotificationClient.send_*()` based on severity
+- `jinja_render_report()` — delegates to `TemplateEngine.render()`
+
+All tools catch exceptions and return structured error dicts (`{"status": "error", "error": "..."}`) so the LLM agent receives actionable feedback.
 
 ---
 
@@ -391,7 +393,7 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
 | **Observability** (audit logger, WAL, crypto, storage, OTel) | 100% | — | — | Full |
 | **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
-| **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
+| **Agent Execution** (tools) | 100% | — | — | Full |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
 | **CLI** | 100% | — | — | Full |
 | **API** | 100% | — | — | Full |
