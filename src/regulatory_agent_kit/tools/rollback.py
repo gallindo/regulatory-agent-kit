@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path  # noqa: TC003
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -199,14 +199,17 @@ class RollbackExecutor:
         return results
 
     async def _execute_action(self, action: RollbackAction) -> RollbackResult:
-        """Execute a single rollback action."""
+        """Execute a single rollback action via handler registry (Open/Closed)."""
+        handler = self._action_handlers.get(action.action)
+        if handler is None:
+            return RollbackResult(
+                repo_url=action.repo_url,
+                action=action.action,
+                success=False,
+                error=f"Unknown action: {action.action}",
+            )
         try:
-            if action.action == "close_pr_and_delete_branch":
-                return await self._close_pr_and_delete_branch(action)
-            if action.action == "create_revert_pr":
-                return await self._create_revert_pr(action)
-            if action.action == "delete_branch":
-                return await self._delete_branch(action)
+            return await handler(self, action)
         except Exception as exc:
             return RollbackResult(
                 repo_url=action.repo_url,
@@ -214,13 +217,6 @@ class RollbackExecutor:
                 success=False,
                 error=str(exc),
             )
-
-        return RollbackResult(
-            repo_url=action.repo_url,
-            action=action.action,
-            success=False,
-            error=f"Unknown action: {action.action}",
-        )
 
     async def _close_pr_and_delete_branch(
         self, action: RollbackAction
@@ -306,21 +302,34 @@ class RollbackExecutor:
             detail=f"Branch {action.branch_name} marked for deletion",
         )
 
+    # Registry mapping action names to handler methods (Open/Closed).
+    # New action types can be added by extending this dict without
+    # modifying _execute_action().
+    _action_handlers: ClassVar[dict[str, Any]] = {
+        "close_pr_and_delete_branch": _close_pr_and_delete_branch,
+        "create_revert_pr": _create_revert_pr,
+        "delete_branch": _delete_branch,
+    }
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
+_ACTION_TEMPLATES: dict[str, str] = {
+    "close_pr_and_delete_branch": "close PR {pr_url} and delete branch {branch}",
+    "create_revert_pr": "create revert PR for merged branch {branch}",
+    "delete_branch": "delete branch {branch}",
+}
+
+
 def _action_description(action: RollbackAction) -> str:
     """Return a human-readable description of a rollback action."""
-    if action.action == "close_pr_and_delete_branch":
-        return f"close PR {action.pr_url} and delete branch {action.branch_name}"
-    if action.action == "create_revert_pr":
-        return f"create revert PR for merged branch {action.branch_name}"
-    if action.action == "delete_branch":
-        return f"delete branch {action.branch_name}"
-    return f"skip ({action.pr_state})"
+    template = _ACTION_TEMPLATES.get(action.action)
+    if template is None:
+        return f"skip ({action.pr_state})"
+    return template.format(pr_url=action.pr_url, branch=action.branch_name)
 
 
 def _extract_pr_id(pr_url: str) -> str:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
@@ -38,47 +37,17 @@ async def submit_event(
 ) -> EventAccepted:
     """Validate and accept a regulatory event, starting a pipeline.
 
-    When a database pool is available, a ``pipeline_runs`` row is created.
-    When a Temporal client is available, a workflow is started.
-    Falls back to generating a workflow ID when services are unavailable.
+    Delegates persistence and workflow dispatch to the service layer.
     """
-    workflow_id = f"rak-pipeline-{uuid4()}"
-    run_id = ""
+    from regulatory_agent_kit.api.services import (
+        create_pipeline_run,
+        start_temporal_workflow,
+    )
 
-    # Persist the pipeline run in PostgreSQL if available
-    if db_pool is not None:
-        try:
-            from regulatory_agent_kit.database.repositories.pipeline_runs import (
-                PipelineRunRepository,
-            )
-
-            async with db_pool.connection() as conn:
-                repo = PipelineRunRepository(conn)
-                run_uuid = await repo.create(
-                    regulation_id=event.regulation_id,
-                    total_repos=1,
-                    config_snapshot=event.payload,
-                    temporal_workflow_id=workflow_id,
-                )
-                run_id = str(run_uuid)
-                logger.info("Created pipeline run %s for event %s", run_id, event.event_id)
-        except Exception:
-            logger.warning("Failed to persist pipeline run", exc_info=True)
-
-    # Start a Temporal workflow if the client is available
-    if temporal_client is not None:
-        try:
-            from regulatory_agent_kit.event_sources.starter import WorkflowStarter
-
-            starter = WorkflowStarter(temporal_client)
-            workflow_id = await starter.start_pipeline(
-                event=event,
-                plugin={},
-                config={"regulation_id": event.regulation_id},
-            )
-            logger.info("Started workflow %s for event %s", workflow_id, event.event_id)
-        except Exception:
-            logger.warning("Failed to start Temporal workflow", exc_info=True)
+    workflow_id = await start_temporal_workflow(temporal_client, event)
+    run_id = await create_pipeline_run(
+        db_pool, event.regulation_id, event.payload, workflow_id
+    )
 
     return EventAccepted(
         workflow_id=workflow_id,

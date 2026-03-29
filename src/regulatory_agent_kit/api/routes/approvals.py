@@ -64,10 +64,8 @@ async def submit_approval(
 ) -> ApprovalAck:
     """Record a human checkpoint decision for a pipeline run.
 
-    When a database pool is available, the decision is persisted to
-    ``checkpoint_decisions`` and the run is validated against ``pipeline_runs``.
-    When a Temporal client is available, the workflow is signalled.
-    Falls back to in-memory storage when neither is available.
+    Delegates persistence and Temporal signalling to the service layer.
+    Falls back to in-memory storage when DB is unavailable.
     """
     if db_pool is not None:
         return await _handle_db_approval(run_id, decision, db_pool, temporal_client)
@@ -90,57 +88,21 @@ async def _handle_db_approval(
     temporal_client: Any,
 ) -> ApprovalAck:
     """Persist a decision to the database and optionally signal Temporal."""
-    from regulatory_agent_kit.database.repositories.checkpoint_decisions import (
-        CheckpointDecisionRepository,
-    )
-    from regulatory_agent_kit.database.repositories.pipeline_runs import (
-        PipelineRunRepository,
+    from regulatory_agent_kit.api.services import (
+        persist_approval,
+        signal_temporal_approval,
     )
 
-    async with db_pool.connection() as conn:
-        pipeline_repo = PipelineRunRepository(conn)
-        run_info = await pipeline_repo.get(run_id)
-        if run_info is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Run {run_id} not found.",
-            )
-
-        checkpoint_repo = CheckpointDecisionRepository(conn)
-        await checkpoint_repo.create(
-            run_id=run_id,
-            checkpoint_type=decision.checkpoint_type,
-            actor=decision.actor,
-            decision=decision.decision,
-            signature=decision.signature,
-            rationale=decision.rationale,
-            decided_at=decision.decided_at,
+    run_info = await persist_approval(db_pool, run_id, decision)
+    if run_info is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Run {run_id} not found.",
         )
 
-    # Signal Temporal workflow if available
-    if temporal_client is not None:
-        temporal_workflow_id = run_info.get("temporal_workflow_id")
-        if temporal_workflow_id:
-            try:
-                from regulatory_agent_kit.event_sources.starter import (
-                    WorkflowStarter,
-                )
-
-                starter = WorkflowStarter(temporal_client)
-                await starter.signal_approval(
-                    temporal_workflow_id,
-                    decision.to_summary_dict(),
-                )
-                logger.info(
-                    "Signalled workflow %s with %s decision",
-                    temporal_workflow_id,
-                    decision.decision,
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to signal Temporal workflow %s",
-                    temporal_workflow_id,
-                    exc_info=True,
-                )
+    temporal_workflow_id = run_info.get("temporal_workflow_id", "")
+    await signal_temporal_approval(
+        temporal_client, temporal_workflow_id, decision.to_summary_dict()
+    )
 
     return ApprovalAck(run_id=str(run_id))

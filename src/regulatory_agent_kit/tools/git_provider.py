@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlparse
@@ -167,20 +168,40 @@ class GitLabClient:
 # Registry + Factory
 # ---------------------------------------------------------------------------
 
-_PROVIDER_REGISTRY: dict[str, type[GitProviderClient]] = {}
+# ---------------------------------------------------------------------------
+# Factory callable type — each provider registers how to construct itself
+# ---------------------------------------------------------------------------
+
+ProviderFactory = Callable[[str, str, str], GitProviderClient]
+"""Callable(owner, repo, token) -> GitProviderClient."""
+
+_PROVIDER_REGISTRY: dict[str, ProviderFactory] = {}
 
 
 def register_git_provider(
     host_pattern: str,
-    cls: type[GitProviderClient],
+    factory: ProviderFactory,
 ) -> None:
-    """Register a git-provider class for a hostname pattern."""
-    _PROVIDER_REGISTRY[host_pattern] = cls
+    """Register a provider factory for a hostname pattern.
+
+    The factory receives ``(owner, repo, token)`` and returns a
+    ``GitProviderClient``.  This avoids ``if cls is X`` type checks
+    in the creation function (Open/Closed Principle).
+    """
+    _PROVIDER_REGISTRY[host_pattern] = factory
+
+
+def _create_github(owner: str, repo: str, token: str) -> GitProviderClient:
+    return GitHubClient(owner=owner, repo=repo, token=token)
+
+
+def _create_gitlab(owner: str, repo: str, token: str) -> GitProviderClient:
+    return GitLabClient(project_path=f"{owner}/{repo}", token=token)
 
 
 # Built-in registrations
-register_git_provider("github", GitHubClient)
-register_git_provider("gitlab", GitLabClient)
+register_git_provider("github", _create_github)
+register_git_provider("gitlab", _create_gitlab)
 
 
 def create_git_provider(
@@ -206,17 +227,9 @@ def create_git_provider(
     owner = parts[0]
     repo = parts[1].removesuffix(".git")
 
-    for pattern, cls in _PROVIDER_REGISTRY.items():
+    for pattern, factory in _PROVIDER_REGISTRY.items():
         if pattern in hostname:
-            # GitHub-style: owner + repo
-            if cls is GitHubClient:
-                return cls(owner=owner, repo=repo, token=token)  # type: ignore[call-arg]
-            # GitLab-style: project_path
-            if cls is GitLabClient:
-                project_path = f"{owner}/{repo}"
-                return cls(project_path=project_path, token=token)  # type: ignore[call-arg]
-            # Generic fallback for custom providers — try owner/repo kwargs
-            return cls(owner=owner, repo=repo, token=token)  # type: ignore[call-arg]
+            return factory(owner, repo, token)
 
     msg = f"Unsupported git provider for host: {hostname}"
     raise ToolError(msg)
