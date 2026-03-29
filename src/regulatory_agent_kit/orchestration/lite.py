@@ -26,11 +26,6 @@ from regulatory_agent_kit.database.protocols import (  # noqa: TC001
     PipelineRunStore,
     RepositoryProgressStore,
 )
-from regulatory_agent_kit.orchestration.activities import (
-    DEFAULT_ANALYSIS_CONFIDENCE,
-    MOCK_PASS_RATE,
-    MOCK_TOTAL_TESTS,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -190,22 +185,24 @@ class CostEstimationPhase:
 
 
 class AnalysisPhase:
-    """Run stub analysis on each repository."""
+    """Analyze each repository against plugin rules."""
 
     @property
     def name(self) -> str:
         return "ANALYZING"
 
     async def execute(self, context: PipelineContext) -> None:
+        from regulatory_agent_kit.orchestration.activities import (
+            analyze_repository,
+        )
+
         logger.info("[Lite] Phase: ANALYZING")
         for repo_url in context.repo_urls:
             entry_id = await context.progress_repo.create(context.run_uuid, repo_url)
             await context.progress_repo.update_status(entry_id, "in_progress")
-            analysis = {
-                "files": [],
-                "conflicts": [],
-                "analysis_confidence": DEFAULT_ANALYSIS_CONFIDENCE,
-            }
+            analysis = await analyze_repository(
+                repo_url, context.regulation_id, context.plugin_data
+            )
             context.result.add_repo_result(
                 {
                     "repo_url": repo_url,
@@ -236,41 +233,46 @@ class ImpactReviewPhase:
 
 
 class RefactoringPhase:
-    """Generate stub change-sets for each repository."""
+    """Apply compliance fixes for each repository."""
 
     @property
     def name(self) -> str:
         return "REFACTORING"
 
     async def execute(self, context: PipelineContext) -> None:
+        from regulatory_agent_kit.orchestration.activities import (
+            refactor_repository,
+        )
+
         logger.info("[Lite] Phase: REFACTORING")
         for repo_result in context.result.repo_results:
-            repo_result["change_set"] = {
-                "branch_name": (f"rak/fix-{repo_result['repo_url'].split('/')[-1]}"),
-                "diffs": [],
-                "confidence_scores": [],
-                "commit_sha": "abcdef1234567890",
-            }
+            change_set = await refactor_repository(
+                repo_result["repo_url"],
+                repo_result.get("impact_map", {}),
+                context.plugin_data,
+            )
+            repo_result["change_set"] = change_set
 
 
 class TestingPhase:
-    """Generate stub test results for each repository."""
+    """Generate and validate tests for each repository."""
 
     @property
     def name(self) -> str:
         return "TESTING"
 
     async def execute(self, context: PipelineContext) -> None:
+        from regulatory_agent_kit.orchestration.activities import (
+            test_repository,
+        )
+
         logger.info("[Lite] Phase: TESTING")
         for repo_result in context.result.repo_results:
-            repo_result["test_result"] = {
-                "pass_rate": MOCK_PASS_RATE,
-                "total_tests": MOCK_TOTAL_TESTS,
-                "passed": MOCK_TOTAL_TESTS,
-                "failed": 0,
-                "failures": [],
-                "test_files_created": [],
-            }
+            test_result = await test_repository(
+                repo_result["repo_url"],
+                repo_result.get("change_set", {}),
+            )
+            repo_result["test_result"] = test_result
 
 
 class MergeReviewPhase:
@@ -293,21 +295,21 @@ class MergeReviewPhase:
 
 
 class ReportingPhase:
-    """Generate stub report artefact paths."""
+    """Generate compliance report artefacts."""
 
     @property
     def name(self) -> str:
         return "REPORTING"
 
     async def execute(self, context: PipelineContext) -> None:
+        from regulatory_agent_kit.orchestration.activities import report_results
+
         logger.info("[Lite] Phase: REPORTING")
-        run_id = context.run_id
-        context.result.report = {
-            "pr_urls": [],
-            "audit_log_path": f"/tmp/rak/{run_id}/audit.jsonl",  # noqa: S108
-            "report_path": f"/tmp/rak/{run_id}/report.html",  # noqa: S108
-            "rollback_manifest_path": f"/tmp/rak/{run_id}/rollback.yaml",  # noqa: S108
-        }
+        context.result.report = await report_results(
+            context.run_id,
+            context.result.repo_results,
+            regulation_id=context.regulation_id,
+        )
 
 
 class CompletionPhase:

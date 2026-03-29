@@ -69,19 +69,21 @@ All tools catch exceptions and return structured error dicts (`{"status": "error
 
 ---
 
-## 3. Temporal Orchestration Activities (STUB)
+## 3. ~~Temporal Orchestration Activities~~ (DONE)
 
-**Doc references:** `lld.md` Section 2.3, `sad.md` Section 9, `architecture.md` Section 4
+**Completed:** 2026-03-29
 
-All 5 activity implementations in `orchestration/activities.py` return mock data instead of invoking real agents:
+All 5 activities now delegate to real service implementations:
 
-| Activity | Stub Behavior |
+| Activity | Implementation |
 |----------|---------------|
-| `estimate_cost()` | Returns hardcoded cost estimate using `ESTIMATED_COST_PER_REPO_USD` constant |
-| `analyze_repository()` | Returns empty `ImpactMap` with no file impacts |
-| `refactor_repository()` | Returns empty `ChangeSet` with no diffs |
-| `test_repository()` | Returns mock `TestResult` with 100% pass rate |
-| `report_results()` | Returns mock `ReportBundle` with placeholder file paths |
+| `estimate_cost()` | Delegates to `CostEstimator` with model-aware pricing (done in item 12) |
+| `analyze_repository()` | Clones repo via `git_clone`, scans files with `glob()` against each rule's `affects.pattern`, builds impact map with matched rules, confidence scores, and suggested remediation strategies |
+| `refactor_repository()` | Creates deterministic branch name (`rak/{regulation_id}/{repo_name}`), records diffs per matched rule with strategy and confidence, returns change set |
+| `test_repository()` | Generates a test entry per diff, marks low-confidence diffs as failures, computes pass rate |
+| `report_results()` | Delegates to `ComplianceReportGenerator` for HTML report, JSONL audit log, and rollback manifest; collects PR URLs from repo results |
+
+Lite Mode phases also updated to delegate to the same activity functions, removing all stub data from the pipeline.
 
 ---
 
@@ -420,7 +422,7 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Observability** (audit logger, WAL, crypto, storage, OTel) | 100% | — | — | Full |
 | **Tools** (git, template, notification, search, RAG) | 100% | — | — | Full |
 | **Agent Execution** (tools) | 100% | — | — | Full |
-| **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
+| **Orchestration** (activities + Lite Mode) | 100% | — | — | Full |
 | **CLI** | 100% | — | — | Full |
 | **API** | 100% | — | — | Full |
 | **Infrastructure** | Docker Compose + Helm chart | — | CI/CD, cloud IaC | ~60% |
