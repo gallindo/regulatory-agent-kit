@@ -213,6 +213,20 @@ class AnalysisPhase:
             )
 
 
+async def _auto_approve_checkpoint(
+    context: PipelineContext, checkpoint_type: str
+) -> None:
+    """Record an auto-approved checkpoint decision in Lite Mode."""
+    await context.checkpoint_repo.create(
+        run_id=context.run_uuid,
+        checkpoint_type=checkpoint_type,
+        actor="lite-mode-auto",
+        decision="approved",
+        signature="",
+        rationale="Auto-approved in Lite Mode",
+    )
+
+
 class ImpactReviewPhase:
     """Auto-approve impact review checkpoint in Lite Mode."""
 
@@ -222,14 +236,7 @@ class ImpactReviewPhase:
 
     async def execute(self, context: PipelineContext) -> None:
         logger.info("[Lite] Phase: AWAITING_IMPACT_REVIEW (auto-approved)")
-        await context.checkpoint_repo.create(
-            run_id=context.run_uuid,
-            checkpoint_type="impact_review",
-            actor="lite-mode-auto",
-            decision="approved",
-            signature="",
-            rationale="Auto-approved in Lite Mode",
-        )
+        await _auto_approve_checkpoint(context, "impact_review")
 
 
 class RefactoringPhase:
@@ -284,14 +291,7 @@ class MergeReviewPhase:
 
     async def execute(self, context: PipelineContext) -> None:
         logger.info("[Lite] Phase: AWAITING_MERGE_REVIEW (auto-approved)")
-        await context.checkpoint_repo.create(
-            run_id=context.run_uuid,
-            checkpoint_type="merge_review",
-            actor="lite-mode-auto",
-            decision="approved",
-            signature="",
-            rationale="Auto-approved in Lite Mode",
-        )
+        await _auto_approve_checkpoint(context, "merge_review")
 
 
 class ReportingPhase:

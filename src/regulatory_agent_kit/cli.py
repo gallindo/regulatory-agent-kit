@@ -22,6 +22,7 @@ from regulatory_agent_kit.exceptions import (
     PluginLoadError,
     PluginValidationError,
 )
+from regulatory_agent_kit.models.pipeline import TERMINAL_STATUSES
 from regulatory_agent_kit.plugins.loader import PluginLoader
 from regulatory_agent_kit.plugins.scaffolder import PluginScaffolder
 
@@ -62,6 +63,10 @@ app.add_typer(db_app, name="db")
 # ---------------------------------------------------------------------------
 
 
+_LITE_DB_PATH = Path.home() / ".rak" / "lite.db"
+"""Default SQLite database path for Lite Mode — single source of truth."""
+
+
 def _validate_uuid(value: str) -> str:
     """Validate that a string is a valid UUID."""
     try:
@@ -72,14 +77,18 @@ def _validate_uuid(value: str) -> str:
     return value
 
 
-def _lite_db_path(settings: Settings) -> Path:
-    """Return the SQLite database path for Lite Mode."""
-    return Path.home() / ".rak" / "lite.db"
-
-
 def _run_async(coro: Any) -> Any:
     """Run an async coroutine from synchronous CLI context."""
     return asyncio.run(coro)
+
+
+async def _get_lite_run(run_id: str) -> dict[str, Any] | None:
+    """Fetch a pipeline run from Lite Mode SQLite, or None if missing."""
+    from regulatory_agent_kit.database.lite import LitePipelineRunRepository
+
+    if not _LITE_DB_PATH.exists():
+        return None
+    return await LitePipelineRunRepository(_LITE_DB_PATH).get(UUID(run_id))
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +159,7 @@ def _run_lite_pipeline(
     """Execute the pipeline using the Lite Mode sequential executor."""
     from regulatory_agent_kit.orchestration.lite import LiteModeExecutor
 
-    executor = LiteModeExecutor(db_path=_lite_db_path(settings))
+    executor = LiteModeExecutor(db_path=_LITE_DB_PATH)
     result = _run_async(
         executor.run(
             regulation_id=plugin.id,
@@ -296,24 +305,14 @@ async def _query_lite_status(
     run_id: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
     """Query a Lite Mode SQLite database for pipeline run status."""
-    from regulatory_agent_kit.database.lite import (
-        LitePipelineRunRepository,
-        LiteRepositoryProgressRepository,
-    )
+    from regulatory_agent_kit.database.lite import LiteRepositoryProgressRepository
 
-    db_path = Path.home() / ".rak" / "lite.db"
-    if not db_path.exists():
-        return None
-
-    run_uuid = UUID(run_id)
-    pipeline_repo = LitePipelineRunRepository(db_path)
-    progress_repo = LiteRepositoryProgressRepository(db_path)
-
-    run_info = await pipeline_repo.get(run_uuid)
+    run_info = await _get_lite_run(run_id)
     if run_info is None:
         return None
 
-    repos = await progress_repo.get_by_run(run_uuid)
+    progress_repo = LiteRepositoryProgressRepository(_LITE_DB_PATH)
+    repos = await progress_repo.get_by_run(UUID(run_id))
     return run_info, repos
 
 
@@ -353,24 +352,13 @@ def retry_failures(
 
 async def _get_failed_repos(run_id: str) -> list[dict[str, Any]] | None:
     """Query failed repositories from Lite Mode SQLite."""
-    from regulatory_agent_kit.database.lite import (
-        LitePipelineRunRepository,
-        LiteRepositoryProgressRepository,
-    )
+    from regulatory_agent_kit.database.lite import LiteRepositoryProgressRepository
 
-    db_path = Path.home() / ".rak" / "lite.db"
-    if not db_path.exists():
-        return None
-
-    run_uuid = UUID(run_id)
-    pipeline_repo = LitePipelineRunRepository(db_path)
-    progress_repo = LiteRepositoryProgressRepository(db_path)
-
-    run_info = await pipeline_repo.get(run_uuid)
+    run_info = await _get_lite_run(run_id)
     if run_info is None:
         return None
 
-    all_repos = await progress_repo.get_by_run(run_uuid)
+    all_repos = await LiteRepositoryProgressRepository(_LITE_DB_PATH).get_by_run(UUID(run_id))
     return [r for r in all_repos if r.get("status") == "failed"]
 
 
@@ -476,8 +464,7 @@ async def _load_rollback_manifest(run_id: str) -> dict[str, Any] | None:
         return loaded
 
     # Search Lite Mode audit trail
-    db_path = Path.home() / ".rak" / "lite.db"
-    loaded = await load_manifest_from_audit_trail(run_id, db_path)
+    loaded = await load_manifest_from_audit_trail(run_id, _LITE_DB_PATH)
     if loaded is not None:
         return loaded
 
@@ -506,7 +493,7 @@ def resume(
         raise typer.Exit(code=1)
 
     run_status = result.get("status", "unknown")
-    if run_status in ("completed", "failed", "rejected", "cost_rejected", "cancelled"):
+    if run_status in TERMINAL_STATUSES:
         console.print(
             f"[yellow]Run is already in terminal state: {run_status}. Cannot resume.[/yellow]"
         )
@@ -521,14 +508,7 @@ def resume(
 
 async def _resume_lite_run(run_id: str) -> dict[str, Any] | None:
     """Query Lite Mode SQLite for a run to resume."""
-    from regulatory_agent_kit.database.lite import LitePipelineRunRepository
-
-    db_path = Path.home() / ".rak" / "lite.db"
-    if not db_path.exists():
-        return None
-
-    pipeline_repo = LitePipelineRunRepository(db_path)
-    return await pipeline_repo.get(UUID(run_id))
+    return await _get_lite_run(run_id)
 
 
 # ---------------------------------------------------------------------------
@@ -561,20 +541,14 @@ async def _cancel_run(run_id: str) -> str:
     """Cancel a Lite Mode run by updating its status."""
     from regulatory_agent_kit.database.lite import LitePipelineRunRepository
 
-    db_path = Path.home() / ".rak" / "lite.db"
-    if not db_path.exists():
-        return "not_found"
-
-    pipeline_repo = LitePipelineRunRepository(db_path)
-    run_info = await pipeline_repo.get(UUID(run_id))
+    run_info = await _get_lite_run(run_id)
     if run_info is None:
         return "not_found"
 
-    current_status = run_info.get("status", "")
-    if current_status in ("completed", "failed", "rejected", "cost_rejected", "cancelled"):
+    if run_info.get("status", "") in TERMINAL_STATUSES:
         return "already_terminal"
 
-    await pipeline_repo.update_status(UUID(run_id), "cancelled")
+    await LitePipelineRunRepository(_LITE_DB_PATH).update_status(UUID(run_id), "cancelled")
     return "cancelled"
 
 
@@ -787,11 +761,10 @@ async def _clean_cache() -> int | None:
         pass
 
     # Fall back to Lite Mode SQLite
-    db_path = Path.home() / ".rak" / "lite.db"
-    if db_path.exists():
+    if _LITE_DB_PATH.exists():
         from regulatory_agent_kit.database.lite import LiteFileAnalysisCacheRepository
 
-        repo = LiteFileAnalysisCacheRepository(db_path)
+        repo = LiteFileAnalysisCacheRepository(_LITE_DB_PATH)
         return await repo.delete_expired()
 
     return None
