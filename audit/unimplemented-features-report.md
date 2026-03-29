@@ -161,14 +161,21 @@ Additional changes:
 
 ---
 
-## 9. JSON-LD Audit Log Format (MISSING)
+## 9. ~~JSON-LD Audit Log Format~~ (DONE)
 
-**Doc references:** `architecture.md` Output Layer, `data-model.md` Section 5
+**Completed:** 2026-03-29
 
-- Audit entries are stored as plain JSONB, not in JSON-LD format
-- No `@context` or `@type` fields are added to audit payloads
-- The JSON-LD payload schemas documented in `data-model.md` Section 5 (e.g., `"@type": "LLMCall"`) are not implemented
-- `AuditLogger.log_*()` methods create plain dicts without JSON-LD structure
+All audit payloads are now enriched with JSON-LD fields matching data-model.md Section 5:
+
+- `_enrich_payload()` prepends `@context` (`https://schema.org`) and `@type` to every
+  payload before signing and storage, respecting any caller-provided overrides
+- `JSONLD_TYPE_MAP` maps all 9 event types to their documented `@type` values:
+  `LLMCall`, `ToolInvocation`, `StateTransition`, `HumanDecision`, `ConflictDetected`,
+  `CostEstimation`, `TestExecution`, `MergeRequest`, `Error`
+- 4 missing `log_*` methods added: `log_cost_estimation()`, `log_test_execution()`,
+  `log_merge_request()`, `log_error()` — now all 9 event types have dedicated methods
+- The signer receives the enriched (JSON-LD) payload, so signatures cover the
+  `@context` and `@type` fields for tamper detection
 
 ---
 
@@ -367,7 +374,7 @@ All three cloud backends follow the optional-import pattern (same as `sqs.py`), 
 | **Plugin System** (schema, loader, DSL, conflicts) | 100% | — | — | Full |
 | **Database Layer** (repos, pool, lite, migrations) | 100% | — | — | Full |
 | **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
-| **Observability** (audit logger, WAL, crypto, storage) | ~85% | OTel setup | JSON-LD format | ~85% |
+| **Observability** (audit logger, WAL, crypto, storage) | ~95% | OTel setup | — | ~95% |
 | **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
 | **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
