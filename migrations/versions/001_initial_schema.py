@@ -227,36 +227,82 @@ def upgrade() -> None:
         )
     )
 
-    # --- Indexes ---
-    conn.execute(
-        op.inline_literal("CREATE INDEX idx_pipeline_runs_status ON rak.pipeline_runs (status)")
-    )
+    # --- Indexes (see data-model.md Section 4.1) ---
+
+    # pipeline_runs indexes
     conn.execute(
         op.inline_literal(
-            "CREATE INDEX idx_pipeline_runs_regulation ON rak.pipeline_runs (regulation_id)"
+            "CREATE INDEX idx_runs_status ON rak.pipeline_runs (status)"
         )
     )
     conn.execute(
-        op.inline_literal("CREATE INDEX idx_repo_progress_run ON rak.repository_progress (run_id)")
-    )
-    conn.execute(
         op.inline_literal(
-            "CREATE INDEX idx_repo_progress_status ON rak.repository_progress (run_id, status)"
+            "CREATE INDEX idx_runs_regulation ON rak.pipeline_runs (regulation_id)"
         )
     )
     conn.execute(
-        op.inline_literal("CREATE INDEX idx_audit_entries_run ON rak.audit_entries (run_id)")
+        op.inline_literal(
+            "CREATE INDEX idx_runs_created ON rak.pipeline_runs (created_at DESC)"
+        )
     )
-    conn.execute(
-        op.inline_literal("CREATE INDEX idx_audit_entries_type ON rak.audit_entries (event_type)")
-    )
+
+    # repository_progress indexes
     conn.execute(
         op.inline_literal(
-            "CREATE INDEX idx_audit_entries_payload ON rak.audit_entries USING gin (payload)"
+            "CREATE INDEX idx_progress_run ON rak.repository_progress (run_id)"
         )
     )
     conn.execute(
-        op.inline_literal("CREATE INDEX idx_cache_expires ON rak.file_analysis_cache (expires_at)")
+        op.inline_literal(
+            "CREATE INDEX idx_progress_status ON rak.repository_progress (status)"
+        )
+    )
+
+    # audit_entries indexes (applied to partitioned parent — propagates to partitions)
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_audit_run ON rak.audit_entries (run_id)"
+        )
+    )
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_audit_type ON rak.audit_entries (event_type)"
+        )
+    )
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_audit_payload ON rak.audit_entries USING gin (payload)"
+        )
+    )
+    conn.execute(
+        op.inline_literal(
+            """
+            CREATE INDEX idx_audit_model ON rak.audit_entries
+                ((payload->>'model'))
+            WHERE event_type = 'llm_call'
+            """
+        )
+    )
+
+    # checkpoint_decisions indexes
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_checkpoint_run ON rak.checkpoint_decisions (run_id)"
+        )
+    )
+
+    # conflict_log indexes
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_conflict_run ON rak.conflict_log (run_id)"
+        )
+    )
+
+    # file_analysis_cache indexes
+    conn.execute(
+        op.inline_literal(
+            "CREATE INDEX idx_cache_expires ON rak.file_analysis_cache (expires_at)"
+        )
     )
 
     # --- Grants ---

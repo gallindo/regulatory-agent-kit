@@ -1,0 +1,375 @@
+# Unimplemented Features Report
+
+> **Date:** 2026-03-28
+> **Scope:** All features described in `docs/` verified against the codebase in `src/regulatory_agent_kit/`
+> **Project Version:** 0.1.0 (Alpha)
+
+---
+
+## Legend
+
+| Status | Meaning |
+|--------|---------|
+| **STUB** | Code structure exists but returns mock/dummy data |
+| **MISSING** | No code exists at all |
+| **PARTIAL** | Some logic exists but incomplete |
+
+---
+
+## 1. CLI Pipeline Commands (STUB)
+
+**Doc references:** `cli-reference.md`, `getting-started.md`, `architecture.md` Appendix A
+
+| Command | Status | Details |
+|---------|--------|---------|
+| `rak run` (full execution) | STUB | Shows "Not yet implemented" messages for both Lite and Temporal execution paths |
+| `rak status --run-id` | STUB | Returns "unknown (not yet connected to backend)" |
+| `rak retry-failures --run-id` | STUB | Body prints "Not yet implemented" |
+| `rak rollback --run-id` | STUB | Body prints "Not yet implemented" |
+| `rak resume --run-id` | STUB | Body prints "Not yet implemented" |
+| `rak plugin test <path> --repo` | MISSING | Command not defined in CLI; documented in `cli-reference.md` |
+| `rak plugin search <query>` | MISSING | Command not defined in CLI; documented in `cli-reference.md` |
+| `rak db clean-cache` | STUB | Body prints "Not yet implemented" |
+| `rak db create-partitions` | STUB | Body prints "Not yet implemented" |
+
+---
+
+## 2. Agent Tool Implementations (STUB)
+
+**Doc references:** `architecture.md` Section 4.3, `sad.md` Section 10, `lld.md` Section 2.4
+
+All 13 agent tools in `agents/tools.py` return dummy dictionaries instead of delegating to real service implementations:
+
+**Analyzer (read-only) tools:**
+- `git_clone()` — returns stub dict
+- `ast_parse()` — returns stub dict
+- `ast_search()` — returns stub dict
+- `es_search()` — returns stub dict
+
+**Refactor (read-write) tools:**
+- `git_branch()` — returns stub dict
+- `git_commit()` — returns stub dict
+- `ast_transform()` — returns stub dict
+- `jinja_render()` — returns stub dict
+
+**TestGenerator (sandboxed) tools:**
+- `git_read()` — returns stub dict
+- `run_tests()` — returns stub dict
+- `jinja_render_test()` — returns stub dict
+
+**Reporter (external) tools:**
+- `git_pr_create()` — returns stub dict
+- `notification_send()` — returns stub dict
+- `jinja_render_report()` — returns stub dict
+
+---
+
+## 3. Temporal Orchestration Activities (STUB)
+
+**Doc references:** `lld.md` Section 2.3, `sad.md` Section 9, `architecture.md` Section 4
+
+All 5 activity implementations in `orchestration/activities.py` return mock data instead of invoking real agents:
+
+| Activity | Stub Behavior |
+|----------|---------------|
+| `estimate_cost()` | Returns hardcoded cost estimate using `ESTIMATED_COST_PER_REPO_USD` constant |
+| `analyze_repository()` | Returns empty `ImpactMap` with no file impacts |
+| `refactor_repository()` | Returns empty `ChangeSet` with no diffs |
+| `test_repository()` | Returns mock `TestResult` with 100% pass rate |
+| `report_results()` | Returns mock `ReportBundle` with placeholder file paths |
+
+---
+
+## 4. ~~Alembic Database Migrations~~ (DONE)
+
+**Completed:** 2026-03-29
+
+Alembic migrations were already scaffolded under `migrations/` (not `alembic/`, which caused the
+original report to miss them). The implementation has been completed with:
+
+- `alembic.ini` — configured with `version_table_schema = rak` and `rak_admin` role for DDL
+- `migrations/env.py` — supports `DATABASE_URL` env var override, offline/online modes,
+  version table stored in `rak` schema
+- `migrations/versions/001_initial_schema.py` — creates all 6 tables with full constraints:
+  - `pipeline_runs` (CHECK constraints, valid_completion, UNIQUE temporal_workflow_id)
+  - `repository_progress` (FK CASCADE, UNIQUE run_id+repo_url, updated_at trigger)
+  - `audit_entries` (partitioned by month, composite PK, 3 initial partitions)
+  - `checkpoint_decisions` (FK CASCADE, CHECK constraints, UNIQUE)
+  - `conflict_log` (FK CASCADE, resolution_requires_decision constraint)
+  - `file_analysis_cache` (CHAR(64) PK, TTL-based expiration)
+- All 12 indexes from `data-model.md` Section 4.1 including the expression index `idx_audit_model`
+- Role grants: `rak_admin` (full DDL), `rak_app` (DML-only, append-only on audit_entries)
+- Downgrade drops the entire `rak` schema via CASCADE
+
+---
+
+## 5. API Routes — Real Backend Integration (PARTIAL)
+
+**Doc references:** `sad.md` Section 7, `architecture.md` Section 9.3, `hld.md` Section 2
+
+| Endpoint | Status | Details |
+|----------|--------|---------|
+| `POST /events` | PARTIAL | Generates deterministic workflow ID but does not start a Temporal workflow |
+| `POST /approvals/{run_id}` | PARTIAL | Uses in-memory dict instead of database or Temporal signals |
+| `GET /runs/{run_id}` | PARTIAL | Reads from in-memory storage, not PostgreSQL |
+| `GET /runs` | PARTIAL | Reads from in-memory storage, not PostgreSQL |
+
+---
+
+## 6. DORA Regulation Plugin (MISSING)
+
+**Doc references:** `regulatory-agent-kit.md` Section 4.2, `regulations/dora/README.md`
+
+- `regulations/dora/README.md` exists with detailed documentation covering all 5 DORA pillars
+- **No actual `dora-ict-risk-2025.yaml` plugin file exists**
+- Only 1 example plugin exists (`regulations/examples/example.yaml`)
+- The DORA plugin is referenced throughout the docs as the primary use case but has no implementation
+
+---
+
+## 7. Shift-Left / CI/CD Integration (MISSING)
+
+**Doc references:** `architecture.md` Section 5.3
+
+| Feature | Status |
+|---------|--------|
+| GitHub Action / GitLab CI step that blocks merges on compliance violations | MISSING |
+| PR review bot — agent comments on pull requests with compliance impact analysis | MISSING |
+| Pre-commit hook — lightweight Analyzer flags violations before code is pushed | MISSING |
+
+---
+
+## 8. Compliance Report Generation (MISSING)
+
+**Doc references:** `architecture.md` Output Layer, `lld.md` Section 2.3 (`ReportActivity`)
+
+- No PDF or HTML compliance report generator exists
+- The `ReportActivity` stub returns mock file paths (`/tmp/...`)
+- No Jinja2 report templates exist for compliance report rendering
+- The `ReportBundle` model is fully defined but never populated with real data
+
+---
+
+## 9. JSON-LD Audit Log Format (MISSING)
+
+**Doc references:** `architecture.md` Output Layer, `data-model.md` Section 5
+
+- Audit entries are stored as plain JSONB, not in JSON-LD format
+- No `@context` or `@type` fields are added to audit payloads
+- The JSON-LD payload schemas documented in `data-model.md` Section 5 (e.g., `"@type": "LLMCall"`) are not implemented
+- `AuditLogger.log_*()` methods create plain dicts without JSON-LD structure
+
+---
+
+## 10. Object Storage Integration (PARTIAL)
+
+**Doc references:** `architecture.md` Section 7, `infrastructure.md`, `sad.md` Section 8
+
+| Component | Status |
+|-----------|--------|
+| `StorageBackend` protocol | Implemented |
+| `LocalStorageBackend` | Implemented |
+| S3 storage backend | MISSING — only protocol defined |
+| GCS storage backend | MISSING — only protocol defined |
+| Azure Blob storage backend | MISSING — only protocol defined |
+| `AuditArchiver.export_partition()` | STUB — method exists but body is a placeholder |
+| Audit log replication to immutable object storage | MISSING |
+
+---
+
+## 11. Rollback Manifests (MISSING)
+
+**Doc references:** `architecture.md` Section 4.2, `cli-reference.md` (`rak rollback`)
+
+- No rollback manifest generation logic exists
+- No `rak rollback` execution logic (CLI command is a stub)
+- The documented rollback manifest format (JSON with repo/branch/PR/commit data) has no corresponding code
+- No revert-PR creation logic for already-merged changes
+
+---
+
+## 12. Cost Estimation (STUB)
+
+**Doc references:** `architecture.md` Section 4.2, `lld.md` Section 2.3 (`CostEstimationActivity`)
+
+- `estimate_cost()` activity returns hardcoded values using a constant multiplier
+- No real token estimation per repository based on file count/size
+- No model-aware cost calculation (different rates per LLM provider/model)
+- `CostEstimate` model is fully defined but never populated with real data
+
+---
+
+## 13. File Analysis Cache (MISSING)
+
+**Doc references:** `data-model.md` Section 3.6, `architecture.md` Section 10
+
+- `file_analysis_cache` table schema is documented in `data-model.md`
+- `util/hashing.py` has `compute_cache_key()` using `SHA256(content + plugin_version + agent_version)`
+- **No cache read/write integration exists in the analysis pipeline**
+- No cache eviction logic (`rak db clean-cache` is a stub)
+- SQLite Lite Mode schema in `database/lite.py` does not include a cache table
+
+---
+
+## 14. Data Residency / Region-Based LLM Routing (MISSING)
+
+**Doc references:** `architecture.md` Section 6, `sad.md` Section 12
+
+- No implementation of region-based model routing via LiteLLM
+- No content classification logic for determining data residency requirements
+- No GDPR-aware routing (e.g., EU data to EU-region models)
+- LiteLLM config in `docker/litellm-config.yaml` defines models but no routing rules
+
+---
+
+## 15. Sandboxed Test Execution (PARTIAL)
+
+**Doc references:** `architecture.md` Section 9, `lld.md` Section 2.3 (`TestActivity`)
+
+| Component | Status |
+|-----------|--------|
+| `DockerCommand` fluent builder for `--network=none --read-only` | Implemented |
+| `_DANGEROUS_MODULES` blocklist for static analysis | Implemented |
+| `TestRunner` end-to-end execution | PARTIAL — class exists but not fully integrated |
+| Static AST analysis before test execution | MISSING |
+| CPU/memory/time limits enforcement | PARTIAL — `DockerCommand` supports it but no orchestration |
+
+---
+
+## 16. Elasticsearch Index Setup & RAG (PARTIAL)
+
+**Doc references:** `architecture.md` Sections 2, 5; `sad.md` Section 8; `data-model.md` Section 6
+
+| Component | Status |
+|-----------|--------|
+| `SearchClient` with strategy pattern | Implemented |
+| `RulesSearchStrategy` and `ContextSearchStrategy` | Implemented |
+| Elasticsearch index creation and mapping setup | MISSING |
+| Regulation document ingestion pipeline | MISSING |
+| RAG integration with Analyzer agent | MISSING |
+| Semantic vector search (kNN) configuration | MISSING |
+
+---
+
+## 17. OpenTelemetry Metrics Export (STUB)
+
+**Doc references:** `architecture.md` Section 7, `sad.md` Section 13
+
+| Component | Status |
+|-----------|--------|
+| `OtelSetup` class | STUB — class exists but is a no-op |
+| OTLP export to Prometheus | MISSING |
+| Temporal interceptor for span export | MISSING |
+| Grafana pre-built dashboards | MISSING — Grafana provisioning only has Prometheus datasource |
+| Pipeline throughput/error rate metrics | MISSING |
+
+---
+
+## 18. Kubernetes / Helm Chart (MISSING)
+
+**Doc references:** `infrastructure.md` Section 5, `hld.md` Section 2.2
+
+- No Helm chart exists
+- No Kubernetes manifests (Deployments, StatefulSets, Services, HPAs, Ingress)
+- No namespace definitions (`rak`, `temporal`, `data`, `monitoring`)
+- Only Docker Compose exists for deployment
+- All cloud topology diagrams in `infrastructure.md` (AWS, GCP, Azure) have no corresponding IaC
+
+---
+
+## 19. Supply Chain Security (MISSING)
+
+**Doc references:** `architecture.md` Section 9, `sad.md` Section 14
+
+| Feature | Status |
+|---------|--------|
+| SBOM generation (Syft/CycloneDX) | MISSING |
+| `pip-audit` in CI pipeline | MISSING |
+| Signed container images (Sigstore/cosign) | MISSING |
+| `pip install --require-hashes` | MISSING |
+| CI/CD pipeline definition (GitHub Actions / GitLab CI) | MISSING |
+
+---
+
+## 20. Secrets Manager Integration (MISSING)
+
+**Doc references:** `architecture.md` Section 9.2, `hld.md`
+
+- No HashiCorp Vault integration
+- No AWS Secrets Manager integration
+- No GCP Secret Manager integration
+- All credentials are consumed exclusively via environment variables
+- Documentation states: "Environment variables are acceptable for development only. Production deployments must use a secrets manager."
+
+---
+
+## Summary
+
+  ┌─────────────────────────────────────────┬────────────────┬────────────────┬─────────────────────┐
+  │                Category                 │  Implemented   │    Stubbed     │       Missing       │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Core Framework (config, models,         │ 100%           │ —              │ —                   │
+  │ exceptions)                             │                │                │                     │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Plugin System (schema, loader, DSL,     │ 100%           │ —              │ —                   │
+  │ conflicts)                              │                │                │                     │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Database Layer (repos, pool, lite)      │ 100%           │ —              │ Alembic migrations  │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Event Sources (file, kafka, sqs,        │ 100%           │ —              │ —                   │
+  │ webhook)                                │                │                │                     │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Observability (audit logger, WAL,       │ 90%            │ OTel           │ S3 storage, JSON-LD │
+  │ crypto)                                 │                │                │                     │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Tools (git, template, notification)     │ 80%            │ —              │ Search/RAG          │
+  │                                         │                │                │ integration         │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Agent Execution                         │ 20%            │ All 13 tools   │ Real LLM            │
+  │                                         │                │                │ integration         │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Orchestration                           │ 40%            │ All 5          │ Pipeline execution  │
+  │                                         │                │ activities     │                     │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ CLI                                     │ 25%            │ 6 commands     │ 2 commands          │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ API                                     │ 40%            │ —              │ DB-backed routes    │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Infrastructure                          │ Docker only    │ —              │ K8s, Helm, CI/CD    │
+  ├─────────────────────────────────────────┼────────────────┼────────────────┼─────────────────────┤
+  │ Security                                │ Ed25519        │ —              │ SBOM, secrets mgr   │
+  │                                         │ signing        │                │                     │
+  └─────────────────────────────────────────┴────────────────┴────────────────┴─────────────────────┘
+
+
+
+### Implementation Coverage by Category
+
+| Category | Implemented | Stubbed | Missing | Coverage |
+|----------|-------------|---------|---------|----------|
+| **Core Framework** (config, models, exceptions) | 100% | — | — | Full |
+| **Plugin System** (schema, loader, DSL, conflicts) | 100% | — | — | Full |
+| **Database Layer** (repos, pool, lite, migrations) | 100% | — | — | Full |
+| **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
+| **Observability** (audit logger, WAL, crypto) | ~70% | OTel setup | S3 storage, JSON-LD | ~70% |
+| **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
+| **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
+| **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
+| **CLI** | ~25% | 6 commands | 2 commands entirely missing | ~25% |
+| **API** | ~40% | — | DB/Temporal-backed routes | ~40% |
+| **Infrastructure** | Docker Compose only | — | K8s, Helm, CI/CD, cloud IaC | ~20% |
+| **Security** | Ed25519 signing only | — | SBOM, secrets mgr, supply chain | ~15% |
+
+### Key Findings
+
+1. **Solid foundations:** The project has production-ready infrastructure for configuration, data models, plugin system, database layer, event sources, and cryptographic signing.
+
+2. **Core value proposition is stubbed:** The agent execution pipeline — the primary feature described across all documentation — remains entirely stubbed. All 13 agent tools return dummy data, and all 5 Temporal activities return mock results.
+
+3. **No real regulation plugins:** Despite extensive DORA documentation, only a generic example plugin exists. The DORA YAML plugin has not been authored.
+
+4. **No production deployment artifacts:** Kubernetes manifests, Helm charts, CI/CD pipelines, and cloud IaC are documented in detail but have no corresponding implementation.
+
+5. **Lite Mode is the most complete path:** The sequential Lite Mode executor (`orchestration/lite.py`) has real phase orchestration logic, but it delegates to the same stubbed activities.
+
+6. **Documentation significantly leads implementation:** The documentation suite (architecture.md, sad.md, hld.md, lld.md, infrastructure.md, data-model.md) describes a complete production system. The codebase is an alpha scaffold (v0.1.0) with infrastructure plumbing ready but core agent logic not yet implemented.
