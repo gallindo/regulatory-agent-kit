@@ -138,6 +138,10 @@ celerybeat.pid
 .env
 .envrc
 
+# Generated pipeline output (reports, audit logs, rollback manifests)
+compliance-reports/
+audit-archive/
+
 # User pipeline configuration (only .example files are tracked)
 rak-config.yaml
 .venv
