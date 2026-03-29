@@ -296,17 +296,22 @@ Region-based model routing per architecture.md Section 6 and sad.md RC-1:
 
 ---
 
-## 15. Sandboxed Test Execution (PARTIAL)
+## 15. ~~Sandboxed Test Execution~~ (DONE)
 
-**Doc references:** `architecture.md` Section 9, `lld.md` Section 2.3 (`TestActivity`)
+**Completed:** 2026-03-29
 
-| Component | Status |
-|-----------|--------|
-| `DockerCommand` fluent builder for `--network=none --read-only` | Implemented |
-| `_DANGEROUS_MODULES` blocklist for static analysis | Implemented |
-| `TestRunner` end-to-end execution | PARTIAL — class exists but not fully integrated |
-| Static AST analysis before test execution | MISSING |
-| CPU/memory/time limits enforcement | PARTIAL — `DockerCommand` supports it but no orchestration |
+Full sandboxed test execution with static analysis gate per architecture.md Section 9:
+
+| Component | Implementation |
+|-----------|---------------|
+| `DockerCommand` fluent builder | `--network=none --read-only --memory --cpus --stop-timeout` (unchanged) |
+| `_DANGEROUS_MODULES` blocklist | Extended to 6 modules: `os`, `subprocess`, `socket`, `shutil`, `ctypes`, `signal` |
+| `validate_test_files()` | Scans all `*.py` files recursively in a directory, runs `_check_dangerous_imports` on each, returns `ValidationResult` with `safe`, `violations`, `files_scanned` |
+| `ValidationResult` dataclass | Frozen dataclass with safety verdict, per-file violation descriptions, and file count |
+| Pre-flight AST gate in `run_tests()` | Calls `validate_test_files()` before Docker execution; returns `TestResult(passed=False, returncode=-2)` with `BLOCKED` stderr if violations found |
+| `skip_validation` flag | Opt-out for trusted test sources (e.g. project's own tests) |
+| CPU/memory/time limits | Fully wired: `--memory`, `--cpus`, `--stop-timeout` applied to every container via `_build_command()`, configurable via `TestRunner` constructor |
+| `TestResult.validation` field | Carries the `ValidationResult` so callers can inspect which files were scanned and what violations were found |
 
 ---
 

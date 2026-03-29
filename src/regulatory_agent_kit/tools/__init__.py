@@ -24,7 +24,13 @@ from regulatory_agent_kit.tools.search_client import (
     SearchStrategy,
     VectorSearchStrategy,
 )
-from regulatory_agent_kit.tools.test_runner import DockerCommand, TestResult, TestRunner
+from regulatory_agent_kit.tools.test_runner import (
+    DockerCommand,
+    TestResult,
+    TestRunner,
+    ValidationResult,
+    validate_test_files,
+)
 
 __all__ = [
     "ASTEngine",
@@ -44,10 +50,12 @@ __all__ = [
     "SlackNotifier",
     "TestResult",
     "TestRunner",
+    "ValidationResult",
     "VectorSearchStrategy",
     "WebhookNotifier",
     "create_git_provider",
     "create_notifier",
     "register_git_provider",
     "register_notifier",
+    "validate_test_files",
 ]

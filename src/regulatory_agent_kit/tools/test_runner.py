@@ -1,4 +1,15 @@
-"""Sandboxed test runner via Docker containers."""
+"""Sandboxed test runner via Docker containers.
+
+Security constraints applied to every container:
+- ``--network=none`` (no network access)
+- ``--read-only`` (immutable root filesystem)
+- ``--memory=512m`` (memory cap)
+- ``--cpus=1`` (CPU cap)
+- Static AST analysis blocks dangerous imports before execution
+
+Note: Uses asyncio.create_subprocess_exec (not shell) — command
+arguments are passed as a list, preventing shell injection.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +17,7 @@ import ast
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from regulatory_agent_kit.exceptions import ToolError
 
@@ -95,7 +107,9 @@ class DockerCommand:
 # Dangerous-import detection
 # ---------------------------------------------------------------------------
 
-_DANGEROUS_MODULES: frozenset[str] = frozenset({"os", "subprocess", "socket"})
+_DANGEROUS_MODULES: frozenset[str] = frozenset(
+    {"os", "subprocess", "socket", "shutil", "ctypes", "signal"}
+)
 
 
 def _check_dangerous_imports(source: str) -> list[str]:
@@ -124,6 +138,61 @@ def _check_dangerous_imports(source: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Test file validation
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Result of validating test files before sandboxed execution."""
+
+    safe: bool
+    violations: list[str] = field(default_factory=list)
+    files_scanned: int = 0
+
+
+def validate_test_files(test_dir: str | Path) -> ValidationResult:
+    """Scan all Python test files in *test_dir* for dangerous imports.
+
+    This is the static AST analysis gate described in architecture.md
+    Section 9.1 — test files are rejected before Docker execution if
+    they import dangerous modules (os, subprocess, socket, etc.).
+
+    Args:
+        test_dir: Directory containing test files to validate.
+
+    Returns:
+        A ``ValidationResult`` with safety verdict and violations.
+    """
+    root = Path(test_dir)
+    if not root.is_dir():
+        return ValidationResult(safe=True, violations=[], files_scanned=0)
+
+    all_violations: list[str] = []
+    files_scanned = 0
+
+    for py_file in root.rglob("*.py"):
+        if not py_file.is_file():
+            continue
+        files_scanned += 1
+        try:
+            source = py_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        file_violations = _check_dangerous_imports(source)
+        for mod in file_violations:
+            rel = str(py_file.relative_to(root))
+            all_violations.append(f"{rel}: imports '{mod}'")
+
+    return ValidationResult(
+        safe=len(all_violations) == 0,
+        violations=all_violations,
+        files_scanned=files_scanned,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Structured result
 # ---------------------------------------------------------------------------
 
@@ -137,6 +206,7 @@ class TestResult:
     stdout: str
     stderr: str
     timed_out: bool = False
+    validation: ValidationResult | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +228,7 @@ class TestRunner:
     - ``--read-only`` (immutable root filesystem)
     - ``--memory=512m`` (memory cap)
     - ``--cpus=1`` (CPU cap)
+    - Static AST analysis before execution blocks dangerous imports
     """
 
     image: str = _DEFAULT_IMAGE
@@ -165,6 +236,7 @@ class TestRunner:
     memory_limit: str = _DEFAULT_MEMORY_LIMIT
     cpu_limit: str = _DEFAULT_CPU_LIMIT
     extra_docker_flags: list[str] = field(default_factory=list)
+    skip_validation: bool = False
 
     # ------------------------------------------------------------------
     # Public API
@@ -179,11 +251,45 @@ class TestRunner:
     ) -> TestResult:
         """Run ``pytest`` inside a Docker container against *test_dir*.
 
+        Performs static AST analysis on all Python files in *test_dir*
+        before launching the container.  Rejects execution if dangerous
+        imports are detected.
+
+        Args:
+            test_dir: Path to the directory containing test files.
+            image: Docker image override (default: python:3.12-slim).
+            timeout: Timeout override in seconds (default: 300).
+
+        Returns:
+            A ``TestResult`` with pass/fail, output, and validation info.
+
         Raises:
             ToolError: When docker itself fails to start.
         """
         effective_image = image or self.image
         effective_timeout = timeout or self.timeout
+
+        # Pre-flight: static AST analysis
+        if not self.skip_validation:
+            validation = validate_test_files(test_dir)
+            if not validation.safe:
+                logger.warning(
+                    "Test files rejected — dangerous imports: %s",
+                    validation.violations,
+                )
+                return TestResult(
+                    passed=False,
+                    returncode=-2,
+                    stdout="",
+                    stderr=(
+                        "BLOCKED: Static analysis detected dangerous imports:\n"
+                        + "\n".join(f"  - {v}" for v in validation.violations)
+                    ),
+                    validation=validation,
+                )
+        else:
+            validation = None
+
         cmd = self._build_command(test_dir, effective_image)
 
         logger.info(
@@ -192,6 +298,7 @@ class TestRunner:
             effective_timeout,
         )
 
+        # Uses create_subprocess_exec (list args, no shell) — safe from injection
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -210,6 +317,7 @@ class TestRunner:
                 stdout="",
                 stderr="",
                 timed_out=True,
+                validation=validation,
             )
         except FileNotFoundError as exc:
             msg = f"Docker not found: {exc}"
@@ -221,6 +329,7 @@ class TestRunner:
             returncode=returncode,
             stdout=stdout_bytes.decode(),
             stderr=stderr_bytes.decode(),
+            validation=validation,
         )
 
     # ------------------------------------------------------------------
