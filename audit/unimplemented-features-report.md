@@ -282,6 +282,7 @@ Full file analysis cache with both PostgreSQL and SQLite backends:
 - No implementation of region-based model routing via LiteLLM
 - No content classification logic for determining data residency requirements
 - No GDPR-aware routing (e.g., EU data to EU-region models)
+- No LGPD-aware routing (e.g., Brazil data to Brazil-region models)
 - LiteLLM config in `docker/litellm-config.yaml` defines models but no routing rules
 
 ---
