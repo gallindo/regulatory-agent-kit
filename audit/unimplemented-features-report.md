@@ -16,21 +16,24 @@
 
 ---
 
-## 1. CLI Pipeline Commands (STUB)
+## 1. ~~CLI Pipeline Commands~~ (DONE)
 
-**Doc references:** `cli-reference.md`, `getting-started.md`, `architecture.md` Appendix A
+**Completed:** 2026-03-29
 
-| Command | Status | Details |
-|---------|--------|---------|
-| `rak run` (full execution) | STUB | Shows "Not yet implemented" messages for both Lite and Temporal execution paths |
-| `rak status --run-id` | STUB | Returns "unknown (not yet connected to backend)" |
-| `rak retry-failures --run-id` | STUB | Body prints "Not yet implemented" |
-| `rak rollback --run-id` | STUB | Body prints "Not yet implemented" |
-| `rak resume --run-id` | STUB | Body prints "Not yet implemented" |
-| `rak plugin test <path> --repo` | MISSING | Command not defined in CLI; documented in `cli-reference.md` |
-| `rak plugin search <query>` | MISSING | Command not defined in CLI; documented in `cli-reference.md` |
-| `rak db clean-cache` | STUB | Body prints "Not yet implemented" |
-| `rak db create-partitions` | STUB | Body prints "Not yet implemented" |
+All CLI commands have been implemented with real logic:
+
+| Command | Implementation |
+|---------|---------------|
+| `rak run` | Lite Mode: executes `LiteModeExecutor` end-to-end, displays run ID, phases, cost. Temporal: connects to server, starts workflow via `WorkflowStarter`, returns workflow ID |
+| `rak status --run-id` | Queries Lite Mode SQLite for run info + repo progress, displays Rich tables with cost and per-repo status. Supports `--filter` flag |
+| `rak retry-failures --run-id` | Queries SQLite for failed repos, lists them with error messages |
+| `rak rollback --run-id` | Loads rollback manifest from filesystem or audit trail, displays planned actions per repo. Supports `--dry-run` |
+| `rak resume --run-id` | Queries SQLite for run state, reports current status and terminal state detection |
+| `rak cancel --run-id` | Updates run status to `cancelled` in SQLite, handles terminal state detection |
+| `rak plugin test <path> --repo` | Loads plugin, globs repo files against rule patterns, reports match counts per rule |
+| `rak plugin search <query>` | Searches local `regulations/` directory by ID, name, jurisdiction, authority; displays Rich table |
+| `rak db clean-cache` | Calls `FileAnalysisCacheRepository.delete_expired()` via PostgreSQL pool |
+| `rak db create-partitions` | Creates monthly range partitions for `rak.audit_entries` via PostgreSQL |
 
 ---
 
@@ -355,7 +358,7 @@ original report to miss them). The implementation has been completed with:
 | **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
 | **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
-| **CLI** | ~25% | 6 commands | 2 commands entirely missing | ~25% |
+| **CLI** | 100% | — | — | Full |
 | **API** | ~40% | — | DB/Temporal-backed routes | ~40% |
 | **Infrastructure** | Docker Compose only | — | K8s, Helm, CI/CD, cloud IaC | ~20% |
 | **Security** | Ed25519 signing only | — | SBOM, secrets mgr, supply chain | ~15% |
