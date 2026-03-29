@@ -240,15 +240,22 @@ Full rollback pipeline from manifest generation through execution:
 
 ---
 
-## 13. File Analysis Cache (MISSING)
+## 13. ~~File Analysis Cache~~ (DONE)
 
-**Doc references:** `data-model.md` Section 3.6, `architecture.md` Section 10
+**Completed:** 2026-03-29
 
-- `file_analysis_cache` table schema is documented in `data-model.md`
-- `util/hashing.py` has `compute_cache_key()` using `SHA256(content + plugin_version + agent_version)`
-- **No cache read/write integration exists in the analysis pipeline**
-- No cache eviction logic (`rak db clean-cache` is a stub)
-- SQLite Lite Mode schema in `database/lite.py` does not include a cache table
+Full file analysis cache with both PostgreSQL and SQLite backends:
+
+| Component | Implementation |
+|-----------|---------------|
+| `LiteFileAnalysisCacheRepository` | SQLite backend with `get()` (TTL-aware), `put()` (INSERT OR REPLACE with TTL), `delete_expired()` |
+| `file_analysis_cache` table in Lite Mode | Added to `_SCHEMA_SQL` in `database/lite.py` with `cache_key`, `repo_url`, `file_path`, `result`, `created_at`, `expires_at` |
+| `FileAnalysisCache` service | High-level class in `tools/file_cache.py` that wraps any `CacheStore` backend with `compute_cache_key()` from `util/hashing.py` |
+| `CacheStore` protocol | Defines `get()`, `put()`, `delete_expired()` interface for backend abstraction |
+| `lookup()` / `store()` | Cache key is `SHA256(content + plugin_version + agent_version)` — different content, plugin version, or agent version all produce misses |
+| Hit/miss tracking | `hits`, `misses`, `hit_rate` properties for observability |
+| `rak db clean-cache` | Now works in both PostgreSQL (via pool) and Lite Mode (SQLite fallback) |
+| `FileAnalysisCacheRepository` (PostgreSQL) | Already existed with `get()`, `put()` (UPSERT), `delete_expired()` (CTE with count) |
 
 ---
 

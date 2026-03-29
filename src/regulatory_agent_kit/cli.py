@@ -770,21 +770,31 @@ def db_clean_cache() -> None:
 
 
 async def _clean_cache() -> int | None:
-    """Delete expired file analysis cache entries from PostgreSQL."""
+    """Delete expired file analysis cache entries from PostgreSQL or SQLite."""
+    # Try PostgreSQL first
     try:
         from regulatory_agent_kit.database.pool import get_pool
 
         pool = get_pool()
+        from regulatory_agent_kit.database.repositories.file_analysis_cache import (
+            FileAnalysisCacheRepository,
+        )
+
+        async with pool.connection() as conn:
+            repo = FileAnalysisCacheRepository(conn)
+            return await repo.delete_expired()
     except RuntimeError:
-        return None
+        pass
 
-    from regulatory_agent_kit.database.repositories.file_analysis_cache import (
-        FileAnalysisCacheRepository,
-    )
+    # Fall back to Lite Mode SQLite
+    db_path = Path.home() / ".rak" / "lite.db"
+    if db_path.exists():
+        from regulatory_agent_kit.database.lite import LiteFileAnalysisCacheRepository
 
-    async with pool.connection() as conn:
-        repo = FileAnalysisCacheRepository(conn)
+        repo = LiteFileAnalysisCacheRepository(db_path)
         return await repo.delete_expired()
+
+    return None
 
 
 # ---------------------------------------------------------------------------

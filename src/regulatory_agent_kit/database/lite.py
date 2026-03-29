@@ -63,6 +63,15 @@ CREATE TABLE IF NOT EXISTS checkpoint_decisions (
     decided_at      TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id)
 );
+
+CREATE TABLE IF NOT EXISTS file_analysis_cache (
+    cache_key   TEXT PRIMARY KEY,
+    repo_url    TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    result      TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at  TEXT NOT NULL
+);
 """
 
 
@@ -268,3 +277,52 @@ class LiteCheckpointDecisionRepository(_LiteRepository):
             """,
             (str(run_id), checkpoint_type),
         )
+
+
+class LiteFileAnalysisCacheRepository(_LiteRepository):
+    """File analysis cache backed by SQLite."""
+
+    async def get(self, cache_key: str) -> dict[str, Any] | None:
+        """Get a cached analysis result by key, ignoring expired entries."""
+        return await self._fetch_one(
+            """
+            SELECT * FROM file_analysis_cache
+            WHERE cache_key = ? AND expires_at > datetime('now')
+            """,
+            (cache_key,),
+        )
+
+    async def put(
+        self,
+        cache_key: str,
+        repo_url: str,
+        file_path: str,
+        result: dict[str, Any],
+        ttl_days: int = 7,
+    ) -> None:
+        """Insert or replace a cache entry with TTL-based expiration."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                """
+                INSERT OR REPLACE INTO file_analysis_cache
+                    (cache_key, repo_url, file_path, result, created_at, expires_at)
+                VALUES (?, ?, ?, ?, datetime('now'),
+                        datetime('now', '+' || ? || ' days'))
+                """,
+                (cache_key, repo_url, file_path, json.dumps(result), ttl_days),
+            )
+            await db.commit()
+
+    async def delete_expired(self) -> int:
+        """Delete expired cache entries, returning the count removed."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM file_analysis_cache WHERE expires_at < datetime('now')"
+            )
+            count = cursor.rowcount
+            await db.commit()
+            return count
