@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliance Report &mdash; {{ run_id }}</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a2e; --accent: #0f3460;
+    --border: #e0e0e0; --ok: #27ae60; --warn: #e67e22; --err: #c0392b;
+    --light: #f8f9fa; --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--fg);
+         background: var(--bg); line-height: 1.6; max-width: 960px;
+         margin: 0 auto; padding: 2rem 1rem; }
+  h1 { color: var(--accent); border-bottom: 3px solid var(--accent);
+       padding-bottom: .5rem; margin-bottom: 1.5rem; font-size: 1.6rem; }
+  h2 { color: var(--accent); margin-top: 2rem; margin-bottom: .75rem;
+       font-size: 1.25rem; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+  th, td { text-align: left; padding: .5rem .75rem; border: 1px solid var(--border); }
+  th { background: var(--light); font-weight: 600; }
+  .badge { display: inline-block; padding: .15rem .5rem; border-radius: 3px;
+           font-size: .85rem; font-weight: 600; color: #fff; }
+  .badge-ok { background: var(--ok); }
+  .badge-warn { background: var(--warn); }
+  .badge-err { background: var(--err); }
+  .badge-info { background: var(--accent); }
+  .mono { font-family: var(--mono); font-size: .9rem; }
+  .muted { color: #666; font-size: .9rem; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border);
+           color: #999; font-size: .8rem; }
+</style>
+</head>
+<body>
+
+<h1>Compliance Report</h1>
+
+<h2>Pipeline Summary</h2>
+<table>
+  <tr><th>Run ID</th><td class="mono">{{ run_id }}</td></tr>
+  <tr><th>Regulation</th><td>{{ regulation_id }}</td></tr>
+  <tr><th>Status</th>
+    <td>
+      {% if status == "completed" %}
+        <span class="badge badge-ok">{{ status }}</span>
+      {% elif status == "failed" %}
+        <span class="badge badge-err">{{ status }}</span>
+      {% else %}
+        <span class="badge badge-warn">{{ status }}</span>
+      {% endif %}
+    </td>
+  </tr>
+  <tr><th>Repositories</th><td>{{ repos | length }}</td></tr>
+  <tr><th>Generated</th><td>{{ generated_at }}</td></tr>
+  {% if cost_estimate %}
+  <tr><th>Estimated Cost</th><td>${{ "%.4f" | format(cost_estimate.estimated_total_cost) }}</td></tr>
+  {% endif %}
+</table>
+
+{% if repos %}
+<h2>Repository Results</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Repository</th>
+      <th>Status</th>
+      <th>Impact</th>
+      <th>Tests</th>
+      <th>Branch</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for repo in repos %}
+    <tr>
+      <td class="mono">{{ repo.repo_url }}</td>
+      <td>
+        {% if repo.status == "completed" %}
+          <span class="badge badge-ok">{{ repo.status }}</span>
+        {% elif repo.status == "failed" %}
+          <span class="badge badge-err">{{ repo.status }}</span>
+        {% else %}
+          <span class="badge badge-info">{{ repo.status }}</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if repo.impact_map and repo.impact_map.files %}
+          {{ repo.impact_map.files | length }} file(s)
+        {% else %}
+          &mdash;
+        {% endif %}
+      </td>
+      <td>
+        {% if repo.test_result and repo.test_result.total_tests is defined %}
+          {{ repo.test_result.passed }}/{{ repo.test_result.total_tests }}
+          {% if repo.test_result.failed > 0 %}
+            <span class="badge badge-err">{{ repo.test_result.failed }} failed</span>
+          {% endif %}
+        {% else %}
+          &mdash;
+        {% endif %}
+      </td>
+      <td class="mono">{{ repo.change_set.branch_name if repo.change_set and repo.change_set.branch_name else "&mdash;" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if checkpoint_decisions %}
+<h2>Checkpoint Decisions</h2>
+<table>
+  <thead>
+    <tr><th>Checkpoint</th><th>Decision</th><th>Actor</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    {% for d in checkpoint_decisions %}
+    <tr>
+      <td>{{ d.checkpoint_type }}</td>
+      <td>
+        {% if d.decision == "approved" %}
+          <span class="badge badge-ok">{{ d.decision }}</span>
+        {% elif d.decision == "rejected" %}
+          <span class="badge badge-err">{{ d.decision }}</span>
+        {% else %}
+          <span class="badge badge-warn">{{ d.decision }}</span>
+        {% endif %}
+      </td>
+      <td>{{ d.actor }}</td>
+      <td class="muted">{{ d.rationale or "&mdash;" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if conflicts %}
+<h2>Cross-Regulation Conflicts</h2>
+<table>
+  <thead>
+    <tr><th>Conflicting Rules</th><th>Description</th><th>Resolution</th></tr>
+  </thead>
+  <tbody>
+    {% for c in conflicts %}
+    <tr>
+      <td class="mono">{{ c.conflicting_rule_ids | join(", ") }}</td>
+      <td>{{ c.description }}</td>
+      <td>{{ c.resolution or "Unresolved" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if pr_urls %}
+<h2>Merge Requests</h2>
+<ul>
+  {% for url in pr_urls %}
+  <li><a href="{{ url }}">{{ url }}</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<footer>
+  Generated by <strong>regulatory-agent-kit</strong> v{{ version }}.
+  This report does not constitute legal advice.
+</footer>
+
+</body>
+</html>

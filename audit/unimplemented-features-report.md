@@ -150,14 +150,24 @@ Additional changes:
 
 ---
 
-## 8. Compliance Report Generation (MISSING)
+## 8. ~~Compliance Report Generation~~ (DONE)
 
-**Doc references:** `architecture.md` Output Layer, `lld.md` Section 2.3 (`ReportActivity`)
+**Completed:** 2026-03-29
 
-- No PDF or HTML compliance report generator exists
-- The `ReportActivity` stub returns mock file paths (`/tmp/...`)
-- No Jinja2 report templates exist for compliance report rendering
-- The `ReportBundle` model is fully defined but never populated with real data
+A full compliance report generator now produces the three artefacts described in
+data-model.md Section 7.1:
+
+| Artefact | Path | Content |
+|----------|------|---------|
+| HTML report | `{run_id}/report.html` | Styled compliance report with pipeline summary, per-repo results (status, impact, tests, branch), checkpoint decisions, cross-regulation conflicts, PR links, cost estimate |
+| Audit log | `{run_id}/audit-log.jsonld` | Newline-delimited JSON export of all audit entries with JSON-LD `@context`/`@type` fields |
+| Rollback manifest | `{run_id}/rollback-manifest.json` | JSON manifest with per-repo branch, commit SHA, PR URL, PR state, and files changed |
+
+Implementation:
+- `ComplianceReportGenerator` class in `templates/report_generator.py` with `generate()` method
+- Jinja2 HTML template at `templates/reports/compliance_report.html.j2` using `SandboxedEnvironment`
+- `ReportArtefacts` class with `to_report_bundle_dict()` for integration with `ReportBundle` model
+- 20 tests covering HTML content, audit log JSONL format, rollback manifest structure, and directory layout
 
 ---
 
