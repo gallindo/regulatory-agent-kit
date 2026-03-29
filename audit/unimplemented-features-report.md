@@ -300,18 +300,22 @@ Full file analysis cache with both PostgreSQL and SQLite backends:
 
 ---
 
-## 16. Elasticsearch Index Setup & RAG (PARTIAL)
+## 16. ~~Elasticsearch Index Setup & RAG~~ (DONE)
 
-**Doc references:** `architecture.md` Sections 2, 5; `sad.md` Section 8; `data-model.md` Section 6
+**Completed:** 2026-03-29
 
-| Component | Status |
-|-----------|--------|
-| `SearchClient` with strategy pattern | Implemented |
-| `RulesSearchStrategy` and `ContextSearchStrategy` | Implemented |
-| Elasticsearch index creation and mapping setup | MISSING |
-| Regulation document ingestion pipeline | MISSING |
-| RAG integration with Analyzer agent | MISSING |
-| Semantic vector search (kNN) configuration | MISSING |
+Full index setup, ingestion, vector search, and RAG context assembly:
+
+| Component | Implementation |
+|-----------|---------------|
+| Index mappings | `_REGULATIONS_MAPPING` and `_CONTEXT_MAPPING` match data-model.md Section 6 exactly: `rule_description` with english analyzer + keyword sub-field, `content_chunk` with term vectors, `embedding` dense_vector (1536 dims, cosine), custom `regulation_analyzer` |
+| `ensure_index()` | Creates both indexes with full mappings if they don't exist, skips if they do |
+| `ingest_plugin()` | Indexes each rule as a separate document with `{plugin_id}:{rule_id}` doc ID, includes condition, remediation_strategy, extra fields (pillar, rts_reference) |
+| `index_context_chunk()` | Indexes individual regulation text chunks with optional dense vector embedding for kNN search |
+| `VectorSearchStrategy` | Builds ES kNN query body for dense vector nearest-neighbour retrieval |
+| `search_by_vector()` | Semantic kNN search against the context index with configurable `k` |
+| `build_rag_context()` | Assembles formatted context string from matching rules + context chunks for LLM prompt injection |
+| `index_regulation()` | Indexes regulation summary document (updated with more fields) |
 
 ---
 
@@ -406,7 +410,7 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Database Layer** (repos, pool, lite, migrations) | 100% | — | — | Full |
 | **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
 | **Observability** (audit logger, WAL, crypto, storage, OTel) | 100% | — | — | Full |
-| **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
+| **Tools** (git, template, notification, search, RAG) | 100% | — | — | Full |
 | **Agent Execution** (tools) | 100% | — | — | Full |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
 | **CLI** | 100% | — | — | Full |

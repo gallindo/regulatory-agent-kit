@@ -22,6 +22,7 @@ from regulatory_agent_kit.tools.search_client import (
     RulesSearchStrategy,
     SearchClient,
     SearchStrategy,
+    VectorSearchStrategy,
 )
 from regulatory_agent_kit.tools.test_runner import DockerCommand, TestResult, TestRunner
 
@@ -43,6 +44,7 @@ __all__ = [
     "SlackNotifier",
     "TestResult",
     "TestRunner",
+    "VectorSearchStrategy",
     "WebhookNotifier",
     "create_git_provider",
     "create_notifier",
