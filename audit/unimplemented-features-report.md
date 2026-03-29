@@ -106,16 +106,24 @@ original report to miss them). The implementation has been completed with:
 
 ---
 
-## 5. API Routes — Real Backend Integration (PARTIAL)
+## 5. ~~API Routes — Real Backend Integration~~ (DONE)
 
-**Doc references:** `sad.md` Section 7, `architecture.md` Section 9.3, `hld.md` Section 2
+**Completed:** 2026-03-29
 
-| Endpoint | Status | Details |
-|----------|--------|---------|
-| `POST /events` | PARTIAL | Generates deterministic workflow ID but does not start a Temporal workflow |
-| `POST /approvals/{run_id}` | PARTIAL | Uses in-memory dict instead of database or Temporal signals |
-| `GET /runs/{run_id}` | PARTIAL | Reads from in-memory storage, not PostgreSQL |
-| `GET /runs` | PARTIAL | Reads from in-memory storage, not PostgreSQL |
+All API routes now integrate with the database and Temporal when available, with
+graceful in-memory fallback for tests and Lite Mode:
+
+| Endpoint | Implementation |
+|----------|---------------|
+| `POST /events` | Creates `pipeline_runs` row via `PipelineRunRepository`, starts Temporal workflow via `WorkflowStarter` when client is available, returns `run_id` alongside `workflow_id` |
+| `POST /approvals/{run_id}` | Persists decision to `checkpoint_decisions` via `CheckpointDecisionRepository`, validates run exists in `pipeline_runs`, signals Temporal workflow. Falls back to in-memory for tests |
+| `GET /runs/{run_id}` | Queries `pipeline_runs` + `repository_progress.count_by_status()` from PostgreSQL, returns `PipelineStatus` with cost summary and repo counts |
+| `GET /runs` | Queries `pipeline_runs` by status from PostgreSQL, supports `status_filter` parameter |
+
+Additional changes:
+- `lifespan()` in `main.py` now initialises DB pool, Temporal client, audit signer, and settings on startup with graceful degradation
+- `dependencies.py` provides `get_db_pool`, `get_temporal_client`, `get_audit_signer`, `get_settings` via FastAPI `Depends()` injection
+- All routes accept injected dependencies and branch on availability (DB present → query DB; DB absent → in-memory fallback)
 
 ---
 
@@ -359,7 +367,7 @@ original report to miss them). The implementation has been completed with:
 | **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
 | **CLI** | 100% | — | — | Full |
-| **API** | ~40% | — | DB/Temporal-backed routes | ~40% |
+| **API** | 100% | — | — | Full |
 | **Infrastructure** | Docker Compose only | — | K8s, Helm, CI/CD, cloud IaC | ~20% |
 | **Security** | Ed25519 signing only | — | SBOM, secrets mgr, supply chain | ~15% |
 

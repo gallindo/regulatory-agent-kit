@@ -1,18 +1,16 @@
-"""FastAPI dependency injection stubs for shared resources."""
+"""FastAPI dependency injection for shared resources."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from fastapi import Request
+from starlette.requests import Request  # noqa: TC002
 
 
 async def get_db_pool(request: Request) -> Any:
     """Return the database connection pool from app state.
 
-    In production this yields a ``psycopg.AsyncConnectionPool``.
-    During tests or before startup it returns ``None``.
+    Returns ``None`` when the pool has not been initialised (tests, lite mode).
     """
     return getattr(request.app.state, "db_pool", None)
 
@@ -20,8 +18,7 @@ async def get_db_pool(request: Request) -> Any:
 async def get_temporal_client(request: Request) -> Any:
     """Return the Temporal client from app state.
 
-    In production this yields a ``temporalio.client.Client``.
-    During tests or before startup it returns ``None``.
+    Returns ``None`` when Temporal is unavailable (tests, lite mode).
     """
     return getattr(request.app.state, "temporal_client", None)
 
@@ -29,15 +26,11 @@ async def get_temporal_client(request: Request) -> Any:
 async def get_audit_signer(request: Request) -> Any:
     """Return the Ed25519 audit signer from app state.
 
-    In production this yields an ``AuditSigner`` instance.
-    During tests or before startup it returns ``None``.
+    Returns ``None`` when the signer is not configured.
     """
     return getattr(request.app.state, "audit_signer", None)
 
 
 async def get_settings(request: Request) -> Any:
-    """Return application settings from app state.
-
-    Returns the ``Settings`` instance stored during startup.
-    """
+    """Return application settings from app state."""
     return getattr(request.app.state, "settings", None)

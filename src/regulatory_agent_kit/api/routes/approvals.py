@@ -2,28 +2,29 @@
 
 from __future__ import annotations
 
+import logging
+from typing import Any
 from uuid import UUID  # noqa: TC003
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from regulatory_agent_kit.api.dependencies import get_db_pool, get_temporal_client
 from regulatory_agent_kit.models.audit import CheckpointDecision  # noqa: TC001
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["approvals"])
 
 # ---------------------------------------------------------------------------
-# In-memory store (replaced by Temporal signals + DB in production)
+# In-memory fallback (used when DB is unavailable, e.g. in tests)
 # ---------------------------------------------------------------------------
 
-# Maps run_id -> list of decision summary dicts.
 _pending_runs: dict[UUID, list[dict[str, str]]] = {}
 
 
 def register_run(run_id: UUID) -> None:
-    """Register a run as eligible for approval decisions.
-
-    Called by the workflow starter or tests to seed known run IDs.
-    """
+    """Register a run as eligible for approval decisions (test/demo helper)."""
     _pending_runs.setdefault(run_id, [])
 
 
@@ -55,12 +56,23 @@ class ApprovalAck(BaseModel):
     status_code=status.HTTP_200_OK,
     summary="Submit a checkpoint decision",
 )
-async def submit_approval(run_id: UUID, decision: CheckpointDecision) -> ApprovalAck:
+async def submit_approval(
+    run_id: UUID,
+    decision: CheckpointDecision,
+    db_pool: Any = Depends(get_db_pool),  # noqa: B008
+    temporal_client: Any = Depends(get_temporal_client),  # noqa: B008
+) -> ApprovalAck:
     """Record a human checkpoint decision for a pipeline run.
 
-    Returns 404 when the *run_id* is not recognized.  In production
-    this would signal the Temporal workflow to unblock.
+    When a database pool is available, the decision is persisted to
+    ``checkpoint_decisions`` and the run is validated against ``pipeline_runs``.
+    When a Temporal client is available, the workflow is signalled.
+    Falls back to in-memory storage when neither is available.
     """
+    if db_pool is not None:
+        return await _handle_db_approval(run_id, decision, db_pool, temporal_client)
+
+    # Fallback: in-memory store for tests
     if run_id not in _pending_runs:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -68,4 +80,67 @@ async def submit_approval(run_id: UUID, decision: CheckpointDecision) -> Approva
         )
 
     _pending_runs[run_id].append(decision.to_summary_dict())
+    return ApprovalAck(run_id=str(run_id))
+
+
+async def _handle_db_approval(
+    run_id: UUID,
+    decision: CheckpointDecision,
+    db_pool: Any,
+    temporal_client: Any,
+) -> ApprovalAck:
+    """Persist a decision to the database and optionally signal Temporal."""
+    from regulatory_agent_kit.database.repositories.checkpoint_decisions import (
+        CheckpointDecisionRepository,
+    )
+    from regulatory_agent_kit.database.repositories.pipeline_runs import (
+        PipelineRunRepository,
+    )
+
+    async with db_pool.connection() as conn:
+        pipeline_repo = PipelineRunRepository(conn)
+        run_info = await pipeline_repo.get(run_id)
+        if run_info is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Run {run_id} not found.",
+            )
+
+        checkpoint_repo = CheckpointDecisionRepository(conn)
+        await checkpoint_repo.create(
+            run_id=run_id,
+            checkpoint_type=decision.checkpoint_type,
+            actor=decision.actor,
+            decision=decision.decision,
+            signature=decision.signature,
+            rationale=decision.rationale,
+            decided_at=decision.decided_at,
+        )
+
+    # Signal Temporal workflow if available
+    if temporal_client is not None:
+        temporal_workflow_id = run_info.get("temporal_workflow_id")
+        if temporal_workflow_id:
+            try:
+                from regulatory_agent_kit.event_sources.starter import (
+                    WorkflowStarter,
+                )
+
+                starter = WorkflowStarter(temporal_client)
+                await starter.signal_approval(
+                    temporal_workflow_id,
+                    decision.to_summary_dict(),
+                )
+                logger.info(
+                    "Signalled workflow %s with %s decision",
+                    temporal_workflow_id,
+                    decision.decision,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to signal Temporal workflow %s",
+                    temporal_workflow_id,
+                    exc_info=True,
+                )
+
     return ApprovalAck(run_id=str(run_id))
