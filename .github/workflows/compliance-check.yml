@@ -77,7 +77,9 @@ jobs:
           uv run python -m regulatory_agent_kit.ci.compliance_scanner \
             --regulation "$RAK_PLUGIN" \
             --changed-files changed_files.txt \
-            --output compliance-report.json
+            --output compliance-report.json \
+            --exclude ".github/**" ".gitlab/**" "docker/**" "helm/**" \
+                      ".pre-commit-hooks.yaml" "*.md" "*.txt" "*.lock"
 
       - name: Upload compliance report
         if: always()

@@ -71,6 +71,36 @@ class TestScanFiles:
         assert result.regulation_name == "Example Audit Logging Regulation"
         assert result.rules_checked == 2
 
+    def test_exclude_patterns_skip_files(self, tmp_path: Path) -> None:
+        yaml_file = tmp_path / ".pre-commit-hooks.yaml"
+        yaml_file.write_text("id: hook\n")
+        java_file = tmp_path / "Svc.java"
+        java_file.write_text("class Svc {}")
+
+        result = scan_files(
+            EXAMPLE_PLUGIN,
+            [".pre-commit-hooks.yaml", "Svc.java"],
+            repo_root=tmp_path,
+            exclude_patterns=[".pre-commit-hooks.yaml"],
+        )
+        # YAML file excluded, only Java violation remains
+        file_paths = {v.file_path for v in result.violations}
+        assert ".pre-commit-hooks.yaml" not in file_paths
+        assert "Svc.java" in file_paths
+
+    def test_exclude_glob_patterns(self, tmp_path: Path) -> None:
+        ci_yaml = tmp_path / ".github" / "workflows" / "ci.yaml"
+        ci_yaml.parent.mkdir(parents=True)
+        ci_yaml.write_text("name: CI\n")
+
+        result = scan_files(
+            EXAMPLE_PLUGIN,
+            [".github/workflows/ci.yaml"],
+            repo_root=tmp_path,
+            exclude_patterns=[".github/**"],
+        )
+        assert result.violation_count == 0
+
     def test_multiple_files_multiple_rules(self, tmp_path: Path) -> None:
         java = tmp_path / "Svc.java"
         java.write_text("class Svc {}")
@@ -167,6 +197,18 @@ class TestMainCli:
             "--repo-root", str(tmp_path),
         ])
         assert rc == 1
+
+    def test_exclude_flag_skips_files(self, tmp_path: Path) -> None:
+        yaml_file = tmp_path / "hooks.yaml"
+        yaml_file.write_text("id: hook\n")
+
+        rc = main([
+            "--regulation", str(EXAMPLE_PLUGIN),
+            "--files", "hooks.yaml",
+            "--repo-root", str(tmp_path),
+            "--exclude", "hooks.yaml",
+        ])
+        assert rc == 0
 
     def test_output_writes_json(self, tmp_path: Path) -> None:
         java = tmp_path / "Svc.java"

@@ -86,6 +86,7 @@ def scan_files(
     files: list[str],
     *,
     repo_root: Path | None = None,
+    exclude_patterns: list[str] | None = None,
 ) -> ScanResult:
     """Scan a list of files against a regulation plugin's rules.
 
@@ -98,6 +99,8 @@ def scan_files(
         plugin_path: Path to the regulation YAML plugin file.
         files: List of file paths to scan (relative or absolute).
         repo_root: Repository root for resolving relative paths.
+        exclude_patterns: Glob patterns for files to skip (e.g.
+            ``[".github/**", "docker/**", ".pre-commit-hooks.yaml"]``).
 
     Returns:
         A ``ScanResult`` with all detected violations.
@@ -107,6 +110,7 @@ def scan_files(
     loader = PluginLoader()
     plugin = loader.load(plugin_path)
     root = repo_root or Path.cwd()
+    excludes = exclude_patterns or []
 
     result = ScanResult(
         regulation_id=plugin.id,
@@ -119,6 +123,9 @@ def scan_files(
     for rule in plugin.rules:
         for affects in rule.affects:
             for file_str in files:
+                if _is_excluded(file_str, excludes):
+                    continue
+
                 file_path = Path(file_str)
                 if not file_path.is_absolute():
                     file_path = root / file_path
@@ -140,6 +147,24 @@ def scan_files(
     result.files_scanned = len(scanned_files)
     result.violation_count = len(result.violations)
     return result
+
+
+def _is_excluded(file_str: str, exclude_patterns: list[str]) -> bool:
+    """Return ``True`` if *file_str* matches any exclusion pattern."""
+    p = Path(file_str)
+    for pattern in exclude_patterns:
+        # Direct match (e.g. ".pre-commit-hooks.yaml")
+        if p.match(pattern):
+            return True
+        # Prefix-based directory exclusion (e.g. ".github/**", "docker/**")
+        if pattern.endswith("/**"):
+            prefix = pattern.removesuffix("/**")
+            if file_str == prefix or file_str.startswith(prefix + "/"):
+                return True
+        # Strip **/ for root-level matching
+        if pattern.startswith("**/") and p.match(pattern.removeprefix("**/")):
+            return True
+    return False
 
 
 def _matches_pattern(file_path: Path, pattern: str, root: Path) -> bool:
@@ -209,6 +234,12 @@ def main(argv: list[str] | None = None) -> int:
         default=".",
         help="Repository root directory",
     )
+    parser.add_argument(
+        "--exclude",
+        nargs="*",
+        default=[],
+        help="Glob patterns for files to skip (e.g. '.github/**' 'docker/**')",
+    )
 
     args = parser.parse_args(argv)
 
@@ -232,7 +263,10 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = scan_files(
-            plugin_path, files, repo_root=Path(args.repo_root)
+            plugin_path,
+            files,
+            repo_root=Path(args.repo_root),
+            exclude_patterns=args.exclude,
         )
     except Exception as exc:
         _print(f"ERROR: Scan failed: {exc}")
