@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -246,41 +247,60 @@ class VaultSecretsBackend:
 # ------------------------------------------------------------------
 
 
+SecretsFactory = Callable[..., SecretsBackend]
+"""Callable that creates a SecretsBackend from keyword arguments."""
+
+_SECRETS_REGISTRY: dict[str, SecretsFactory] = {}
+
+
+def register_secrets_backend(name: str, factory: SecretsFactory) -> None:
+    """Register a secrets backend factory by name (Strategy Pattern)."""
+    _SECRETS_REGISTRY[name] = factory
+
+
+# Built-in registrations
+register_secrets_backend("env", lambda **_kw: EnvVarSecretsBackend())
+register_secrets_backend(
+    "aws",
+    lambda **kw: AWSSecretsManagerBackend(region_name=kw.get("aws_region", "us-east-1")),
+)
+register_secrets_backend(
+    "gcp",
+    lambda **kw: GCPSecretManagerBackend(project_id=kw.get("gcp_project_id")),
+)
+register_secrets_backend(
+    "vault",
+    lambda **kw: VaultSecretsBackend(
+        url=kw.get("vault_url", "http://127.0.0.1:8200"),
+        token=kw.get("vault_token"),
+        mount_point=kw.get("vault_mount_point", "secret"),
+    ),
+)
+
+
 def create_secrets_backend(
     backend_type: str = "env",
-    *,
-    aws_region: str = "us-east-1",
-    gcp_project_id: str | None = None,
-    vault_url: str = "http://127.0.0.1:8200",
-    vault_token: str | None = None,
-    vault_mount_point: str = "secret",
+    **kwargs: Any,
 ) -> SecretsBackend:
-    """Create a secrets backend from configuration.
+    """Create a secrets backend via the strategy registry.
 
     Args:
-        backend_type: One of ``env``, ``aws``, ``gcp``, ``vault``.
+        backend_type: Registered backend name (``env``, ``aws``, ``gcp``, ``vault``).
+        **kwargs: Backend-specific configuration passed to the factory.
 
     Returns:
         A configured ``SecretsBackend`` instance.
 
     Raises:
-        ValueError: If *backend_type* is unknown.
+        ValueError: If *backend_type* is not registered.
         ImportError: If the required SDK is not installed.
     """
-    if backend_type == "env":
-        return EnvVarSecretsBackend()
-    if backend_type == "aws":
-        return AWSSecretsManagerBackend(region_name=aws_region)
-    if backend_type == "gcp":
-        return GCPSecretManagerBackend(project_id=gcp_project_id)
-    if backend_type == "vault":
-        return VaultSecretsBackend(
-            url=vault_url,
-            token=vault_token,
-            mount_point=vault_mount_point,
-        )
-    msg = f"Unknown secrets backend type: {backend_type!r}. Must be env, aws, gcp, or vault."
-    raise ValueError(msg)
+    factory = _SECRETS_REGISTRY.get(backend_type)
+    if factory is None:
+        registered = ", ".join(sorted(_SECRETS_REGISTRY))
+        msg = f"Unknown secrets backend: {backend_type!r}. Registered: {registered}"
+        raise ValueError(msg)
+    return factory(**kwargs)
 
 
 # ------------------------------------------------------------------

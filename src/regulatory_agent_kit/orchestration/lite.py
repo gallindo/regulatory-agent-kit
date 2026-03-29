@@ -194,17 +194,38 @@ class PipelinePhase(Protocol):
     async def execute(self, context: PipelineContext) -> None: ...
 
 
-class CostEstimationPhase:
+class BasePipelinePhase:
+    """Template Method base — logs phase entry, delegates to ``run()``.
+
+    Subclasses override ``run()`` to implement phase-specific logic.
+    The ``execute()`` method provides the common lifecycle: log → run.
+    """
+
+    @property
+    def name(self) -> str:
+        msg = "Subclasses must define the name property"
+        raise NotImplementedError(msg)
+
+    async def execute(self, context: PipelineContext) -> None:
+        """Template method: log phase entry then delegate to run()."""
+        logger.info("[Lite] Phase: %s", self.name)
+        await self.run(context)
+
+    async def run(self, context: PipelineContext) -> None:
+        """Hook method — override in subclasses."""
+        msg = "Subclasses must implement run()"
+        raise NotImplementedError(msg)
+
+
+class CostEstimationPhase(BasePipelinePhase):
     """Estimate per-repo costs for the pipeline run."""
 
     @property
     def name(self) -> str:
         return "COST_ESTIMATION"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.tools.cost_estimator import CostEstimator
-
-        logger.info("[Lite] Phase: COST_ESTIMATION")
         estimator = CostEstimator(
             model=context.get_model(),
             cost_threshold=context.get_cost_threshold(),
@@ -212,19 +233,17 @@ class CostEstimationPhase:
         context.set_cost_estimate(estimator.estimate_for_repos(context.repo_urls))
 
 
-class AnalysisPhase:
+class AnalysisPhase(BasePipelinePhase):
     """Analyze each repository against plugin rules."""
 
     @property
     def name(self) -> str:
         return "ANALYZING"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.orchestration.activities import (
             analyze_repository,
         )
-
-        logger.info("[Lite] Phase: ANALYZING")
         for repo_url in context.repo_urls:
             entry_id = await context.progress_repo.create(context.run_uuid, repo_url)
             await context.progress_repo.update_status(entry_id, "in_progress")
@@ -253,31 +272,28 @@ async def _auto_approve_checkpoint(
     )
 
 
-class ImpactReviewPhase:
+class ImpactReviewPhase(BasePipelinePhase):
     """Auto-approve impact review checkpoint in Lite Mode."""
 
     @property
     def name(self) -> str:
         return "AWAITING_IMPACT_REVIEW"
 
-    async def execute(self, context: PipelineContext) -> None:
-        logger.info("[Lite] Phase: AWAITING_IMPACT_REVIEW (auto-approved)")
+    async def run(self, context: PipelineContext) -> None:
         await _auto_approve_checkpoint(context, "impact_review")
 
 
-class RefactoringPhase:
+class RefactoringPhase(BasePipelinePhase):
     """Apply compliance fixes for each repository."""
 
     @property
     def name(self) -> str:
         return "REFACTORING"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.orchestration.activities import (
             refactor_repository,
         )
-
-        logger.info("[Lite] Phase: REFACTORING")
         for repo_result in context.repo_results:
             change_set = await refactor_repository(
                 repo_result["repo_url"],
@@ -287,19 +303,17 @@ class RefactoringPhase:
             repo_result["change_set"] = change_set
 
 
-class TestingPhase:
+class TestingPhase(BasePipelinePhase):
     """Generate and validate tests for each repository."""
 
     @property
     def name(self) -> str:
         return "TESTING"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.orchestration.activities import (
             test_repository,
         )
-
-        logger.info("[Lite] Phase: TESTING")
         for repo_result in context.repo_results:
             test_result = await test_repository(
                 repo_result["repo_url"],
@@ -308,29 +322,26 @@ class TestingPhase:
             repo_result["test_result"] = test_result
 
 
-class MergeReviewPhase:
+class MergeReviewPhase(BasePipelinePhase):
     """Auto-approve merge review checkpoint in Lite Mode."""
 
     @property
     def name(self) -> str:
         return "AWAITING_MERGE_REVIEW"
 
-    async def execute(self, context: PipelineContext) -> None:
-        logger.info("[Lite] Phase: AWAITING_MERGE_REVIEW (auto-approved)")
+    async def run(self, context: PipelineContext) -> None:
         await _auto_approve_checkpoint(context, "merge_review")
 
 
-class ReportingPhase:
+class ReportingPhase(BasePipelinePhase):
     """Generate compliance report artefacts."""
 
     @property
     def name(self) -> str:
         return "REPORTING"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.orchestration.activities import report_results
-
-        logger.info("[Lite] Phase: REPORTING")
         report = await report_results(
             context.run_id,
             context.repo_results,
@@ -339,14 +350,14 @@ class ReportingPhase:
         context.set_report(report)
 
 
-class CompletionPhase:
+class CompletionPhase(BasePipelinePhase):
     """Mark the pipeline run as completed and log an audit entry."""
 
     @property
     def name(self) -> str:
         return "COMPLETED"
 
-    async def execute(self, context: PipelineContext) -> None:
+    async def run(self, context: PipelineContext) -> None:
         context.mark_completed()
         await context.pipeline_repo.update_status(context.run_uuid, "completed")
         await context.audit_repo.insert(

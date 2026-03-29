@@ -28,6 +28,10 @@ TERMINAL_STATUSES: frozenset[str] = frozenset(
     {"completed", "failed", "rejected", "cost_rejected", "cancelled"}
 )
 
+ALL_STATUSES: tuple[str, ...] = (
+    "pending", "running", "cost_rejected", "completed", "failed", "rejected", "cancelled"
+)
+
 RepoStatusLiteral = Literal["pending", "in_progress", "completed", "failed", "skipped"]
 
 

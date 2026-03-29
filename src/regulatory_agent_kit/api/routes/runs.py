@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from regulatory_agent_kit.api.dependencies import get_db_pool
 from regulatory_agent_kit.models.pipeline import (
+    ALL_STATUSES,
     PipelineStatus,
     PipelineStatusLiteral,
 )
@@ -127,16 +128,10 @@ async def _list_runs_from_db(
 
     async with db_pool.connection() as conn:
         pipeline_repo = PipelineRunRepository(conn)
-        if status_filter is not None:
-            rows = await pipeline_repo.list_by_status(status_filter)
-        else:
-            rows = await pipeline_repo.list_by_status("running")
-            rows += await pipeline_repo.list_by_status("pending")
-            rows += await pipeline_repo.list_by_status("completed")
-            rows += await pipeline_repo.list_by_status("failed")
-            rows += await pipeline_repo.list_by_status("rejected")
-            rows += await pipeline_repo.list_by_status("cost_rejected")
-            rows += await pipeline_repo.list_by_status("cancelled")
+        statuses = [status_filter] if status_filter is not None else list(ALL_STATUSES)
+        rows: list[dict[str, Any]] = []
+        for pipeline_status in statuses:
+            rows.extend(await pipeline_repo.list_by_status(pipeline_status))
 
     return [_row_to_pipeline_status(row) for row in rows]
 

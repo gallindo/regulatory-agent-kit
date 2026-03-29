@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -249,45 +250,69 @@ class AzureBlobStorageBackend:
 # ------------------------------------------------------------------
 
 
+StorageFactory = Callable[..., StorageBackend]
+"""Callable that creates a StorageBackend from keyword arguments."""
+
+_STORAGE_REGISTRY: dict[str, StorageFactory] = {}
+
+
+def register_storage_backend(name: str, factory: StorageFactory) -> None:
+    """Register a storage backend factory by name (Strategy Pattern)."""
+    _STORAGE_REGISTRY[name] = factory
+
+
+# Built-in registrations
+register_storage_backend(
+    "local",
+    lambda **kw: LocalStorageBackend(kw.get("local_root") or Path("audit-archive")),
+)
+register_storage_backend(
+    "s3",
+    lambda **kw: S3StorageBackend(
+        bucket=kw.get("s3_bucket", ""),
+        prefix=kw.get("s3_prefix", ""),
+        region_name=kw.get("s3_region", "us-east-1"),
+    ),
+)
+register_storage_backend(
+    "gcs",
+    lambda **kw: GCSStorageBackend(
+        bucket=kw.get("gcs_bucket", ""), prefix=kw.get("gcs_prefix", "")
+    ),
+)
+register_storage_backend(
+    "azure",
+    lambda **kw: AzureBlobStorageBackend(
+        connection_string=kw.get("azure_connection_string", ""),
+        container=kw.get("azure_container", ""),
+        prefix=kw.get("azure_prefix", ""),
+    ),
+)
+
+
 def create_storage_backend(
     backend_type: str = "local",
-    *,
-    local_root: Path | None = None,
-    s3_bucket: str = "",
-    s3_prefix: str = "",
-    s3_region: str = "us-east-1",
-    gcs_bucket: str = "",
-    gcs_prefix: str = "",
-    azure_connection_string: str = "",
-    azure_container: str = "",
-    azure_prefix: str = "",
+    **kwargs: Any,
 ) -> StorageBackend:
-    """Create a storage backend from configuration.
+    """Create a storage backend via the strategy registry.
 
     Args:
-        backend_type: One of ``local``, ``s3``, ``gcs``, ``azure``.
+        backend_type: Registered backend name (``local``, ``s3``, ``gcs``, ``azure``).
+        **kwargs: Backend-specific configuration passed to the factory.
 
     Returns:
         A configured ``StorageBackend`` instance.
 
     Raises:
-        ValueError: If *backend_type* is unknown.
+        ValueError: If *backend_type* is not registered.
         ImportError: If the required SDK is not installed.
     """
-    if backend_type == "local":
-        return LocalStorageBackend(local_root or Path("audit-archive"))
-    if backend_type == "s3":
-        return S3StorageBackend(bucket=s3_bucket, prefix=s3_prefix, region_name=s3_region)
-    if backend_type == "gcs":
-        return GCSStorageBackend(bucket=gcs_bucket, prefix=gcs_prefix)
-    if backend_type == "azure":
-        return AzureBlobStorageBackend(
-            connection_string=azure_connection_string,
-            container=azure_container,
-            prefix=azure_prefix,
-        )
-    msg = f"Unknown storage backend type: {backend_type!r}. Must be local, s3, gcs, or azure."
-    raise ValueError(msg)
+    factory = _STORAGE_REGISTRY.get(backend_type)
+    if factory is None:
+        registered = ", ".join(sorted(_STORAGE_REGISTRY))
+        msg = f"Unknown storage backend: {backend_type!r}. Registered: {registered}"
+        raise ValueError(msg)
+    return factory(**kwargs)
 
 
 # ------------------------------------------------------------------
