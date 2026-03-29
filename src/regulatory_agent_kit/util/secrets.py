@@ -172,7 +172,8 @@ class GCPSecretManagerBackend:
                 raise KeyError(msg)
 
             response = self._client.access_secret_version(request={"name": name})
-            result: str = response.payload.data.decode("utf-8")
+            payload = response.payload
+            result: str = payload.data.decode("utf-8")
             return result
         except KeyError:
             raise
@@ -222,10 +223,12 @@ class VaultSecretsBackend:
             KeyError: When the secret does not exist or cannot be retrieved.
         """
         try:
-            response = self._client.secrets.kv.v2.read_secret_version(
+            kv_engine = self._client.secrets.kv.v2
+            response = kv_engine.read_secret_version(
                 path=key, mount_point=self._mount_point
             )
-            data: dict[str, Any] = response["data"]["data"]
+            secret_data = response["data"]
+            data: dict[str, Any] = secret_data["data"]
             if not data:
                 msg = f"Secret at '{key}' exists but has no data"
                 raise KeyError(msg)

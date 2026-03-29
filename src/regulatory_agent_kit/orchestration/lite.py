@@ -88,6 +88,33 @@ class PipelineContext:
         model: str = self.config.get("default_model", "claude-sonnet-4-20250514")
         return model
 
+    def get_cost_threshold(self) -> float:
+        """Return the configured cost threshold."""
+        return float(self.config.get("cost_threshold", 50.0))
+
+    # -- Result delegates (Law of Demeter) --
+
+    def set_cost_estimate(self, estimate: dict[str, Any]) -> None:
+        """Set the cost estimate on the pipeline result."""
+        self.result.cost_estimate = estimate
+
+    def add_repo_result(self, result: dict[str, Any]) -> None:
+        """Add a repository processing result."""
+        self.result.add_repo_result(result)
+
+    @property
+    def repo_results(self) -> list[dict[str, Any]]:
+        """Return the per-repo result list."""
+        return self.result.repo_results
+
+    def set_report(self, report: dict[str, Any]) -> None:
+        """Set the report artefact bundle on the result."""
+        self.result.report = report
+
+    def mark_completed(self) -> None:
+        """Mark the pipeline result as completed."""
+        self.result.status = "completed"
+
 
 class PipelineContextBuilder:
     """Fluent builder for PipelineContext."""
@@ -178,10 +205,11 @@ class CostEstimationPhase:
         from regulatory_agent_kit.tools.cost_estimator import CostEstimator
 
         logger.info("[Lite] Phase: COST_ESTIMATION")
-        model = context.get_model()
-        threshold = context.config.get("cost_threshold", 50.0)
-        estimator = CostEstimator(model=model, cost_threshold=float(threshold))
-        context.result.cost_estimate = estimator.estimate_for_repos(context.repo_urls)
+        estimator = CostEstimator(
+            model=context.get_model(),
+            cost_threshold=context.get_cost_threshold(),
+        )
+        context.set_cost_estimate(estimator.estimate_for_repos(context.repo_urls))
 
 
 class AnalysisPhase:
@@ -203,14 +231,12 @@ class AnalysisPhase:
             analysis = await analyze_repository(
                 repo_url, context.regulation_id, context.plugin_data
             )
-            context.result.add_repo_result(
-                {
-                    "repo_url": repo_url,
-                    "impact_map": analysis,
-                    "change_set": {},
-                    "test_result": {},
-                }
-            )
+            context.add_repo_result({
+                "repo_url": repo_url,
+                "impact_map": analysis,
+                "change_set": {},
+                "test_result": {},
+            })
 
 
 async def _auto_approve_checkpoint(
@@ -252,7 +278,7 @@ class RefactoringPhase:
         )
 
         logger.info("[Lite] Phase: REFACTORING")
-        for repo_result in context.result.repo_results:
+        for repo_result in context.repo_results:
             change_set = await refactor_repository(
                 repo_result["repo_url"],
                 repo_result.get("impact_map", {}),
@@ -274,7 +300,7 @@ class TestingPhase:
         )
 
         logger.info("[Lite] Phase: TESTING")
-        for repo_result in context.result.repo_results:
+        for repo_result in context.repo_results:
             test_result = await test_repository(
                 repo_result["repo_url"],
                 repo_result.get("change_set", {}),
@@ -305,11 +331,12 @@ class ReportingPhase:
         from regulatory_agent_kit.orchestration.activities import report_results
 
         logger.info("[Lite] Phase: REPORTING")
-        context.result.report = await report_results(
+        report = await report_results(
             context.run_id,
-            context.result.repo_results,
+            context.repo_results,
             regulation_id=context.regulation_id,
         )
+        context.set_report(report)
 
 
 class CompletionPhase:
@@ -320,7 +347,7 @@ class CompletionPhase:
         return "COMPLETED"
 
     async def execute(self, context: PipelineContext) -> None:
-        context.result.status = "completed"
+        context.mark_completed()
         await context.pipeline_repo.update_status(context.run_uuid, "completed")
         await context.audit_repo.insert(
             run_id=context.run_uuid,

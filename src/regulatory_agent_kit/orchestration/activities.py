@@ -25,6 +25,12 @@ logger = logging.getLogger(__name__)
 ESTIMATED_COST_PER_REPO_USD: float = 1.50
 ESTIMATED_TOKENS_PER_REPO: int = 10_000
 DEFAULT_ANALYSIS_CONFIDENCE: float = 0.85
+
+
+def _get_rule_strategy(rule: dict[str, Any]) -> str:
+    """Extract the remediation strategy from a rule dict (avoids deep dict chain)."""
+    remediation = rule.get("remediation", {})
+    return remediation.get("strategy", "") if isinstance(remediation, dict) else ""
 MOCK_TOTAL_TESTS: int = 5
 MOCK_PASS_RATE: float = 1.0
 
@@ -128,7 +134,7 @@ async def analyze_repository(
                             "condition_evaluated": condition,
                         }],
                         "suggested_approach": (
-                            rule.get("remediation", {}).get("strategy", "")
+                            _get_rule_strategy(rule)
                         ),
                         "affected_regions": [],
                     })
@@ -187,7 +193,7 @@ async def refactor_repository(
         for match in file_impact.get("matched_rules", []):
             rule_id = match.get("rule_id", "")
             rule = rules_by_id.get(rule_id, {})
-            strategy = rule.get("remediation", {}).get("strategy", "")
+            strategy = _get_rule_strategy(rule)
             confidence = match.get("confidence", DEFAULT_ANALYSIS_CONFIDENCE)
             diffs.append({
                 "file_path": file_path,

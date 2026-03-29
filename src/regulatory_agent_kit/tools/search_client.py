@@ -182,7 +182,11 @@ _CONTEXT_MAPPING: dict[str, Any] = {
 
 def _extract_hits(resp: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract source documents from an Elasticsearch search response."""
-    return [h["_source"] for h in resp.get("hits", {}).get("hits", [])]
+    hits_wrapper = resp.get("hits", {})
+    hit_list: list[dict[str, Any]] = (
+        hits_wrapper.get("hits", []) if isinstance(hits_wrapper, dict) else []
+    )
+    return [h["_source"] for h in hit_list]
 
 
 # ---------------------------------------------------------------------------
