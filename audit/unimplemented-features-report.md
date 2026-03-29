@@ -210,14 +210,22 @@ All three cloud backends follow the optional-import pattern (same as `sqs.py`), 
 
 ---
 
-## 11. Rollback Manifests (MISSING)
+## 11. ~~Rollback Manifests~~ (DONE)
 
-**Doc references:** `architecture.md` Section 4.2, `cli-reference.md` (`rak rollback`)
+**Completed:** 2026-03-29
 
-- No rollback manifest generation logic exists
-- No `rak rollback` execution logic (CLI command is a stub)
-- The documented rollback manifest format (JSON with repo/branch/PR/commit data) has no corresponding code
-- No revert-PR creation logic for already-merged changes
+Full rollback pipeline from manifest generation through execution:
+
+| Component | Implementation |
+|-----------|---------------|
+| **Manifest generation** | `ComplianceReportGenerator._write_rollback_manifest()` writes JSON with per-repo `repo_url`, `branch_name`, `commit_sha`, `pr_url`, `pr_state`, `files_changed` (done in item 8) |
+| **Manifest loading** | `load_manifest_from_file()` loads from `compliance-reports/{run_id}/rollback-manifest.json` or `/tmp/rak/{run_id}/`. `load_manifest_from_audit_trail()` searches Lite Mode SQLite for `@type: RollbackManifest` or `merge_request` event |
+| **Action planning** | `determine_action()` maps PR state to action: `open` → close PR + delete branch, `merged` → create revert PR, `closed` → skip (idempotent), unknown → delete branch |
+| **`plan_rollback()`** | Produces a list of typed `RollbackAction` dataclasses from a manifest |
+| **`RollbackExecutor`** | Executes actions via `GitProviderClient`: closes open PRs with comment, creates revert PRs for merged changes with descriptive body, deletes orphan branches. Supports `--dry-run` for preview |
+| **`rak rollback` CLI** | Now uses `plan_rollback()` + `RollbackExecutor`. Shows Rich table with repo, branch, PR, state, action. Displays per-repo results with success/failure detail |
+| **Audit logging** | `format_rollback_summary()` produces JSON-LD `@type: RollbackExecution` payload with per-action results for audit trail |
+| **Edge cases** | Already-closed PRs skipped. Missing token reports clear error. Provider errors caught per-repo without aborting others |
 
 ---
 

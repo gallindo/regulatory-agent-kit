@@ -7,7 +7,6 @@ managing pipeline state, validating regulation plugins, and database maintenance
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -392,80 +391,97 @@ def rollback(
     ] = False,
 ) -> None:
     """Read rollback manifest and preview or execute cleanup."""
+    from regulatory_agent_kit.tools.rollback import (
+        RollbackExecutor,
+        plan_rollback,
+    )
+
     run_id = _validate_uuid(run_id)
     manifest = _run_async(_load_rollback_manifest(run_id))
     if manifest is None:
         console.print(f"[yellow]No rollback manifest found for run {run_id}.[/yellow]")
         raise typer.Exit(code=1)
 
-    repos = manifest.get("repos", [])
-    if not repos:
+    actions = plan_rollback(manifest)
+    if not actions:
         console.print("[green]No repositories to rollback.[/green]")
         return
 
     prefix = "[DRY RUN] " if dry_run else ""
     console.print(f"{prefix}Rolling back run: {run_id}")
-    console.print(f"{prefix}Repositories affected: {len(repos)}")
+    console.print(f"{prefix}Repositories affected: {len(actions)}")
 
     table = Table(title=f"{prefix}Rollback Actions")
     table.add_column("Repository", style="white")
     table.add_column("Branch", style="cyan")
     table.add_column("PR", style="blue")
+    table.add_column("PR State", style="dim")
     table.add_column("Action", style="yellow")
 
-    for repo in repos:
-        pr_state = repo.get("pr_state", "unknown")
-        if pr_state == "merged":
-            action = "Create revert PR"
-        elif pr_state == "open":
-            action = "Close PR + delete branch"
-        else:
-            action = "Delete branch"
+    action_labels = {
+        "close_pr_and_delete_branch": "Close PR + delete branch",
+        "create_revert_pr": "Create revert PR",
+        "delete_branch": "Delete branch",
+        "skip": "Skip (already closed)",
+    }
 
+    for action in actions:
         table.add_row(
-            repo.get("repo_url", "—"),
-            repo.get("branch_name", "—"),
-            repo.get("pr_url", "—"),
-            action,
+            action.repo_url or "—",
+            action.branch_name or "—",
+            action.pr_url or "—",
+            action.pr_state,
+            action_labels.get(action.action, action.action),
         )
     console.print(table)
 
+    executor = RollbackExecutor()
+    results = _run_async(executor.execute(actions, dry_run=dry_run))
+
+    success_count = sum(1 for r in results if r.success)
+    fail_count = sum(1 for r in results if not r.success)
+
+    for r in results:
+        if r.success:
+            console.print(f"  [green]{r.repo_url}:[/green] {r.detail}")
+        elif r.error:
+            console.print(f"  [red]{r.repo_url}:[/red] {r.error}")
+
     if dry_run:
-        console.print("[yellow]Dry run — no actions taken.[/yellow]")
+        console.print("[yellow]Dry run — no actions executed.[/yellow]")
     else:
         console.print(
-            "[yellow]Rollback execution requires Git provider integration "
-            "(not yet available in Lite Mode).[/yellow]"
+            f"[bold]Rollback complete:[/bold] "
+            f"{success_count} succeeded, {fail_count} failed"
         )
 
 
 async def _load_rollback_manifest(run_id: str) -> dict[str, Any] | None:
-    """Load the rollback manifest from the audit trail or local file."""
-    manifest_path = Path(f"/tmp/rak/{run_id}/rollback.yaml")  # noqa: S108
-    if manifest_path.exists():
-        from ruamel.yaml import YAML
+    """Load the rollback manifest from filesystem or audit trail."""
+    from regulatory_agent_kit.tools.rollback import (
+        load_manifest_from_audit_trail,
+        load_manifest_from_file,
+    )
 
-        yaml = YAML(typ="safe")
-        data: dict[str, Any] = yaml.load(manifest_path)
-        return data
+    # Check compliance-reports directory (written by ComplianceReportGenerator)
+    report_manifest = Path("compliance-reports") / run_id / "rollback-manifest.json"
+    loaded = load_manifest_from_file(report_manifest)
+    if loaded is not None:
+        return loaded
 
-    jsonl_path = Path.home() / ".rak" / "lite.db"
-    if not jsonl_path.exists():
-        return None
+    # Check legacy /tmp path
+    tmp_manifest = Path(f"/tmp/rak/{run_id}/rollback-manifest.json")  # noqa: S108
+    loaded = load_manifest_from_file(tmp_manifest)
+    if loaded is not None:
+        return loaded
 
-    from regulatory_agent_kit.database.lite import LiteAuditRepository
+    # Search Lite Mode audit trail
+    db_path = Path.home() / ".rak" / "lite.db"
+    loaded = await load_manifest_from_audit_trail(run_id, db_path)
+    if loaded is not None:
+        return loaded
 
-    audit_repo = LiteAuditRepository(jsonl_path)
-    entries = await audit_repo.get_by_run(UUID(run_id))
-    for entry in entries:
-        payload_raw = entry.get("payload", "{}")
-        payload = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
-        is_manifest = payload.get("@type") == "RollbackManifest"
-        is_merge_req = entry.get("event_type") == "merge_request"
-        if is_manifest or is_merge_req:
-            return payload
-
-    return {"run_id": run_id, "repos": []}
+    return None
 
 
 # ---------------------------------------------------------------------------
