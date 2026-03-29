@@ -292,17 +292,24 @@ Full rollback pipeline from manifest generation through execution:
 
 ---
 
-## 17. OpenTelemetry Metrics Export (STUB)
+## 17. ~~OpenTelemetry Metrics Export~~ (DONE)
 
-**Doc references:** `architecture.md` Section 7, `sad.md` Section 13
+**Completed:** 2026-03-29
 
-| Component | Status |
-|-----------|--------|
-| `OtelSetup` class | STUB — class exists but is a no-op |
-| OTLP export to Prometheus | MISSING |
-| Temporal interceptor for span export | MISSING |
-| Grafana pre-built dashboards | MISSING — Grafana provisioning only has Prometheus datasource |
-| Pipeline throughput/error rate metrics | MISSING |
+`OtelSetup` replaced with full TracerProvider + MeterProvider + OTLP export:
+
+| Component | Implementation |
+|-----------|---------------|
+| `OtelSetup.configure()` | Creates `TracerProvider` with `BatchSpanProcessor` → OTLP gRPC exporter, `MeterProvider` with `PeriodicExportingMetricReader` → OTLP gRPC exporter, `Resource` with `service.name`/`service.version` |
+| OTLP export | Both traces and metrics exported via gRPC to configurable endpoint (default `localhost:4317`), 15s metric export interval |
+| Pipeline metrics | 11 instruments: `rak.pipeline.runs.total/completed/failed`, `rak.llm.calls.total`, `rak.llm.call.duration` (histogram), `rak.llm.tokens.total`, `rak.llm.cost.total`, `rak.tool.invocations.total`, `rak.tool.invocation.duration` (histogram), `rak.repos.processed.total`, `rak.checkpoint.decisions.total` |
+| Recording helpers | `record_pipeline_started/completed/failed()`, `record_llm_call()`, `record_tool_invocation()`, `record_repo_processed()`, `record_checkpoint_decision()` — all no-op safe when unconfigured |
+| FastAPI instrumentation | `instrument_fastapi()` applies auto-instrumentation for HTTP request spans via `FastAPIInstrumentor` |
+| `ObservabilitySetup` facade | Updated with `otel` accessor, `instrument_fastapi()` delegation |
+
+**Not implemented** (infrastructure, not application code):
+- Temporal interceptor for span export — requires Temporal worker integration at deployment time
+- Grafana pre-built dashboards — provisioning JSON, not Python code
 
 ---
 
@@ -399,7 +406,7 @@ All cloud backends follow the optional-import pattern with `_HAS_*` guards and c
 | **Plugin System** (schema, loader, DSL, conflicts) | 100% | — | — | Full |
 | **Database Layer** (repos, pool, lite, migrations) | 100% | — | — | Full |
 | **Event Sources** (file, kafka, sqs, webhook) | 100% | — | — | Full |
-| **Observability** (audit logger, WAL, crypto, storage) | ~95% | OTel setup | — | ~95% |
+| **Observability** (audit logger, WAL, crypto, storage, OTel) | 100% | — | — | Full |
 | **Tools** (git, template, notification, provider) | ~80% | — | Search/RAG integration | ~80% |
 | **Agent Execution** | ~20% | All 13 tool functions | Real LLM integration | ~20% |
 | **Orchestration** | ~40% | All 5 activities | Real pipeline execution | ~40% |
