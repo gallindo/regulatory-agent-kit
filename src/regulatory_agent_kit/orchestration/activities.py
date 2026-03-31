@@ -31,6 +31,8 @@ def _get_rule_strategy(rule: dict[str, Any]) -> str:
     """Extract the remediation strategy from a rule dict (avoids deep dict chain)."""
     remediation = rule.get("remediation", {})
     return remediation.get("strategy", "") if isinstance(remediation, dict) else ""
+
+
 MOCK_TOTAL_TESTS: int = 5
 MOCK_PASS_RATE: float = 1.0
 
@@ -88,9 +90,7 @@ def _scan_rules_against_repo(
     return file_impacts
 
 
-def _match_rule_files(
-    rule: dict[str, Any], clone_dest: Path
-) -> list[dict[str, Any]]:
+def _match_rule_files(rule: dict[str, Any], clone_dest: Path) -> list[dict[str, Any]]:
     """Find files matching a single rule's affects patterns."""
     rule_id = rule.get("id", "")
     description = rule.get("description", "")
@@ -106,19 +106,61 @@ def _match_rule_files(
         for matched_file in matched:
             if matched_file.is_file():
                 rel_path = str(matched_file.relative_to(clone_dest))
-                impacts.append({
-                    "file_path": rel_path,
-                    "matched_rules": [{
-                        "rule_id": rule_id,
-                        "description": description,
-                        "severity": severity,
-                        "confidence": DEFAULT_ANALYSIS_CONFIDENCE,
-                        "condition_evaluated": condition,
-                    }],
-                    "suggested_approach": strategy,
-                    "affected_regions": [],
-                })
+                impacts.append(
+                    {
+                        "file_path": rel_path,
+                        "matched_rules": [
+                            {
+                                "rule_id": rule_id,
+                                "description": description,
+                                "severity": severity,
+                                "confidence": DEFAULT_ANALYSIS_CONFIDENCE,
+                                "condition_raw": condition,
+                                "condition_evaluated": condition,
+                            }
+                        ],
+                        "suggested_approach": strategy,
+                        "affected_regions": [],
+                    }
+                )
     return impacts
+
+
+# ---------------------------------------------------------------------------
+# Condition DSL evaluation helper
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_conditions_on_impacts(file_impacts: list[dict[str, Any]], clone_dest: Path) -> None:
+    """Evaluate condition DSL expressions on each matched file in-place.
+
+    For each file impact, builds a ``FileContext`` and evaluates every
+    rule match's ``condition_raw`` string.  The match dict is updated
+    with evaluation metadata (``condition_result``, ``condition_is_static``,
+    and optionally ``llm_prompt``).
+    """
+    from regulatory_agent_kit.plugins.condition_evaluator import (
+        ConditionEvaluator,
+        FileContext,
+    )
+
+    evaluator = ConditionEvaluator()
+
+    for file_impact in file_impacts:
+        file_path = clone_dest / file_impact["file_path"]
+        context = FileContext.from_file(file_path)
+
+        for match in file_impact.get("matched_rules", []):
+            condition = match.get("condition_raw", "")
+            if condition:
+                result = evaluator.evaluate(condition, context)
+                match["condition_evaluated"] = condition
+                match["condition_result"] = result.result
+                match["condition_is_static"] = result.is_static
+                if result.llm_prompt:
+                    match["llm_prompt"] = result.llm_prompt
+                if result.error:
+                    match["condition_error"] = result.error
 
 
 # ---------------------------------------------------------------------------
@@ -147,18 +189,16 @@ async def analyze_repository(
     clone_result = await git_clone(repo_url, str(clone_dest))
 
     if clone_result.get("status") == "error":
-        activity.logger.warning(
-            "Clone failed for %s: %s", repo_url, clone_result.get("error")
-        )
+        activity.logger.warning("Clone failed for %s: %s", repo_url, clone_result.get("error"))
         return {"files": [], "conflicts": [], "analysis_confidence": 0.0}
 
-    file_impacts = _scan_rules_against_repo(
-        plugin_data.get("rules", []), clone_dest
-    )
+    file_impacts = _scan_rules_against_repo(plugin_data.get("rules", []), clone_dest)
+
+    # --- Evaluate condition DSL expressions against matched files ---
+    _evaluate_conditions_on_impacts(file_impacts, clone_dest)
+
     confidence = DEFAULT_ANALYSIS_CONFIDENCE if file_impacts else 0.0
-    activity.logger.info(
-        "Analysis complete for %s: %d file impacts", repo_url, len(file_impacts)
-    )
+    activity.logger.info("Analysis complete for %s: %d file impacts", repo_url, len(file_impacts))
     return {
         "files": file_impacts,
         "conflicts": [],
@@ -211,17 +251,21 @@ async def refactor_repository(
             rule = rules_by_id.get(rule_id, {})
             strategy = _get_rule_strategy(rule)
             confidence = match.get("confidence", DEFAULT_ANALYSIS_CONFIDENCE)
-            diffs.append({
-                "file_path": file_path,
-                "rule_id": rule_id,
-                "diff_content": f"# Remediation: {strategy} for {rule_id}",
-                "confidence": confidence,
-                "strategy_used": strategy,
-            })
+            diffs.append(
+                {
+                    "file_path": file_path,
+                    "rule_id": rule_id,
+                    "diff_content": f"# Remediation: {strategy} for {rule_id}",
+                    "confidence": confidence,
+                    "strategy_used": strategy,
+                }
+            )
 
     activity.logger.info(
         "Refactoring complete for %s: %d diffs on branch %s",
-        repo_url, len(diffs), branch_name,
+        repo_url,
+        len(diffs),
+        branch_name,
     )
     return {
         "branch_name": branch_name,
@@ -266,14 +310,16 @@ async def test_repository(
             passed += 1
         else:
             failed += 1
-            failures.append({
-                "test_name": test_name,
-                "file_path": file_path,
-                "error_message": (
-                    f"Low confidence ({diff.get('confidence', 0)}) for {rule_id}"
-                ),
-                "stack_trace": "",
-            })
+            failures.append(
+                {
+                    "test_name": test_name,
+                    "file_path": file_path,
+                    "error_message": (
+                        f"Low confidence ({diff.get('confidence', 0)}) for {rule_id}"
+                    ),
+                    "stack_trace": "",
+                }
+            )
 
     if total_tests == 0:
         total_tests = 1
@@ -283,7 +329,9 @@ async def test_repository(
 
     activity.logger.info(
         "Testing complete for %s: %d/%d passed",
-        repo_url, passed, total_tests,
+        repo_url,
+        passed,
+        total_tests,
     )
     return {
         "pass_rate": round(pass_rate, 4),
@@ -318,11 +366,7 @@ async def report_results(
     activity.logger.info("Generating report for run %s", run_id)
 
     generator = ComplianceReportGenerator()
-    pr_urls = [
-        r.get("pr_url", "")
-        for r in repo_results
-        if r.get("pr_url")
-    ]
+    pr_urls = [r.get("pr_url", "") for r in repo_results if r.get("pr_url")]
 
     artefacts = generator.generate(
         run_id=run_id,
