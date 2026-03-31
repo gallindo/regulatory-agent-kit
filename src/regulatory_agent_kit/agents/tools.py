@@ -491,6 +491,69 @@ async def jinja_render_report(
         return f"ERROR: {exc}"
 
 
+async def invoke_custom_agent(
+    agent_class_path: str,
+    file_path: str,
+    rule_id: str,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Invoke a user-defined custom agent for remediation.
+
+    Loads a Python class by its fully-qualified path (e.g.,
+    ``mypackage.agents.CustomRemediator``) and calls its ``remediate()``
+    method with the file path, rule ID, and optional context.
+
+    The custom agent class must implement::
+
+        async def remediate(self, file_path: str, rule_id: str,
+                            context: dict) -> dict[str, Any]
+
+    Args:
+        agent_class_path: Fully-qualified Python class path.
+        file_path: Path to the source file to remediate.
+        rule_id: The regulation rule driving this remediation.
+        context: Optional context dict passed to the custom agent.
+
+    Returns:
+        A dict with the invocation result or error details.
+    """
+    import importlib
+
+    try:
+        module_path, class_name = agent_class_path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        agent_cls = getattr(module, class_name)
+    except (ValueError, ImportError, AttributeError) as exc:
+        logger.warning("invoke_custom_agent failed to load '%s': %s", agent_class_path, exc)
+        return {
+            "status": "error",
+            "error": f"Failed to load custom agent '{agent_class_path}': {exc}",
+            "file_path": file_path,
+            "rule_id": rule_id,
+        }
+
+    try:
+        agent_instance = agent_cls()
+        ctx = context or {}
+        result = await agent_instance.remediate(file_path, rule_id, ctx)
+        return {
+            "status": "success",
+            "file_path": file_path,
+            "rule_id": rule_id,
+            "agent_class": agent_class_path,
+            "result": result,
+        }
+    except Exception as exc:
+        logger.warning("invoke_custom_agent execution failed for '%s': %s", agent_class_path, exc)
+        return {
+            "status": "error",
+            "error": f"Custom agent execution failed: {exc}",
+            "file_path": file_path,
+            "rule_id": rule_id,
+            "agent_class": agent_class_path,
+        }
+
+
 # ---------------------------------------------------------------------------
 # Tool groupings for agent registration
 # ---------------------------------------------------------------------------
@@ -498,7 +561,9 @@ async def jinja_render_report(
 ANALYZER_TOOLS: list[object] = [git_clone, ast_parse, ast_search, es_search]
 """Read-only tools for the AnalyzerAgent."""
 
-REFACTOR_TOOLS: list[object] = [git_branch, git_commit, ast_transform, jinja_render]
+REFACTOR_TOOLS: list[object] = [
+    git_branch, git_commit, ast_transform, jinja_render, invoke_custom_agent,
+]
 """Read-write tools for the RefactorAgent."""
 
 TEST_GENERATOR_TOOLS: list[object] = [git_read, run_tests, jinja_render_test]
