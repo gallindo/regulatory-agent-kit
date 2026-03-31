@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from regulatory_agent_kit.api.main import app
 from regulatory_agent_kit.api.routes.approvals import clear_runs as clear_approval_runs
@@ -164,27 +165,36 @@ async def test_list_runs_with_status_filter(client: httpx.AsyncClient) -> None:
 _TEST_TOKEN = "test-tok-" + "abc123"
 
 
-@pytest.fixture
-def _enable_auth() -> None:  # type: ignore[misc]
-    """Enable token auth on the app for the duration of a test."""
-    app.state.api_token = _TEST_TOKEN
-    yield  # type: ignore[misc]
-    app.state.api_token = None
+def _make_auth_app() -> FastAPI:
+    """Create a standalone FastAPI app with bearer auth middleware for auth tests."""
+    from regulatory_agent_kit.api.middleware import RakAuthMiddleware
+    from regulatory_agent_kit.api.routes.runs import router as runs_router_local
+
+    auth_app = FastAPI()
+    auth_app.add_middleware(RakAuthMiddleware)
+    auth_app.state.api_token = _TEST_TOKEN
+    auth_app.include_router(runs_router_local)
+
+    @auth_app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return auth_app
 
 
-@pytest.mark.usefixtures("_enable_auth")
 async def test_auth_middleware_rejects_missing_token() -> None:
     """When api_token is set, requests without Authorization are rejected."""
-    transport = httpx.ASGITransport(app=app)
+    auth_app = _make_auth_app()
+    transport = httpx.ASGITransport(app=auth_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
         resp = await ac.get("/runs")
         assert resp.status_code == 401
 
 
-@pytest.mark.usefixtures("_enable_auth")
 async def test_auth_middleware_rejects_wrong_token() -> None:
     """When api_token is set, requests with the wrong token get 403."""
-    transport = httpx.ASGITransport(app=app)
+    auth_app = _make_auth_app()
+    transport = httpx.ASGITransport(app=auth_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
         resp = await ac.get(
             "/runs",
@@ -193,10 +203,10 @@ async def test_auth_middleware_rejects_wrong_token() -> None:
         assert resp.status_code == 403
 
 
-@pytest.mark.usefixtures("_enable_auth")
 async def test_auth_middleware_allows_valid_token() -> None:
     """When api_token is set, requests with the correct token succeed."""
-    transport = httpx.ASGITransport(app=app)
+    auth_app = _make_auth_app()
+    transport = httpx.ASGITransport(app=auth_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
         resp = await ac.get(
             "/runs",
@@ -205,10 +215,10 @@ async def test_auth_middleware_allows_valid_token() -> None:
         assert resp.status_code == 200
 
 
-@pytest.mark.usefixtures("_enable_auth")
 async def test_health_bypasses_auth() -> None:
     """The /health endpoint is accessible even with auth enabled."""
-    transport = httpx.ASGITransport(app=app)
+    auth_app = _make_auth_app()
+    transport = httpx.ASGITransport(app=auth_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
         resp = await ac.get("/health")
         assert resp.status_code == 200

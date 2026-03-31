@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from regulatory_agent_kit.api.middleware import RakAuthMiddleware
+from regulatory_agent_kit.api.middleware import add_auth_middleware
 from regulatory_agent_kit.api.routes.approvals import router as approvals_router
 from regulatory_agent_kit.api.routes.events import router as events_router
 from regulatory_agent_kit.api.routes.runs import router as runs_router
@@ -31,6 +31,12 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
         settings = load_settings()
         application.state.settings = settings
+
+        # Apply auth middleware from settings.
+        try:
+            add_auth_middleware(application, settings.auth)
+        except Exception:
+            logger.warning("Auth middleware not configured", exc_info=True)
 
         if not settings.lite_mode:
             try:
@@ -79,9 +85,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-
-# --- middleware ---
-app.add_middleware(RakAuthMiddleware)
 
 # --- routes ---
 app.include_router(events_router)

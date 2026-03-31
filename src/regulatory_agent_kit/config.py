@@ -53,6 +53,24 @@ class LLMSettings(BaseModel):
     )
 
 
+class AuthSettings(BaseModel):
+    """Authentication settings for the API."""
+
+    mode: str = Field(
+        default="none",
+        description="Auth mode: 'none', 'bearer' (static token), or 'jwt'.",
+    )
+    bearer_token: str = Field(default="", description="Static bearer token (for mode='bearer').")
+    jwt_algorithm: str = Field(
+        default="HS256", description="JWT signing algorithm: 'HS256' or 'RS256'."
+    )
+    jwt_secret: str = Field(default="", description="Shared secret for HS256 JWT validation.")
+    jwt_public_key: str = Field(default="", description="PEM-encoded public key for RS256.")
+    jwt_jwks_url: str = Field(default="", description="JWKS endpoint URL for OIDC key discovery.")
+    jwt_issuer: str = Field(default="", description="Expected JWT issuer claim.")
+    jwt_audience: str = Field(default="", description="Expected JWT audience claim.")
+
+
 class ObservabilitySettings(BaseModel):
     """MLflow and OpenTelemetry settings."""
 
@@ -73,6 +91,7 @@ class Settings(BaseSettings):
     """Global application settings loaded from env vars, .env file, and rak-config.yaml."""
 
     # --- Nested service settings ---
+    auth: AuthSettings = Field(default_factory=AuthSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     temporal: TemporalSettings = Field(default_factory=TemporalSettings)
     elasticsearch: ElasticsearchSettings = Field(default_factory=ElasticsearchSettings)
