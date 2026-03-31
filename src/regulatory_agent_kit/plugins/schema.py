@@ -2,11 +2,46 @@
 
 from __future__ import annotations
 
-from datetime import date  # noqa: TC003
+from datetime import date, datetime  # noqa: TC003
 from pathlib import Path  # noqa: TC003
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+
+CertificationTierLiteral = Literal[
+    "technically_valid",
+    "community_reviewed",
+    "official",
+]
+
+
+class ReviewRecord(BaseModel):
+    """Record of a domain expert review."""
+
+    reviewer: str
+    reviewed_at: datetime
+    comments: str = ""
+
+
+class Certification(BaseModel):
+    """Plugin certification status."""
+
+    tier: CertificationTierLiteral = "technically_valid"
+    certified_at: datetime | None = None
+    certified_by: str = ""
+    reviews: list[ReviewRecord] = Field(default_factory=list)
+    ci_validated: bool = False
+
+    @model_validator(mode="after")
+    def validate_tier_requirements(self) -> Certification:
+        """Ensure tier requirements are met."""
+        if self.tier == "community_reviewed" and len(self.reviews) < 2:
+            msg = "community_reviewed tier requires at least 2 reviews"
+            raise ValueError(msg)
+        if self.tier == "official" and not self.certified_by:
+            msg = "official tier requires certified_by to be set"
+            raise ValueError(msg)
+        return self
 
 
 class AffectsClause(BaseModel):
@@ -129,6 +164,7 @@ class RegulationPlugin(BaseModel):
     event_trigger: EventTrigger | None = Field(
         default=None, description="Event trigger configuration."
     )
+    certification: Certification = Field(default_factory=Certification)
 
     def get_precedence_refs(self) -> list[tuple[str, str]]:
         """Return (regulation_id, relationship) pairs for precedence relationships."""
