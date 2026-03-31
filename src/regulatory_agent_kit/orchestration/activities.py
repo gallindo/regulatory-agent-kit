@@ -1,12 +1,14 @@
 """Temporal activity definitions for the compliance pipeline.
 
-Each activity delegates to real service implementations from the ``tools``
-and ``templates`` packages.  Activities run inside Temporal workers and
+Each activity delegates to PydanticAI agents for LLM-powered analysis,
+refactoring, and test generation.  Falls back to rule-based heuristics
+when the LLM is unavailable.  Activities run inside Temporal workers and
 are retried automatically on failure per the workflow's retry policy.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 from collections.abc import Callable  # noqa: TC003
@@ -19,12 +21,13 @@ from temporalio import activity
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Named constants (kept for backward compatibility with Lite Mode imports)
+# Named constants
 # ---------------------------------------------------------------------------
 
 ESTIMATED_COST_PER_REPO_USD: float = 1.50
 ESTIMATED_TOKENS_PER_REPO: int = 10_000
 DEFAULT_ANALYSIS_CONFIDENCE: float = 0.85
+_DEFAULT_MODEL: str = "litellm/anthropic/claude-sonnet-4-6"
 
 
 def _get_rule_strategy(rule: dict[str, Any]) -> str:
@@ -33,16 +36,19 @@ def _get_rule_strategy(rule: dict[str, Any]) -> str:
     return remediation.get("strategy", "") if isinstance(remediation, dict) else ""
 
 
-MOCK_TOTAL_TESTS: int = 5
-MOCK_PASS_RATE: float = 1.0
-
-
 @dataclass
 class ActivityContext:
     """Shared context passed to all activities."""
 
     model: str = "claude-sonnet-4-20250514"
     litellm_url: str = "http://localhost:4000"
+
+
+def _resolve_model() -> str:
+    """Resolve the LLM model to use for agent calls."""
+    import os
+
+    return os.environ.get("RAK_LLM_MODEL", _DEFAULT_MODEL)
 
 
 # ---------------------------------------------------------------------------
@@ -176,8 +182,9 @@ async def analyze_repository(
 ) -> dict[str, Any]:
     """Analyze a repository for regulatory compliance violations.
 
-    Clones the repository, scans files matching each rule's glob pattern,
-    and builds an impact map with matched rules per file.
+    Attempts to use the PydanticAI analyzer agent for LLM-powered analysis.
+    Falls back to rule-based file scanning with condition DSL evaluation
+    if the agent call fails.
     """
     from regulatory_agent_kit.agents.tools import git_clone
 
@@ -192,9 +199,17 @@ async def analyze_repository(
         activity.logger.warning("Clone failed for %s: %s", repo_url, clone_result.get("error"))
         return {"files": [], "conflicts": [], "analysis_confidence": 0.0}
 
-    file_impacts = _scan_rules_against_repo(plugin_data.get("rules", []), clone_dest)
+    # --- Try LLM-powered analysis via PydanticAI agent ---
+    try:
+        return await _analyze_with_agent(repo_url, regulation_id, plugin_data, clone_dest)
+    except Exception:
+        activity.logger.info(
+            "Agent analysis unavailable for %s, using rule-based fallback", repo_url,
+            exc_info=True,
+        )
 
-    # --- Evaluate condition DSL expressions against matched files ---
+    # --- Fallback: rule-based file scanning ---
+    file_impacts = _scan_rules_against_repo(plugin_data.get("rules", []), clone_dest)
     _evaluate_conditions_on_impacts(file_impacts, clone_dest)
 
     confidence = DEFAULT_ANALYSIS_CONFIDENCE if file_impacts else 0.0
@@ -204,6 +219,38 @@ async def analyze_repository(
         "conflicts": [],
         "analysis_confidence": confidence,
     }
+
+
+async def _analyze_with_agent(
+    repo_url: str,
+    regulation_id: str,
+    plugin_data: dict[str, Any],
+    clone_dest: Path,
+) -> dict[str, Any]:
+    """Run the PydanticAI analyzer agent against a cloned repository."""
+    from regulatory_agent_kit.agents.analyzer import analyzer_agent
+
+    model = _resolve_model()
+    rules_summary = json.dumps(plugin_data.get("rules", []), indent=2, default=str)
+
+    prompt = (
+        f"Analyze the repository cloned at '{clone_dest}' for compliance with "
+        f"regulation '{regulation_id}'.\n\n"
+        f"Rules to evaluate:\n{rules_summary}\n\n"
+        f"Repository URL: {repo_url}\n"
+        f"Scan all files matching the rules' affects patterns, evaluate conditions, "
+        f"detect conflicts, and return a complete ImpactMap."
+    )
+
+    result = await analyzer_agent.run(prompt, model=model)
+    impact_map = result.output
+    activity.logger.info(
+        "Agent analysis complete for %s: %d files, confidence %.2f",
+        repo_url,
+        len(impact_map.files),
+        impact_map.analysis_confidence,
+    )
+    return impact_map.model_dump()
 
 
 # ---------------------------------------------------------------------------
@@ -219,8 +266,8 @@ async def refactor_repository(
 ) -> dict[str, Any]:
     """Apply compliance fixes to a repository based on impact analysis.
 
-    Creates a branch name, records diffs for each matched rule with the
-    remediation strategy, and returns the change set.
+    Attempts to use the PydanticAI refactor agent for LLM-powered remediation.
+    Falls back to rule-based diff generation if the agent call fails.
     """
     activity.logger.info("Refactoring repository %s", repo_url)
 
@@ -229,8 +276,6 @@ async def refactor_repository(
     branch_name = f"rak/{regulation_id}/{repo_name}"
 
     files_impacted = impact_map.get("files", [])
-    diffs: list[dict[str, Any]] = []
-
     if not files_impacted:
         return {
             "branch_name": branch_name,
@@ -239,11 +284,21 @@ async def refactor_repository(
             "commit_sha": "",
         }
 
-    # Build rule lookup from plugin
+    # --- Try LLM-powered refactoring via PydanticAI agent ---
+    try:
+        return await _refactor_with_agent(repo_url, impact_map, plugin_data)
+    except Exception:
+        activity.logger.info(
+            "Agent refactoring unavailable for %s, using rule-based fallback", repo_url,
+            exc_info=True,
+        )
+
+    # --- Fallback: rule-based diff generation ---
     rules_by_id: dict[str, dict[str, Any]] = {}
     for rule in plugin_data.get("rules", []):
         rules_by_id[rule.get("id", "")] = rule
 
+    diffs: list[dict[str, Any]] = []
     for file_impact in files_impacted:
         file_path = file_impact.get("file_path", "")
         for match in file_impact.get("matched_rules", []):
@@ -275,6 +330,37 @@ async def refactor_repository(
     }
 
 
+async def _refactor_with_agent(
+    repo_url: str,
+    impact_map: dict[str, Any],
+    plugin_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Run the PydanticAI refactor agent to apply compliance remediations."""
+    from regulatory_agent_kit.agents.refactor import refactor_agent
+
+    model = _resolve_model()
+    impact_summary = json.dumps(impact_map, indent=2, default=str)
+    rules_summary = json.dumps(plugin_data.get("rules", []), indent=2, default=str)
+
+    prompt = (
+        f"Apply remediation changes to repository '{repo_url}' based on the "
+        f"following impact analysis and regulation rules.\n\n"
+        f"Impact Map:\n{impact_summary}\n\n"
+        f"Plugin Rules:\n{rules_summary}\n\n"
+        f"Create a branch, apply each remediation strategy, and return a ChangeSet."
+    )
+
+    result = await refactor_agent.run(prompt, model=model)
+    change_set = result.output
+    activity.logger.info(
+        "Agent refactoring complete for %s: %d diffs on branch %s",
+        repo_url,
+        len(change_set.diffs),
+        change_set.branch_name,
+    )
+    return change_set.model_dump()
+
+
 # ---------------------------------------------------------------------------
 # test_repository
 # ---------------------------------------------------------------------------
@@ -287,11 +373,22 @@ async def test_repository(
 ) -> dict[str, Any]:
     """Generate and run tests for remediation changes.
 
-    Creates a test entry for each diff in the change set.  Tests with
-    confidence below the threshold are marked as failures.
+    Attempts to use the PydanticAI test generator agent for LLM-powered test
+    generation and execution.  Falls back to confidence-based test evaluation
+    if the agent call fails.
     """
     activity.logger.info("Testing repository %s", repo_url)
 
+    # --- Try LLM-powered test generation via PydanticAI agent ---
+    try:
+        return await _test_with_agent(repo_url, change_set)
+    except Exception:
+        activity.logger.info(
+            "Agent testing unavailable for %s, using confidence-based fallback", repo_url,
+            exc_info=True,
+        )
+
+    # --- Fallback: confidence-based test evaluation ---
     diffs = change_set.get("diffs", [])
     test_files: list[str] = []
     total_tests = 0
@@ -341,6 +438,36 @@ async def test_repository(
         "failures": failures,
         "test_files_created": test_files,
     }
+
+
+async def _test_with_agent(
+    repo_url: str,
+    change_set: dict[str, Any],
+) -> dict[str, Any]:
+    """Run the PydanticAI test generator agent to create and execute tests."""
+    from regulatory_agent_kit.agents.test_generator import test_generator_agent
+
+    model = _resolve_model()
+    changes_summary = json.dumps(change_set, indent=2, default=str)
+
+    prompt = (
+        f"Generate and execute compliance tests for the remediation changes "
+        f"applied to repository '{repo_url}'.\n\n"
+        f"Change Set:\n{changes_summary}\n\n"
+        f"Create test files that verify each remediation is correct and does not "
+        f"introduce regressions. Run the tests and return a complete TestResult."
+    )
+
+    result = await test_generator_agent.run(prompt, model=model)
+    test_result = result.output
+    activity.logger.info(
+        "Agent testing complete for %s: %d/%d passed (%.1f%%)",
+        repo_url,
+        test_result.passed,
+        test_result.total_tests,
+        test_result.pass_rate * 100,
+    )
+    return test_result.model_dump()
 
 
 # ---------------------------------------------------------------------------
