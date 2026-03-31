@@ -2,13 +2,46 @@
 
 from __future__ import annotations
 
-from pathlib import Path  # noqa: TC003
+import re
+from pathlib import Path
 from typing import Any
 
 from jinja2 import TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
 
 from regulatory_agent_kit.exceptions import TemplateError
+
+
+def _basename_filter(path: str) -> str:
+    """Return the final component of a path."""
+    return Path(path).name
+
+
+def _dirname_filter(path: str) -> str:
+    """Return the directory component of a path."""
+    return str(Path(path).parent)
+
+
+def _snake_case_filter(value: str) -> str:
+    """Convert a string to snake_case."""
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", value)
+    s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
+    s = re.sub(r"[\s\-]+", "_", s)
+    return s.lower()
+
+
+def _camel_case_filter(value: str) -> str:
+    """Convert a string to camelCase."""
+    parts = re.split(r"[_\-\s]+", value)
+    if not parts:
+        return value
+    return parts[0].lower() + "".join(p.capitalize() for p in parts[1:])
+
+
+def _pascal_case_filter(value: str) -> str:
+    """Convert a string to PascalCase."""
+    parts = re.split(r"[_\-\s]+", value)
+    return "".join(p.capitalize() for p in parts)
 
 
 class TemplateEngine:
@@ -20,6 +53,11 @@ class TemplateEngine:
             lstrip_blocks=True,
             trim_blocks=True,
         )
+        self._env.filters["basename"] = _basename_filter
+        self._env.filters["dirname"] = _dirname_filter
+        self._env.filters["snake_case"] = _snake_case_filter
+        self._env.filters["camel_case"] = _camel_case_filter
+        self._env.filters["pascal_case"] = _pascal_case_filter
 
     def render(self, template_path: Path, context: dict[str, Any]) -> str:
         """Render a Jinja2 template file with the given context."""
