@@ -146,18 +146,90 @@ class SlackNotifier:
 
 
 # ---------------------------------------------------------------------------
-# Email implementation (stub — would use SMTP/SES in production)
+# Email implementation (SMTP)
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class EmailNotifier:
-    """Send notifications via email (stub implementation)."""
+    """Send notifications via email using SMTP."""
 
     smtp_host: str = "localhost"
     smtp_port: int = 587
     from_address: str = ""
     to_addresses: list[str] = field(default_factory=list)
+    username: str = ""
+    password: str = ""
+    use_tls: bool = True
+
+    async def _send_email(self, subject: str, body_html: str) -> None:
+        """Send an HTML email via SMTP.
+
+        Uses ``asyncio.to_thread`` to run the synchronous ``smtplib``
+        operations without blocking the event loop.
+        """
+        import asyncio
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = self.from_address
+        msg["To"] = ", ".join(self.to_addresses)
+        msg.attach(MIMEText(body_html, "html"))
+
+        def _send_sync() -> None:
+            import smtplib
+
+            server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30)
+            try:
+                if self.use_tls:
+                    server.starttls()
+                if self.username:
+                    server.login(self.username, self.password)
+                server.sendmail(
+                    self.from_address, self.to_addresses, msg.as_string()
+                )
+            finally:
+                server.quit()
+
+        await asyncio.to_thread(_send_sync)
+        logger.info("Email sent: subject=%s, to=%s", subject, self.to_addresses)
+
+    def _checkpoint_html(
+        self,
+        run_id: str,
+        checkpoint_name: str,
+        summary: str,
+        approve_url: str | None,
+    ) -> str:
+        """Format checkpoint request as HTML."""
+        approve_link = ""
+        if approve_url:
+            approve_link = f'<p><a href="{approve_url}">Review and Approve</a></p>'
+        return (
+            f"<h2>Checkpoint Approval Required</h2>"
+            f"<p><strong>Run ID:</strong> {run_id}</p>"
+            f"<p><strong>Checkpoint:</strong> {checkpoint_name}</p>"
+            f"<p><strong>Summary:</strong></p><p>{summary}</p>"
+            f"{approve_link}"
+        )
+
+    def _complete_html(self, run_id: str, summary: str) -> str:
+        """Format pipeline completion as HTML."""
+        return (
+            f"<h2>Pipeline Completed</h2>"
+            f"<p><strong>Run ID:</strong> {run_id}</p>"
+            f"<p><strong>Summary:</strong></p><p>{summary}</p>"
+        )
+
+    def _error_html(self, run_id: str, error: str) -> str:
+        """Format error notification as HTML."""
+        return (
+            f"<h2>Pipeline Error</h2>"
+            f"<p><strong>Run ID:</strong> {run_id}</p>"
+            f"<p><strong>Error:</strong></p><pre>{error}</pre>"
+        )
 
     async def send_checkpoint_request(
         self,
@@ -167,12 +239,10 @@ class EmailNotifier:
         summary: str,
         approve_url: str | None = None,
     ) -> None:
-        """Send checkpoint request via email (stub)."""
-        logger.info(
-            "Email checkpoint request: run=%s checkpoint=%s",
-            run_id,
-            checkpoint_name,
-        )
+        """Send checkpoint approval request email."""
+        subject = f"[RAK] Checkpoint approval required: {checkpoint_name} ({run_id[:8]})"
+        body = self._checkpoint_html(run_id, checkpoint_name, summary, approve_url)
+        await self._send_email(subject, body)
 
     async def send_pipeline_complete(
         self,
@@ -180,8 +250,10 @@ class EmailNotifier:
         run_id: str,
         summary: str,
     ) -> None:
-        """Send pipeline-complete notification via email (stub)."""
-        logger.info("Email pipeline complete: run=%s", run_id)
+        """Send pipeline completion notification email."""
+        subject = f"[RAK] Pipeline completed ({run_id[:8]})"
+        body = self._complete_html(run_id, summary)
+        await self._send_email(subject, body)
 
     async def send_error(
         self,
@@ -189,8 +261,10 @@ class EmailNotifier:
         run_id: str,
         error: str,
     ) -> None:
-        """Send error notification via email (stub)."""
-        logger.info("Email error: run=%s error=%s", run_id, error)
+        """Send pipeline error notification email."""
+        subject = f"[RAK] Pipeline error ({run_id[:8]})"
+        body = self._error_html(run_id, error)
+        await self._send_email(subject, body)
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +386,9 @@ _NOTIFIER_DEFAULTS: dict[str, dict[str, Any]] = {
         "smtp_port": 587,
         "from_address": "",
         "to_addresses": [],
+        "username": "",
+        "password": "",
+        "use_tls": True,
     },
     "webhook": {"url": "", "headers": {}},
     "terminal": {"url": "", "headers": {}},

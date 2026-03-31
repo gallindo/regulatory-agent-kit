@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from regulatory_agent_kit.exceptions import ToolError
@@ -91,12 +93,18 @@ class TestNotificationMethods:
 
     async def test_email_send_checkpoint_does_not_raise(self) -> None:
         n = EmailNotifier()
-        await n.send_checkpoint_request(run_id="r1", checkpoint_name="cp1", summary="test")
+        with patch("smtplib.SMTP") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await n.send_checkpoint_request(run_id="r1", checkpoint_name="cp1", summary="test")
 
     async def test_email_send_complete_does_not_raise(self) -> None:
         n = EmailNotifier()
-        await n.send_pipeline_complete(run_id="r1", summary="done")
+        with patch("smtplib.SMTP") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await n.send_pipeline_complete(run_id="r1", summary="done")
 
     async def test_email_send_error_does_not_raise(self) -> None:
         n = EmailNotifier()
-        await n.send_error(run_id="r1", error="boom")
+        with patch("smtplib.SMTP") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await n.send_error(run_id="r1", error="boom")
