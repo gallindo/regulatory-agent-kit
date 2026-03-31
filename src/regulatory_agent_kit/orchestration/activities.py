@@ -44,11 +44,36 @@ class ActivityContext:
     litellm_url: str = "http://localhost:4000"
 
 
-def _resolve_model() -> str:
-    """Resolve the LLM model to use for agent calls."""
+def _resolve_model(jurisdiction: str = "", content: str = "") -> str:
+    """Resolve the LLM model using data residency routing.
+
+    Uses ``DataResidencyRouter`` to select a region-appropriate model
+    based on the regulation's jurisdiction.  Falls back to the default
+    model when jurisdiction is unknown or routing is unavailable.
+
+    Args:
+        jurisdiction: ISO 3166-1 alpha-2 code (e.g. ``EU``, ``BR``).
+        content: Optional text content; when provided the router checks
+            for PII patterns and enforces stricter routing.
+
+    Returns:
+        LiteLLM model identifier string.
+    """
     import os
 
-    return os.environ.get("RAK_LLM_MODEL", _DEFAULT_MODEL)
+    env_model = os.environ.get("RAK_LLM_MODEL")
+    if env_model:
+        return env_model
+
+    if not jurisdiction:
+        return _DEFAULT_MODEL
+
+    from regulatory_agent_kit.tools.data_residency import DataResidencyRouter
+
+    router = DataResidencyRouter()
+    if content:
+        return router.select_model_for_content(jurisdiction, content)
+    return router.select_model(jurisdiction)
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +255,8 @@ async def _analyze_with_agent(
     """Run the PydanticAI analyzer agent against a cloned repository."""
     from regulatory_agent_kit.agents.analyzer import analyzer_agent
 
-    model = _resolve_model()
+    jurisdiction = plugin_data.get("jurisdiction", "")
+    model = _resolve_model(jurisdiction=jurisdiction)
     rules_summary = json.dumps(plugin_data.get("rules", []), indent=2, default=str)
 
     prompt = (
@@ -338,7 +364,8 @@ async def _refactor_with_agent(
     """Run the PydanticAI refactor agent to apply compliance remediations."""
     from regulatory_agent_kit.agents.refactor import refactor_agent
 
-    model = _resolve_model()
+    jurisdiction = plugin_data.get("jurisdiction", "")
+    model = _resolve_model(jurisdiction=jurisdiction)
     impact_summary = json.dumps(impact_map, indent=2, default=str)
     rules_summary = json.dumps(plugin_data.get("rules", []), indent=2, default=str)
 
