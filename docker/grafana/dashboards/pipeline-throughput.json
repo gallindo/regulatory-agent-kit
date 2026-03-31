@@ -1,0 +1,97 @@
+{
+  "uid": "rak-pipeline-throughput",
+  "title": "Pipeline Throughput",
+  "description": "Regulatory Agent Kit — pipeline run rates, repo processing, and checkpoint decisions",
+  "tags": ["rak", "pipeline"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Pipeline Runs Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(rak_pipeline_runs_total[5m])",
+          "legendFormat": "{{ regulation_id }}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Active vs Completed Pipelines",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rak_pipeline_runs_total)",
+          "legendFormat": "Total Started",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rak_pipeline_runs_completed)",
+          "legendFormat": "Completed",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Repos Processed by Status",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (status) (rak_repos_processed_total)",
+          "legendFormat": "{{ status }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Checkpoint Decisions",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (checkpoint_type, decision) (rak_checkpoint_decisions_total)",
+          "legendFormat": "{{ checkpoint_type }} — {{ decision }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Average Pipeline Duration (estimated)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(rak_tool_invocation_duration_sum[5m])) / sum(rate(rak_pipeline_runs_completed[5m]))",
+          "legendFormat": "Avg Duration (ms)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    }
+  ]
+}
