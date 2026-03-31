@@ -186,7 +186,7 @@ class TestToolIsolation:
         assert git_commit in REFACTOR_TOOLS
         assert ast_transform in REFACTOR_TOOLS
         assert jinja_render in REFACTOR_TOOLS
-        assert len(REFACTOR_TOOLS) == 4
+        assert len(REFACTOR_TOOLS) == 5
 
     def test_test_generator_tools_are_sandboxed(self) -> None:
         assert git_read in TEST_GENERATOR_TOOLS
