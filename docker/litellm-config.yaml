@@ -84,3 +84,14 @@ general_settings:
 litellm_settings:
   success_callback: ["mlflow"]
   mlflow_tracking_uri: "http://mlflow:5000"
+
+router_settings:
+  routing_strategy: "simple-shuffle"
+  num_retries: 2
+  timeout: 30
+
+  fallbacks:
+    - claude-sonnet-4-6: ["claude-haiku-4-5", "gpt-4o"]
+    - bedrock-eu-claude-sonnet: ["bedrock-eu-claude-haiku", "claude-sonnet-4-6"]
+    - bedrock-br-claude-sonnet: ["bedrock-br-claude-haiku", "claude-sonnet-4-6"]
+    - bedrock-ap-claude-sonnet: ["bedrock-ap-claude-haiku", "claude-sonnet-4-6"]

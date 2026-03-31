@@ -12,7 +12,12 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +214,76 @@ class DataResidencyRouter:
                 )
                 return self.select_model(jurisdiction, "primary")
         return self.select_model(jurisdiction, tier)
+
+    def get_fallback_chain(self, jurisdiction: str) -> list[str]:
+        """Return ordered list of models to try for a jurisdiction.
+
+        Returns primary model first, then secondary for same region,
+        then default primary, then default secondary.
+
+        Args:
+            jurisdiction: ISO 3166-1 alpha-2 code or ``GLOBAL``.
+
+        Returns:
+            Ordered list of model identifiers with no duplicates.
+        """
+        region = self.resolve_region(jurisdiction)
+        chain: list[str] = []
+        seen: set[str] = set()
+
+        for r, tier in [
+            (region, "primary"),
+            (region, "secondary"),
+            ("default", "primary"),
+            ("default", "secondary"),
+        ]:
+            model = self.routing_table.get((r, tier))
+            if model and model not in seen:
+                chain.append(model)
+                seen.add(model)
+
+        return chain
+
+    async def call_with_fallback(
+        self,
+        jurisdiction: str,
+        call_fn: Callable[[str], Awaitable[T]],
+    ) -> T:
+        """Execute a call with automatic fallback through the model chain.
+
+        Tries each model in the fallback chain in order. If a model fails,
+        logs a warning and moves to the next model. If all models fail,
+        raises ``RuntimeError`` with details of each failure.
+
+        Args:
+            jurisdiction: Jurisdiction code for routing.
+            call_fn: Async callable that takes a model name and returns a result.
+                     Raises an exception on failure.
+
+        Returns:
+            Result from the first successful call.
+
+        Raises:
+            RuntimeError: If all models in the fallback chain fail.
+        """
+        chain = self.get_fallback_chain(jurisdiction)
+        errors: list[tuple[str, Exception]] = []
+
+        for model in chain:
+            try:
+                return await call_fn(model)
+            except Exception as exc:
+                logger.warning(
+                    "Model %s failed for jurisdiction %s: %s",
+                    model,
+                    jurisdiction,
+                    exc,
+                )
+                errors.append((model, exc))
+
+        error_details = "; ".join(f"{m}: {e}" for m, e in errors)
+        msg = f"All models failed for jurisdiction {jurisdiction}: {error_details}"
+        raise RuntimeError(msg)
 
     def get_routing_metadata(self, jurisdiction: str, tier: str = "primary") -> dict[str, Any]:
         """Return routing decision metadata for audit logging.
