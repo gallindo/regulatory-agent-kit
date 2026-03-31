@@ -35,6 +35,16 @@ class MlflowSetup:
 
             mlflow.set_tracking_uri(tracking_uri)
             logger.info("MLflow tracking configured: %s", tracking_uri)
+
+            try:
+                import mlflow.pydantic_ai
+
+                mlflow.pydantic_ai.autolog()
+                logger.info("MLflow PydanticAI autolog enabled")
+            except (ImportError, AttributeError):
+                logger.warning(
+                    "mlflow.pydantic_ai.autolog() not available — skipping agent tracing"
+                )
         except ImportError:
             logger.info("mlflow not installed — skipping")
             return False
@@ -98,10 +108,12 @@ class OtelSetup:
             from opentelemetry.sdk.trace import TracerProvider
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-            resource = Resource.create({
-                "service.name": _SERVICE_NAME,
-                "service.version": _SERVICE_VERSION,
-            })
+            resource = Resource.create(
+                {
+                    "service.name": _SERVICE_NAME,
+                    "service.version": _SERVICE_VERSION,
+                }
+            )
 
             # Tracing
             span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
@@ -281,9 +293,7 @@ class OtelSetup:
         if counter := self._metrics.get("repos_processed_total"):
             counter.add(1, {"status": status})
 
-    def record_checkpoint_decision(
-        self, *, checkpoint_type: str = "", decision: str = ""
-    ) -> None:
+    def record_checkpoint_decision(self, *, checkpoint_type: str = "", decision: str = "") -> None:
         """Record a human checkpoint decision."""
         if counter := self._metrics.get("checkpoint_decisions_total"):
             counter.add(1, {"checkpoint_type": checkpoint_type, "decision": decision})
