@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime  # noqa: TC003
+from datetime import datetime
 from pathlib import Path  # noqa: TC003
 from typing import Any
 from uuid import UUID, uuid4
@@ -226,6 +226,24 @@ class LiteAuditRepository(_LiteRepository):
             """,
             (str(run_id), event_type, timestamp.isoformat(), json.dumps(payload), signature),
         )
+
+    async def bulk_insert(self, entries: list[dict[str, Any]]) -> list[UUID]:
+        """Insert multiple audit entries, returning their IDs."""
+        ids: list[UUID] = []
+        for entry in entries:
+            entry_id = await self.insert(
+                run_id=UUID(entry["run_id"])
+                if isinstance(entry["run_id"], str)
+                else entry["run_id"],
+                event_type=entry["event_type"],
+                timestamp=datetime.fromisoformat(entry["timestamp"])
+                if isinstance(entry["timestamp"], str)
+                else entry["timestamp"],
+                payload=entry.get("payload", {}),
+                signature=entry.get("signature", ""),
+            )
+            ids.append(entry_id)
+        return ids
 
     async def get_by_run(self, run_id: UUID) -> list[dict[str, Any]]:
         """Get all audit entries for a pipeline run."""

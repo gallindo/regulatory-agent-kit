@@ -6,6 +6,7 @@ Provides ``CompliancePipeline`` (top-level orchestrator) and
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from typing import Any
 from uuid import uuid4
@@ -107,6 +108,7 @@ class CompliancePipeline:
         self._merge_approved: bool = False
         self._impact_rejected: bool = False
         self._merge_rejected: bool = False
+        self._cancel_requested: bool = False
         self._repo_results: list[dict[str, Any]] = []
         self._cost_estimate: dict[str, Any] = {}
 
@@ -127,6 +129,12 @@ class CompliancePipeline:
             self._merge_approved = True
         else:
             self._merge_rejected = True
+
+    @workflow.signal
+    async def cancel_pipeline(self) -> None:
+        """Signal to cancel the pipeline gracefully."""
+        self._cancel_requested = True
+        workflow.logger.info("Cancel signal received for run %s", self._run_id)
 
     # -- Query handler ----------------------------------------------------
 
@@ -157,18 +165,39 @@ class CompliancePipeline:
 
         model = config.get("default_model", "claude-sonnet-4-20250514")
 
-        await self._cost_estimation_phase(repo_urls, regulation_id, model)
-        await self._analysis_phase(repo_urls, regulation_id, plugin_data)
+        try:
+            await self._cost_estimation_phase(repo_urls, regulation_id, model)
 
-        if not await self._await_impact_review():
-            return self._build_rejected_result("impact_review")
+            if self._cancel_requested:
+                return self._build_cancelled_result()
 
-        await self._refactoring_and_testing_phase()
+            await self._analysis_phase(repo_urls, regulation_id, plugin_data)
 
-        if not await self._await_merge_review():
-            return self._build_rejected_result("merge_review")
+            if self._cancel_requested:
+                return self._build_cancelled_result()
 
-        return await self._reporting_phase()
+            if not await self._await_impact_review():
+                return self._build_rejected_result("impact_review")
+
+            if self._cancel_requested:
+                return self._build_cancelled_result()
+
+            await self._refactoring_and_testing_phase()
+
+            if self._cancel_requested:
+                return self._build_cancelled_result()
+
+            if not await self._await_merge_review():
+                return self._build_rejected_result("merge_review")
+
+            if self._cancel_requested:
+                return self._build_cancelled_result()
+
+            return await self._reporting_phase()
+        except asyncio.CancelledError:
+            self._status = "cancelled"
+            self._phase = "CANCELLED"
+            return self._build_cancelled_result()
 
     # -- Phase helpers -----------------------------------------------------
 
@@ -256,6 +285,16 @@ class CompliancePipeline:
             "run_id": self._run_id,
             "status": "rejected",
             "phase": phase,
+        }
+
+    def _build_cancelled_result(self) -> dict[str, Any]:
+        """Build a cancellation result."""
+        self._status = "cancelled"
+        self._phase = "CANCELLED"
+        return {
+            "run_id": self._run_id,
+            "status": "cancelled",
+            "phase": self._phase,
         }
 
 

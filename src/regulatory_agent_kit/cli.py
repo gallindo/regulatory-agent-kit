@@ -7,6 +7,7 @@ managing pipeline state, validating regulation plugins, and database maintenance
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -328,26 +329,22 @@ def retry_failures(
         typer.Option(help="Pipeline run ID (UUID) to retry failed repos."),
     ],
 ) -> None:
-    """Find failed repos in a pipeline run and trigger re-dispatch."""
+    """Re-dispatch failed repositories from a pipeline run."""
     run_id = _validate_uuid(run_id)
     console.print(f"Retrying failures for run: {run_id}")
 
-    failed = _run_async(_get_failed_repos(run_id))
-    if failed is None:
+    result = _run_async(_retry_failed_repos(run_id))
+    if result is None:
         console.print("[yellow]Run not found in Lite Mode database.[/yellow]")
         raise typer.Exit(code=1)
 
-    if not failed:
+    if not result["failed_repos"]:
         console.print("[green]No failed repositories to retry.[/green]")
         return
 
-    console.print(f"Found {len(failed)} failed repo(s):")
-    for repo in failed:
-        console.print(f"  - {repo.get('repo_url', '—')}: {repo.get('error', 'unknown error')}")
-    console.print(
-        "[yellow]Re-dispatch is not yet available — "
-        "failed repos have been identified for manual retry.[/yellow]"
-    )
+    console.print(f"Re-dispatching {len(result['failed_repos'])} failed repo(s)...")
+    console.print(f"[bold]New run ID:[/bold] {result['new_run_id']}")
+    console.print(f"[bold]Status:[/bold] {result['status']}")
 
 
 async def _get_failed_repos(run_id: str) -> list[dict[str, Any]] | None:
@@ -360,6 +357,44 @@ async def _get_failed_repos(run_id: str) -> list[dict[str, Any]] | None:
 
     all_repos = await LiteRepositoryProgressRepository(_LITE_DB_PATH).get_by_run(UUID(run_id))
     return [r for r in all_repos if r.get("status") == "failed"]
+
+
+async def _retry_failed_repos(run_id: str) -> dict[str, Any] | None:
+    """Identify failed repos and re-dispatch them through the LiteModeExecutor."""
+    from regulatory_agent_kit.database.lite import LitePipelineRunRepository
+    from regulatory_agent_kit.orchestration.lite import LiteModeExecutor
+
+    failed = await _get_failed_repos(run_id)
+    if failed is None:
+        return None
+
+    failed_urls = [r["repo_url"] for r in failed if r.get("status") == "failed"]
+    if not failed_urls:
+        return {"failed_repos": [], "new_run_id": "", "status": "no_failures"}
+
+    # Get original run config
+    run_data = await LitePipelineRunRepository(_LITE_DB_PATH).get(UUID(run_id))
+    if run_data is None:
+        return None
+
+    config_raw = run_data.get("config_snapshot", "{}")
+    config = json.loads(config_raw) if isinstance(config_raw, str) else config_raw
+    regulation_id = run_data.get("regulation_id", "")
+
+    # Re-run with failed repos only
+    executor = LiteModeExecutor(db_path=_LITE_DB_PATH)
+    result = await executor.run(
+        regulation_id=regulation_id,
+        repo_urls=failed_urls,
+        plugin_data=config.get("plugin_data", {}),
+        config=config,
+    )
+
+    return {
+        "failed_repos": failed_urls,
+        "new_run_id": result.run_id,
+        "status": result.status,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -492,23 +527,70 @@ def resume(
         console.print(f"[yellow]Run {run_id} not found in Lite Mode database.[/yellow]")
         raise typer.Exit(code=1)
 
-    run_status = result.get("status", "unknown")
-    if run_status in TERMINAL_STATUSES:
-        console.print(
-            f"[yellow]Run is already in terminal state: {run_status}. Cannot resume.[/yellow]"
-        )
-        return
+    if result.get("error"):
+        console.print(f"[yellow]Cannot resume: {result['error']}[/yellow]")
+        raise typer.Exit(code=1)
 
-    console.print(f"[bold]Current status:[/bold] {run_status}")
-    console.print(
-        "[yellow]Lite Mode resume re-reads SQLite state and continues from last phase. "
-        "Full resume logic requires the WAL replay integration.[/yellow]"
-    )
+    console.print(f"[bold]Resumed run:[/bold] {run_id}")
+    console.print(f"[bold]WAL entries replayed:[/bold] {result.get('wal_entries', 0)}")
+    console.print(f"[bold]Final status:[/bold] {result['status']}")
 
 
 async def _resume_lite_run(run_id: str) -> dict[str, Any] | None:
-    """Query Lite Mode SQLite for a run to resume."""
-    return await _get_lite_run(run_id)
+    """Replay WAL entries and re-enter the executor for pending repos."""
+    from regulatory_agent_kit.database.lite import (
+        LiteAuditRepository,
+        LitePipelineRunRepository,
+        LiteRepositoryProgressRepository,
+    )
+    from regulatory_agent_kit.observability.wal import WriteAheadLog
+    from regulatory_agent_kit.orchestration.lite import LiteModeExecutor
+
+    run_data = await _get_lite_run(run_id)
+    if run_data is None:
+        return None
+
+    if run_data.get("status", "") in TERMINAL_STATUSES:
+        return {
+            "error": f"Run is already in terminal state: {run_data['status']}",
+            "status": run_data["status"],
+        }
+
+    # Replay WAL entries
+    wal_path = Path.home() / ".rak" / f"wal-{run_id}.jsonl"
+    wal = WriteAheadLog(wal_path)
+    audit_repo = LiteAuditRepository(_LITE_DB_PATH)
+    wal_count = await wal.replay(audit_repo)
+
+    # Get config from original run
+    config_raw = run_data.get("config_snapshot", "{}")
+    config = json.loads(config_raw) if isinstance(config_raw, str) else config_raw
+    regulation_id = run_data.get("regulation_id", "")
+
+    # Get repos that haven't completed
+    progress_repo = LiteRepositoryProgressRepository(_LITE_DB_PATH)
+    all_progress = await progress_repo.get_by_run(UUID(run_id))
+    pending_urls = [
+        p["repo_url"] for p in all_progress if p.get("status") not in TERMINAL_STATUSES
+    ]
+
+    if not pending_urls:
+        # All repos already finished — mark run completed
+        await LitePipelineRunRepository(_LITE_DB_PATH).update_status(
+            UUID(run_id), "completed"
+        )
+        return {"wal_entries": wal_count, "status": "completed", "error": ""}
+
+    # Re-run pending repos
+    executor = LiteModeExecutor(db_path=_LITE_DB_PATH)
+    result = await executor.run(
+        regulation_id=regulation_id,
+        repo_urls=pending_urls,
+        plugin_data=config.get("plugin_data", {}),
+        config=config,
+    )
+
+    return {"wal_entries": wal_count, "status": result.status, "error": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -538,7 +620,7 @@ def cancel(
 
 
 async def _cancel_run(run_id: str) -> str:
-    """Cancel a Lite Mode run by updating its status."""
+    """Cancel a run by updating SQLite status and signalling Temporal if available."""
     from regulatory_agent_kit.database.lite import LitePipelineRunRepository
 
     run_info = await _get_lite_run(run_id)
@@ -549,6 +631,18 @@ async def _cancel_run(run_id: str) -> str:
         return "already_terminal"
 
     await LitePipelineRunRepository(_LITE_DB_PATH).update_status(UUID(run_id), "cancelled")
+
+    # Try to cancel the Temporal workflow as well
+    try:
+        from temporalio.client import Client
+
+        client = await Client.connect("localhost:7233")
+        handle = client.get_workflow_handle(f"compliance-{run_id}")
+        await handle.cancel()
+        logger.info("Sent cancel signal to Temporal workflow %s", run_id)
+    except Exception:
+        logger.debug("Could not signal Temporal (Lite Mode or unavailable)")
+
     return "cancelled"
 
 
