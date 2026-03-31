@@ -1,7 +1,8 @@
-"""Compliance report generator — renders HTML reports, audit logs, and rollback manifests.
+"""Compliance report generator — renders HTML/PDF reports, audit logs, and rollback manifests.
 
-Produces the three artefacts described in data-model.md Section 7.1:
+Produces the artefacts described in data-model.md Section 7.1:
   compliance-reports/{run_id}/report.html
+  compliance-reports/{run_id}/report.pdf
   compliance-reports/{run_id}/audit-log.jsonld
   compliance-reports/{run_id}/rollback-manifest.json
 """
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,94 @@ _DEFAULT_TEMPLATE = _TEMPLATE_DIR / "compliance_report.html.j2"
 
 # Package version injected into reports.
 _VERSION = "0.1.0"
+
+
+def _write_text_pdf(path: Path, lines: list[str]) -> None:
+    """Write a minimal valid PDF 1.4 file with text content.
+
+    Creates a standards-compliant PDF using Helvetica (a base-14 font that
+    all PDF readers must support).  No external dependencies required.
+    """
+    font_name = "/Helvetica"
+    font_size = 10
+    margin_left = 72  # 1 inch
+    margin_top = 72
+    page_height = 792  # US-Letter
+    page_width = 612
+    line_height = font_size * 1.4
+    usable_height = page_height - 2 * margin_top
+    lines_per_page = int(usable_height / line_height)
+
+    # Split content into pages.
+    pages: list[list[str]] = []
+    for i in range(0, len(lines), lines_per_page):
+        pages.append(lines[i : i + lines_per_page])
+    if not pages:
+        pages = [[""]]
+
+    # --- Build PDF byte stream ---
+    offsets: list[int] = []
+    pdf_bytes = b"%PDF-1.4\n"
+
+    # Object 1: Catalog
+    offsets.append(len(pdf_bytes))
+    pdf_bytes += b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+
+    # Object 2: Pages
+    page_refs = " ".join(f"{3 + i * 2} 0 R" for i in range(len(pages)))
+    offsets.append(len(pdf_bytes))
+    pdf_bytes += (
+        f"2 0 obj\n<< /Type /Pages /Kids [{page_refs}] /Count {len(pages)} >>\nendobj\n"
+    ).encode()
+
+    obj_num = 3
+    for page_lines in pages:
+        # Page object
+        content_obj = obj_num + 1
+        offsets.append(len(pdf_bytes))
+        page_obj = (
+            f"{obj_num} 0 obj\n"
+            f"<< /Type /Page /Parent 2 0 R "
+            f"/MediaBox [0 0 {page_width} {page_height}] "
+            f"/Contents {content_obj} 0 R "
+            f"/Resources << /Font << /F1 << /Type /Font "
+            f"/Subtype /Type1 /BaseFont {font_name} >> >> >> "
+            f">>\nendobj\n"
+        )
+        pdf_bytes += page_obj.encode()
+        obj_num += 1
+
+        # Content stream
+        stream_parts = [f"BT\n/F1 {font_size} Tf\n"]
+        y = page_height - margin_top
+        for line in page_lines:
+            safe = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            if len(safe) > 90:
+                safe = safe[:87] + "..."
+            stream_parts.append(f"{margin_left} {y:.0f} Td\n({safe}) Tj\n")
+            y -= line_height
+        stream_parts.append("ET\n")
+        stream_content = "".join(stream_parts).encode()
+
+        offsets.append(len(pdf_bytes))
+        pdf_bytes += (f"{obj_num} 0 obj\n<< /Length {len(stream_content)} >>\nstream\n").encode()
+        pdf_bytes += stream_content
+        pdf_bytes += b"\nendstream\nendobj\n"
+        obj_num += 1
+
+    # Cross-reference table
+    xref_offset = len(pdf_bytes)
+    xref = f"xref\n0 {obj_num}\n0000000000 65535 f \n"
+    for offset in offsets:
+        xref += f"{offset:010d} 00000 n \n"
+    pdf_bytes += xref.encode()
+
+    # Trailer
+    pdf_bytes += (
+        f"trailer\n<< /Size {obj_num} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n"
+    ).encode()
+
+    path.write_bytes(pdf_bytes)
 
 
 class ComplianceReportGenerator:
@@ -94,6 +184,8 @@ class ComplianceReportGenerator:
             pr_urls=pr_urls or [],
         )
 
+        pdf_path = self._render_pdf(report_path, run_dir / "report.pdf")
+
         audit_log_path = self._write_audit_log(
             run_dir=run_dir,
             audit_entries=audit_entries or [],
@@ -108,6 +200,7 @@ class ComplianceReportGenerator:
         logger.info("Compliance report generated at %s", run_dir)
         return ReportArtefacts(
             report_path=report_path,
+            pdf_report_path=pdf_path,
             audit_log_path=audit_log_path,
             rollback_manifest_path=rollback_path,
         )
@@ -148,6 +241,40 @@ class ComplianceReportGenerator:
         return report_path
 
     # ------------------------------------------------------------------
+    # PDF report
+    # ------------------------------------------------------------------
+
+    def _render_pdf(self, html_path: Path, pdf_path: Path) -> Path:
+        """Convert the HTML report to PDF.
+
+        Tries *weasyprint* for high-fidelity rendering.  When weasyprint is
+        not installed, falls back to a lightweight pure-Python PDF that
+        contains the report text without styling.
+        """
+        try:
+            import weasyprint  # type: ignore[import-untyped]
+
+            weasyprint.HTML(filename=str(html_path)).write_pdf(str(pdf_path))
+            logger.info("PDF generated via weasyprint: %s", pdf_path)
+            return pdf_path
+        except ImportError:
+            logger.info("weasyprint not available, generating basic text PDF")
+
+        return self._generate_basic_pdf(html_path, pdf_path)
+
+    @staticmethod
+    def _generate_basic_pdf(html_path: Path, pdf_path: Path) -> Path:
+        """Generate a basic text PDF from HTML content without external deps."""
+        html_content = html_path.read_text(encoding="utf-8")
+        # Strip HTML tags to plain text.
+        text = re.sub(r"<[^>]+>", "", html_content)
+        text = re.sub(r"\n\s*\n", "\n\n", text).strip()
+        lines = text.split("\n")
+        _write_text_pdf(pdf_path, lines)
+        logger.info("Basic PDF generated: %s", pdf_path)
+        return pdf_path
+
+    # ------------------------------------------------------------------
     # Audit log export (JSONL with JSON-LD payloads)
     # ------------------------------------------------------------------
 
@@ -185,16 +312,16 @@ class ComplianceReportGenerator:
         manifest_repos: list[dict[str, Any]] = []
         for repo in repos:
             cs = repo.get("change_set") or {}
-            manifest_repos.append({
-                "repo_url": repo.get("repo_url", ""),
-                "branch_name": cs.get("branch_name", ""),
-                "commit_sha": cs.get("commit_sha", ""),
-                "pr_url": repo.get("pr_url", ""),
-                "pr_state": repo.get("pr_state", "open"),
-                "files_changed": [
-                    d.get("file_path", "") for d in cs.get("diffs", [])
-                ],
-            })
+            manifest_repos.append(
+                {
+                    "repo_url": repo.get("repo_url", ""),
+                    "branch_name": cs.get("branch_name", ""),
+                    "commit_sha": cs.get("commit_sha", ""),
+                    "pr_url": repo.get("pr_url", ""),
+                    "pr_state": repo.get("pr_state", "open"),
+                    "files_changed": [d.get("file_path", "") for d in cs.get("diffs", [])],
+                }
+            )
 
         manifest = {
             "run_id": run_id,
@@ -215,17 +342,22 @@ class ReportArtefacts:
     def __init__(
         self,
         report_path: Path,
+        pdf_report_path: Path | None,
         audit_log_path: Path,
         rollback_manifest_path: Path,
     ) -> None:
         self.report_path = report_path
+        self.pdf_report_path = pdf_report_path
         self.audit_log_path = audit_log_path
         self.rollback_manifest_path = rollback_manifest_path
 
     def to_report_bundle_dict(self) -> dict[str, str]:
         """Return paths as a dict suitable for ``ReportBundle`` construction."""
-        return {
+        result: dict[str, str] = {
             "report_path": str(self.report_path),
             "audit_log_path": str(self.audit_log_path),
             "rollback_manifest_path": str(self.rollback_manifest_path),
         }
+        if self.pdf_report_path is not None:
+            result["pdf_report_path"] = str(self.pdf_report_path)
+        return result
