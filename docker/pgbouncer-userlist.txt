@@ -1,0 +1,14 @@
+; ---------------------------------------------------------------
+; PgBouncer User List — regulatory-agent-kit
+; ---------------------------------------------------------------
+; Format:  "username" "password-or-hash"
+;
+; For SCRAM-SHA-256 auth, generate the hash with:
+;   psql -h localhost -U rak -c "SELECT rolpassword FROM pg_authid WHERE rolname = 'rak';"
+;
+; For development, a plain-text password is accepted when
+; auth_type = scram-sha-256 (PgBouncer hashes it on first use).
+;
+; IMPORTANT: Replace the default password before production use.
+; ---------------------------------------------------------------
+"rak" "rak_dev_password"

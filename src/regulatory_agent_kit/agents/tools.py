@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from regulatory_agent_kit.exceptions import RAKError
+from regulatory_agent_kit.observability.metrics import instrumented_tool
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ def _tool_error(tool: str, error: str, **context: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@instrumented_tool("git_clone", "analyzer")
 async def git_clone(repo_url: str, target_dir: str) -> dict[str, Any]:
     """Clone a git repository to a local directory for analysis.
 
@@ -58,6 +60,7 @@ async def git_clone(repo_url: str, target_dir: str) -> dict[str, Any]:
         return _tool_error("git_clone", str(exc), repo_url=repo_url)
 
 
+@instrumented_tool("ast_parse", "analyzer")
 async def ast_parse(file_path: str, language: str = "") -> dict[str, Any]:
     """Parse a source file into an AST representation.
 
@@ -92,6 +95,7 @@ async def ast_parse(file_path: str, language: str = "") -> dict[str, Any]:
         return _tool_error("ast_parse", str(exc), file_path=file_path)
 
 
+@instrumented_tool("ast_search", "analyzer")
 async def ast_search(
     root_dir: str,
     pattern: str,
@@ -144,6 +148,7 @@ async def ast_search(
     return results
 
 
+@instrumented_tool("es_search", "analyzer")
 async def es_search(
     index: str,
     query: str,
@@ -178,6 +183,7 @@ async def es_search(
 # ---------------------------------------------------------------------------
 
 
+@instrumented_tool("git_branch", "refactor")
 async def git_branch(repo_dir: str, branch_name: str) -> dict[str, Any]:
     """Create and checkout a new git branch for remediation changes.
 
@@ -204,6 +210,7 @@ async def git_branch(repo_dir: str, branch_name: str) -> dict[str, Any]:
         return _tool_error("git_branch", str(exc), branch_name=branch_name)
 
 
+@instrumented_tool("git_commit", "refactor")
 async def git_commit(
     repo_dir: str,
     message: str,
@@ -237,6 +244,7 @@ async def git_commit(
         return _tool_error("git_commit", str(exc))
 
 
+@instrumented_tool("ast_transform", "refactor")
 async def ast_transform(
     file_path: str,
     rule_id: str,
@@ -291,6 +299,7 @@ async def ast_transform(
         return _tool_error("ast_transform", str(exc), file_path=file_path)
 
 
+@instrumented_tool("jinja_render", "refactor")
 async def jinja_render(
     template_name: str,
     context: dict[str, Any],
@@ -319,6 +328,7 @@ async def jinja_render(
 # ---------------------------------------------------------------------------
 
 
+@instrumented_tool("git_read", "test_generator")
 async def git_read(file_path: str) -> str:
     """Read the contents of a file in the repository (read-only).
 
@@ -337,6 +347,7 @@ async def git_read(file_path: str) -> str:
         return f"ERROR: {exc}"
 
 
+@instrumented_tool("run_tests", "test_generator")
 async def run_tests(
     test_dir: str,
     test_pattern: str = "test_*.py",
@@ -371,6 +382,7 @@ async def run_tests(
         return _tool_error("run_tests", str(exc), test_dir=test_dir)
 
 
+@instrumented_tool("jinja_render_test", "test_generator")
 async def jinja_render_test(
     template_name: str,
     context: dict[str, Any],
@@ -399,6 +411,7 @@ async def jinja_render_test(
 # ---------------------------------------------------------------------------
 
 
+@instrumented_tool("git_pr_create", "reporter")
 async def git_pr_create(
     repo_url: str,
     title: str,
@@ -439,6 +452,7 @@ async def git_pr_create(
         return _tool_error("git_pr_create", str(exc))
 
 
+@instrumented_tool("notification_send", "reporter")
 async def notification_send(
     channel: str,
     message: str,
@@ -468,6 +482,7 @@ async def notification_send(
         return _tool_error("notification_send", str(exc), channel=channel)
 
 
+@instrumented_tool("jinja_render_report", "reporter")
 async def jinja_render_report(
     template_name: str,
     context: dict[str, Any],
@@ -491,6 +506,7 @@ async def jinja_render_report(
         return f"ERROR: {exc}"
 
 
+@instrumented_tool("invoke_custom_agent", "refactor")
 async def invoke_custom_agent(
     agent_class_path: str,
     file_path: str,

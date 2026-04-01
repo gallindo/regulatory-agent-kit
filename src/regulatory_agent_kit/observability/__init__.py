@@ -8,6 +8,18 @@ from regulatory_agent_kit.observability.evaluation import (
     EvaluationResult,
     ScorerConfig,
 )
+from regulatory_agent_kit.observability.metrics import (
+    MetricsRegistry,
+    get_metrics_registry,
+    instrumented_tool,
+    record_checkpoint_decision,
+    record_llm_call,
+    record_pipeline_completed,
+    record_pipeline_failed,
+    record_pipeline_started,
+    record_repo_processed,
+    record_tool_invocation,
+)
 from regulatory_agent_kit.observability.setup import (
     AuditSignerLoader,
     MlflowSetup,
@@ -34,6 +46,7 @@ __all__ = [
     "EvaluationResult",
     "GCSStorageBackend",
     "LocalStorageBackend",
+    "MetricsRegistry",
     "MlflowSetup",
     "ObservabilitySetup",
     "OtelSetup",
@@ -42,4 +55,13 @@ __all__ = [
     "StorageBackend",
     "WriteAheadLog",
     "create_storage_backend",
+    "get_metrics_registry",
+    "instrumented_tool",
+    "record_checkpoint_decision",
+    "record_llm_call",
+    "record_pipeline_completed",
+    "record_pipeline_failed",
+    "record_pipeline_started",
+    "record_repo_processed",
+    "record_tool_invocation",
 ]

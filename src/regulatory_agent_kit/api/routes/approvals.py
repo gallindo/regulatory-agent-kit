@@ -78,6 +78,13 @@ async def submit_approval(
         )
 
     _pending_runs[run_id].append(decision.to_summary_dict())
+
+    from regulatory_agent_kit.observability.metrics import record_checkpoint_decision
+
+    record_checkpoint_decision(
+        checkpoint_type=decision.checkpoint_type,
+        decision=decision.decision,
+    )
     return ApprovalAck(run_id=str(run_id))
 
 
@@ -105,4 +112,10 @@ async def _handle_db_approval(
         temporal_client, temporal_workflow_id, decision.to_summary_dict()
     )
 
+    from regulatory_agent_kit.observability.metrics import record_checkpoint_decision
+
+    record_checkpoint_decision(
+        checkpoint_type=decision.checkpoint_type,
+        decision=decision.decision,
+    )
     return ApprovalAck(run_id=str(run_id))

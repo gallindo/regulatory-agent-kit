@@ -93,6 +93,7 @@ async def estimate_cost(
     Uses ``CostEstimator`` with model-aware pricing tables and
     file-size-based token estimation when local clones are available.
     """
+    from regulatory_agent_kit.observability.metrics import record_pipeline_started
     from regulatory_agent_kit.tools.cost_estimator import CostEstimator
 
     activity.logger.info(
@@ -101,6 +102,7 @@ async def estimate_cost(
         regulation_id,
         model,
     )
+    record_pipeline_started(regulation_id)
     estimator = CostEstimator(model=model, cost_threshold=cost_threshold)
     return estimator.estimate_for_repos(repo_urls)
 
@@ -224,9 +226,13 @@ async def analyze_repository(
         activity.logger.warning("Clone failed for %s: %s", repo_url, clone_result.get("error"))
         return {"files": [], "conflicts": [], "analysis_confidence": 0.0}
 
+    from regulatory_agent_kit.observability.metrics import record_repo_processed
+
     # --- Try LLM-powered analysis via PydanticAI agent ---
     try:
-        return await _analyze_with_agent(repo_url, regulation_id, plugin_data, clone_dest)
+        result = await _analyze_with_agent(repo_url, regulation_id, plugin_data, clone_dest)
+        record_repo_processed("analyzed")
+        return result
     except Exception:
         activity.logger.info(
             "Agent analysis unavailable for %s, using rule-based fallback", repo_url,
@@ -239,6 +245,7 @@ async def analyze_repository(
 
     confidence = DEFAULT_ANALYSIS_CONFIDENCE if file_impacts else 0.0
     activity.logger.info("Analysis complete for %s: %d file impacts", repo_url, len(file_impacts))
+    record_repo_processed("analyzed")
     return {
         "files": file_impacts,
         "conflicts": [],
@@ -310,9 +317,13 @@ async def refactor_repository(
             "commit_sha": "",
         }
 
+    from regulatory_agent_kit.observability.metrics import record_repo_processed
+
     # --- Try LLM-powered refactoring via PydanticAI agent ---
     try:
-        return await _refactor_with_agent(repo_url, impact_map, plugin_data)
+        result = await _refactor_with_agent(repo_url, impact_map, plugin_data)
+        record_repo_processed("refactored")
+        return result
     except Exception:
         activity.logger.info(
             "Agent refactoring unavailable for %s, using rule-based fallback", repo_url,
@@ -348,6 +359,7 @@ async def refactor_repository(
         len(diffs),
         branch_name,
     )
+    record_repo_processed("refactored")
     return {
         "branch_name": branch_name,
         "diffs": diffs,
@@ -451,12 +463,15 @@ async def test_repository(
 
     pass_rate = passed / total_tests if total_tests > 0 else 1.0
 
+    from regulatory_agent_kit.observability.metrics import record_repo_processed
+
     activity.logger.info(
         "Testing complete for %s: %d/%d passed",
         repo_url,
         passed,
         total_tests,
     )
+    record_repo_processed("tested")
     return {
         "pass_rate": round(pass_rate, 4),
         "total_tests": total_tests,
@@ -530,9 +545,16 @@ async def report_results(
         pr_urls=pr_urls,
     )
 
+    from regulatory_agent_kit.observability.metrics import (
+        record_pipeline_completed,
+        record_repo_processed,
+    )
+
     bundle = artefacts.to_report_bundle_dict()
     bundle["pr_urls"] = pr_urls
     activity.logger.info("Report generated at %s", bundle["report_path"])
+    record_repo_processed("reported")
+    record_pipeline_completed(regulation_id)
     return bundle
 
 

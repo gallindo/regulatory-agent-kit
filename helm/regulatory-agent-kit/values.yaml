@@ -135,6 +135,32 @@ postgresql:
     adminPassword: rak_admin_dev_password
 
 # ---------------------------------------------------------------
+# PgBouncer (data namespace)
+# ---------------------------------------------------------------
+# Enable when scaling beyond 3 workers (docs/hld.md §4.6).
+pgbouncer:
+  enabled: false
+  image:
+    repository: edoburu/pgbouncer
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6432
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  poolMode: transaction
+  maxClientConn: 200
+  defaultPoolSize: 20
+  minPoolSize: 5
+  reservePoolSize: 5
+
+# ---------------------------------------------------------------
 # Elasticsearch (data namespace)
 # ---------------------------------------------------------------
 elasticsearch:

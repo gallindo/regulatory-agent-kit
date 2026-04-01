@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator  # noqa: TC003
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import Response
 
 from regulatory_agent_kit.api.middleware import add_auth_middleware
 from regulatory_agent_kit.api.routes.approvals import router as approvals_router
@@ -96,3 +97,11 @@ app.include_router(runs_router)
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    """Prometheus metrics endpoint scraped by the Prometheus server."""
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
