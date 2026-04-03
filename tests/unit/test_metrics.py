@@ -364,6 +364,27 @@ class TestInstrumentedTool:
             {"tool": "test_tool", "agent": "test_agent", "success": "False"},
         ) == 1.0
 
+    async def test_exception_records_failure_and_reraises(self) -> None:
+        reg = CollectorRegistry()
+        m = get_metrics_registry(registry=reg)
+
+        @instrumented_tool("failing_tool", "analyzer")
+        async def my_tool() -> dict[str, str]:
+            msg = "boom"
+            raise RuntimeError(msg)
+
+        with patch(
+            "regulatory_agent_kit.observability.metrics.get_metrics_registry",
+            return_value=m,
+        ), pytest.raises(RuntimeError, match="boom"):
+            await my_tool()
+
+        assert _sample_value(
+            reg,
+            "rak_tool_invocations_total",
+            {"tool": "failing_tool", "agent": "analyzer", "success": "False"},
+        ) == 1.0
+
     async def test_non_dict_return_counts_as_success(self) -> None:
         reg = CollectorRegistry()
         m = get_metrics_registry(registry=reg)

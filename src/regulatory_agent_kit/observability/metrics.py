@@ -17,6 +17,7 @@ Usage::
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass, field
 from functools import wraps
@@ -198,12 +199,16 @@ class MetricsRegistry:
 # ---------------------------------------------------------------------------
 
 _registry: MetricsRegistry | None = None
+_registry_lock = threading.Lock()
 
 
 def get_metrics_registry(
     registry: CollectorRegistry | None = None,
 ) -> MetricsRegistry:
     """Return (or create) the module-level ``MetricsRegistry``.
+
+    Thread-safe: uses double-checked locking to avoid duplicate
+    Prometheus metric registrations under concurrent startup.
 
     Args:
         registry: Optional custom ``CollectorRegistry``.  When ``None``
@@ -213,16 +218,22 @@ def get_metrics_registry(
     """
     global _registry
 
+    # Fast path — no lock needed when singleton is already initialised.
     if _registry is not None and registry is None:
         return _registry
 
-    from prometheus_client import REGISTRY
+    with _registry_lock:
+        # Re-check after acquiring the lock (double-checked locking).
+        if _registry is not None and registry is None:
+            return _registry
 
-    reg = registry or REGISTRY
-    metrics = MetricsRegistry(registry=reg)
+        from prometheus_client import REGISTRY
 
-    if registry is None:
-        _registry = metrics
+        reg = registry or REGISTRY
+        metrics = MetricsRegistry(registry=reg)
+
+        if registry is None:
+            _registry = metrics
 
     return metrics
 
@@ -312,20 +323,27 @@ def instrumented_tool(
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start = time.perf_counter()
-            result = await func(*args, **kwargs)
-            elapsed_ms = (time.perf_counter() - start) * 1_000
-
-            success = True
-            if isinstance(result, dict):
-                success = result.get("status") != "error"
-
-            record_tool_invocation(
-                tool=tool_name,
-                agent=agent_name,
-                success=success,
-                duration_ms=elapsed_ms,
-            )
-            return result
+            raised: BaseException | None = None
+            result: T | None = None
+            try:
+                result = await func(*args, **kwargs)
+            except BaseException as exc:
+                raised = exc
+            finally:
+                elapsed_ms = (time.perf_counter() - start) * 1_000
+                success = raised is None and (
+                    not isinstance(result, dict)
+                    or result.get("status") != "error"
+                )
+                record_tool_invocation(
+                    tool=tool_name,
+                    agent=agent_name,
+                    success=success,
+                    duration_ms=elapsed_ms,
+                )
+            if raised is not None:
+                raise raised
+            return result  # type: ignore[return-value]
 
         return wrapper
 
