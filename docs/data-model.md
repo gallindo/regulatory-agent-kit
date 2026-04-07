@@ -164,7 +164,7 @@ Tracks the lifecycle of a single compliance pipeline execution.
 |---|---|---|---|---|
 | `run_id` | `UUID` | NO | `gen_random_uuid()` | Primary key. Globally unique pipeline run identifier. |
 | `regulation_id` | `TEXT` | NO | — | ID of the regulation plugin that triggered this run (e.g., `dora-ict-risk-2025`). Must match a loaded plugin ID. |
-| `status` | `TEXT` | NO | `'pending'` | Coarse lifecycle state. Constrained to: `pending`, `running`, `cost_rejected`, `completed`, `failed`, `rejected`, `cancelled`. This tracks the **lifecycle**, not the granular workflow phase — Temporal manages intermediate phases (e.g., `ANALYZING`, `AWAITING_IMPACT_REVIEW`) via its event-sourced history. `running` covers all active intermediate phases. See [`lld.md` Section 4.1.1](lld.md) for the full mapping. |
+| `status` | `TEXT` | NO | `'pending'` | Coarse lifecycle state. Constrained to: `pending`, `running`, `cost_rejected`, `completed`, `failed`, `rejected`, `cancelled`. This tracks the **lifecycle**, not the granular workflow phase — Temporal manages intermediate phases (e.g., `ANALYZING`, `AWAITING_IMPACT_REVIEW`) via its event-sourced history. `running` covers all active intermediate phases. See [`implementation-design.md` Section 4.1.1](implementation-design.md) for the full mapping. |
 | `created_at` | `TIMESTAMPTZ` | NO | `now()` | Timestamp when the pipeline run was created. |
 | `completed_at` | `TIMESTAMPTZ` | YES | `NULL` | Timestamp when the run reached a terminal state. NOT NULL when status is terminal; NULL when running. Enforced by CHECK constraint. |
 | `total_repos` | `INTEGER` | NO | — | Number of repositories in this run. Must be > 0. |
@@ -1014,4 +1014,13 @@ The three schemas (`temporal`, `rak`, `mlflow`) are logically independent. There
 
 ---
 
-*This document describes the data model. For schema DDL with full SQL, see [`lld.md` Section 5](lld.md#5-database-schema-details). For the database design overview and topology, see [`hld.md` Section 4](hld.md#4-database-design-overview). For the PostgreSQL selection rationale, see [ADR-003](adr/003-database-selection.md). For partition maintenance and operational procedures, see [`operations/runbook.md`](operations/runbook.md).*
+## See Also
+
+| Document | What You'll Find |
+|---|---|
+| [`implementation-design.md` Section 5](implementation-design.md#5-database-schema-details) | Full DDL with SQL statements, constraint definitions |
+| [`system-design.md` Section 4](system-design.md#4-database-design-overview) | Database topology, connection pooling, PgBouncer sizing |
+| [ADR-003](adr/003-database-selection.md) | PostgreSQL selection rationale vs. alternatives |
+| [`operations/runbook.md`](operations/runbook.md) | Partition maintenance, connection exhaustion, cache cleanup |
+
+*This document describes the data model. For schema DDL with full SQL, see [`implementation-design.md` Section 5](implementation-design.md#5-database-schema-details). For the database design overview and topology, see [`system-design.md` Section 4](system-design.md#4-database-design-overview). For the PostgreSQL selection rationale, see [ADR-003](adr/003-database-selection.md). For partition maintenance and operational procedures, see [`operations/runbook.md`](operations/runbook.md).*

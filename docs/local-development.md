@@ -100,7 +100,23 @@ Verify all services are healthy:
 docker compose ps
 ```
 
-You should see all services in `running` state. Then trigger your first pipeline:
+You should see output similar to:
+
+```
+NAME                      IMAGE                        STATUS                  PORTS
+rak-api-1                 rak:api                      Up (healthy)            0.0.0.0:8000->8000/tcp
+rak-worker-1              rak:worker                   Up
+rak-temporal-server-1     temporalio/auto-setup        Up (healthy)            7233/tcp
+rak-temporal-ui-1         temporalio/ui                Up (healthy)            0.0.0.0:8233->8080/tcp
+rak-postgresql-1          postgres:16-alpine           Up (healthy)            0.0.0.0:5432->5432/tcp
+rak-elasticsearch-1       elasticsearch:8.13.0         Up (healthy)            0.0.0.0:9200->9200/tcp
+rak-litellm-1             ghcr.io/berriai/litellm      Up (healthy)            0.0.0.0:4000->4000/tcp
+rak-mlflow-1              rak:mlflow                   Up (healthy)            0.0.0.0:5000->5000/tcp
+rak-prometheus-1          prom/prometheus              Up (healthy)            0.0.0.0:9090->9090/tcp
+rak-grafana-1             grafana/grafana              Up (healthy)            0.0.0.0:3000->3000/tcp
+```
+
+All services should show `Up` or `Up (healthy)`. Then trigger your first pipeline:
 
 ```bash
 # Using the CLI (installed in the worker container)
@@ -296,11 +312,11 @@ docker compose up -d
 | Your goal | Read next |
 |---|---|
 | Write a custom regulation plugin | [`plugin-template-guide.md`](plugin-template-guide.md) |
-| Understand the pipeline architecture | [`architecture.md`](architecture.md) |
+| Understand the pipeline architecture | [`framework-spec.md`](framework-spec.md) |
 | Deploy to production (Kubernetes) | [`infrastructure.md`](infrastructure.md) |
 | Operate and troubleshoot in production | [`operations/runbook.md`](operations/runbook.md) |
 | Look up a CLI command | [`cli-reference.md`](cli-reference.md) |
 
 ---
 
-*See also: [`getting-started.md`](getting-started.md) for Lite Mode (no Docker required), [`infrastructure.md`](infrastructure.md) for production deployment, and [`hld.md`](hld.md) for the full system design.*
+*See also: [`getting-started.md`](getting-started.md) for Lite Mode (no Docker required), [`infrastructure.md`](infrastructure.md) for production deployment, and [`system-design.md`](system-design.md) for the full system design.*

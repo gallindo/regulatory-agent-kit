@@ -113,7 +113,7 @@ Lightweight, developer-friendly search engines.
 
 ### Licensing Mitigation
 
-The SSPL / Elastic License 2.0 applies to the Elasticsearch server binary, not to the client library (`elasticsearch-py`, which is Apache 2.0). Since `regulatory-agent-kit` only depends on the client library, the licensing concern does not affect the framework's Apache 2.0 license. Organizations that prefer Apache 2.0 for the server can substitute OpenSearch as a drop-in replacement — the `SearchClient` abstraction in `lld.md` uses only API-compatible operations.
+The SSPL / Elastic License 2.0 applies to the Elasticsearch server binary, not to the client library (`elasticsearch-py`, which is Apache 2.0). Since `regulatory-agent-kit` only depends on the client library, the licensing concern does not affect the framework's Apache 2.0 license. Organizations that prefer Apache 2.0 for the server can substitute OpenSearch as a drop-in replacement — the `SearchClient` abstraction in `implementation-design.md` uses only API-compatible operations.
 
 ---
 

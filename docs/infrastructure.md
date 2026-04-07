@@ -4,7 +4,7 @@
 > **Date:** 2026-03-27
 > **Status:** Active Development
 > **Audience:** Platform engineers, DevOps, SRE, and infrastructure teams.
-> **Related:** For integration protocols, authentication, rate limits, and retry strategies per external system, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table).
+> **Related:** For integration protocols, authentication, rate limits, and retry strategies per external system, see [`system-design.md` Section 6.2 — Integration Specification Table](system-design.md#62-integration-specification-table).
 
 ---
 
@@ -33,7 +33,7 @@
 | Model | Infrastructure | Best For | Documented In |
 |---|---|---|---|
 | **Lite Mode** | Developer machine (Python only) | Evaluation (< 5 min setup) | Section 1.3 + Section 8.5 |
-| **Docker Compose** | Single machine with Docker | Development, POC | [`hld.md` SS2.3](hld.md) |
+| **Docker Compose** | Single machine with Docker | Development, POC | [`system-design.md` SS2.3](system-design.md) |
 | **Kubernetes (self-managed)** | EKS / GKE / AKS / on-prem | Production | This document |
 | **AWS Native** | EKS + RDS + MSK + S3 | AWS-native orgs | Section 2 |
 | **GCP Native** | GKE + Cloud SQL + S3-compat + GCS | GCP-native orgs | Section 3 |
@@ -1537,4 +1537,4 @@ groups:
 
 ---
 
-*This document describes the infrastructure and deployment architecture. For software architecture, see [`sad.md`](sad.md). For database schema details, see [`data-model.md`](data-model.md). For the high-level system design, see [`hld.md`](hld.md).*
+*This document describes the infrastructure and deployment architecture. For software architecture, see [`software-architecture.md`](software-architecture.md). For database schema details, see [`data-model.md`](data-model.md). For the high-level system design, see [`system-design.md`](system-design.md).*

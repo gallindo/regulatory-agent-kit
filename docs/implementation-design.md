@@ -25,9 +25,9 @@ This Low-Level Design (LLD) document describes the internal structure and behavi
 
 | Document | Abstraction Level | This LLD Adds |
 |---|---|---|
-| [`architecture.md`](architecture.md) | Conceptual — what the system does | N/A |
-| [`sad.md`](sad.md) | Structural — C4 model, components, data architecture | N/A |
-| [`hld.md`](hld.md) | Physical — deployment, hardware, integrations, data flows | N/A |
+| [`framework-spec.md`](framework-spec.md) | Conceptual — what the system does | N/A |
+| [`software-architecture.md`](software-architecture.md) | Structural — C4 model, components, data architecture | N/A |
+| [`system-design.md`](system-design.md) | Physical — deployment, hardware, integrations, data flows | N/A |
 | **This document** | **Behavioral** — class hierarchies, method signatures, algorithms, state machines, error paths | Class diagrams, detailed sequence diagrams, algorithm pseudocode, state machines per component |
 
 ---
@@ -1859,4 +1859,14 @@ sequenceDiagram
 
 ---
 
-*This document describes the code-level design. For system-level architecture, see [`sad.md`](sad.md). For deployment and infrastructure, see [`hld.md`](hld.md). For the abstract framework specification, see [`architecture.md`](architecture.md).*
+## See Also
+
+| Document | What You'll Find |
+|---|---|
+| [`software-architecture.md`](software-architecture.md) | C4 model, component design, code-level abstractions |
+| [`system-design.md`](system-design.md) | Deployment topology, hardware sizing, network policies |
+| [`framework-spec.md`](framework-spec.md) | Abstract framework specification, plugin schema, agent contracts |
+| [`data-model.md`](data-model.md) | Full database schema, indexes, JSONB payload schemas, partitioning |
+| [`operations/runbook.md`](operations/runbook.md) | Failure recovery procedures, maintenance, troubleshooting |
+
+*This document describes the code-level design. For system-level architecture, see [`software-architecture.md`](software-architecture.md). For deployment and infrastructure, see [`system-design.md`](system-design.md). For the abstract framework specification, see [`framework-spec.md`](framework-spec.md).*

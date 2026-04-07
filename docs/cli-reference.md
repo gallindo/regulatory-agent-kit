@@ -28,7 +28,7 @@ rak run \
 | `--repos` | Yes | — | One or more repository URLs (HTTPS) or local paths |
 | `--checkpoint-mode` | Yes | — | How human approvals are collected: `terminal` (interactive), `slack`, `email`, `webhook` |
 | `--slack-channel` | No | — | Slack channel for approvals (required if `--checkpoint-mode slack`) |
-| `--lite` | No | `false` | Run in Lite Mode: no Temporal, no Elasticsearch, SQLite, sequential processing. See [`infrastructure.md` Section 8.5](infrastructure.md) |
+| `--lite` | No | `false` | Run in Lite Mode: no Temporal, no Elasticsearch, SQLite, sequential processing. See [`infrastructure.md` Section 8.5](infrastructure.md#85-lite-mode-no-orchestration) |
 
 **Examples:**
 
@@ -205,7 +205,7 @@ rak plugin search <query>
 
 Queries the plugin registry by keyword, regulation name, or jurisdiction.
 
-> **Roadmap note:** The plugin registry backend (hosting, publishing workflow, search index) is planned for Phase 2 (see [`regulatory-agent-kit.md` Section 8 — Future Roadmap](regulatory-agent-kit.md#8-future-roadmap)). Until the registry is available, `rak plugin search` searches the local `regulations/` directory and the official `regulatory-agent-kit` GitHub repository's `regulations/` folder.
+> **Roadmap note:** The plugin registry backend (hosting, publishing workflow, search index) is planned for Phase 2 (see [`prd.md` Section 8 — Future Roadmap](prd.md#8-future-roadmap)). Until the registry is available, `rak plugin search` searches the local `regulations/` directory and the official `regulatory-agent-kit` GitHub repository's `regulations/` folder.
 
 ---
 

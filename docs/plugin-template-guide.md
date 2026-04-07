@@ -1,7 +1,7 @@
 # Plugin Template Authoring Guide
 
 **Audience:** Compliance engineers and platform engineers writing regulation plugins
-**Prerequisites:** Familiarity with [Jinja2 templating](https://jinja.palletsprojects.com/) and the [plugin schema](architecture.md#12-plugin-schema-reference)
+**Prerequisites:** Familiarity with [Jinja2 templating](https://jinja.palletsprojects.com/) and the [plugin schema](framework-spec.md#12-plugin-schema-reference)
 
 ---
 
@@ -284,4 +284,4 @@ The `rak plugin test` command:
 
 ---
 
-*See also: [`architecture.md` Section 12](architecture.md#12-plugin-schema-reference) for the full plugin YAML schema, [`regulations/dora/`](../regulations/dora/) for a real-world plugin example, and [`cli-reference.md`](cli-reference.md) for all `rak plugin` commands.*
+*See also: [`framework-spec.md` Section 12](framework-spec.md#12-plugin-schema-reference) for the full plugin YAML schema, [`regulations/dora/`](../regulations/dora/) for a real-world plugin example, and [`cli-reference.md`](cli-reference.md) for all `rak plugin` commands.*

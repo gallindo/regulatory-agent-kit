@@ -19,18 +19,18 @@ The orchestration layer must support:
 
 | ID | Requirement | Source |
 |---|---|---|
-| R1 | Explicit stateful workflow with defined states (IDLE, COST_ESTIMATION, ANALYZING, IMPACT_REVIEW, REFACTORING, TESTING, MERGE_REVIEW, REPORTING, COMPLETE, ERROR) | `architecture.md` SS4.1 |
-| R2 | Durable state persistence to PostgreSQL with crash recovery and `rak resume --run-id` | `architecture.md` SS4.2 |
-| R3 | Non-bypassable human-in-the-loop checkpoints with cryptographic signatures at two gates (post-analysis, pre-merge) | `architecture.md` SS4.2 |
-| R4 | Fan-out/fan-in parallelism for processing N repositories concurrently | `architecture.md` SS4.4 |
-| R5 | Conditional routing (cost approved/rejected, tests pass/fail with retry, human approve/reject/modify) | `architecture.md` SS4.1 |
-| R6 | Per-repository progress tracking and repository-level locking | `architecture.md` SS4.2 |
-| R7 | Dead letter queue for failed repositories with selective retry | `architecture.md` SS4.2 |
-| R8 | Rollback manifests recording all branches, PRs, commits | `architecture.md` SS4.2 |
-| R9 | Full observability via Langfuse (LLM traces) and OpenTelemetry (operational metrics) | `architecture.md` SS7 |
-| R10 | LiteLLM gateway integration for model-agnostic LLM access | `architecture.md` SS6 |
-| R11 | Tool isolation per agent (Analyzer = read-only; Refactor = read-write) | `architecture.md` SS9 |
-| R12 | Idempotent operations with deterministic branch naming | `architecture.md` SS4.2 |
+| R1 | Explicit stateful workflow with defined states (IDLE, COST_ESTIMATION, ANALYZING, IMPACT_REVIEW, REFACTORING, TESTING, MERGE_REVIEW, REPORTING, COMPLETE, ERROR) | `framework-spec.md` SS4.1 |
+| R2 | Durable state persistence to PostgreSQL with crash recovery and `rak resume --run-id` | `framework-spec.md` SS4.2 |
+| R3 | Non-bypassable human-in-the-loop checkpoints with cryptographic signatures at two gates (post-analysis, pre-merge) | `framework-spec.md` SS4.2 |
+| R4 | Fan-out/fan-in parallelism for processing N repositories concurrently | `framework-spec.md` SS4.4 |
+| R5 | Conditional routing (cost approved/rejected, tests pass/fail with retry, human approve/reject/modify) | `framework-spec.md` SS4.1 |
+| R6 | Per-repository progress tracking and repository-level locking | `framework-spec.md` SS4.2 |
+| R7 | Dead letter queue for failed repositories with selective retry | `framework-spec.md` SS4.2 |
+| R8 | Rollback manifests recording all branches, PRs, commits | `framework-spec.md` SS4.2 |
+| R9 | Full observability via Langfuse (LLM traces) and OpenTelemetry (operational metrics) | `framework-spec.md` SS7 |
+| R10 | LiteLLM gateway integration for model-agnostic LLM access | `framework-spec.md` SS6 |
+| R11 | Tool isolation per agent (Analyzer = read-only; Refactor = read-write) | `framework-spec.md` SS9 |
+| R12 | Idempotent operations with deterministic branch naming | `framework-spec.md` SS4.2 |
 
 ---
 
@@ -193,7 +193,7 @@ class CompliancePipeline:
 
 Recovery: `rak resume --run-id <id>` loads the checkpoint and re-enters the graph at the interrupted node.
 
-**Note:** LangGraph's default serialization uses JSON. Custom serializers can be configured, but care must be taken to avoid unsafe deserialization formats in production (see `architecture.md` SS9 — Security Architecture).
+**Note:** LangGraph's default serialization uses JSON. Custom serializers can be configured, but care must be taken to avoid unsafe deserialization formats in production (see `framework-spec.md` SS9 — Security Architecture).
 
 **Temporal + PydanticAI:**
 Temporal uses **event sourcing** — every workflow action (activity start, activity completion, signal received, timer fired) is recorded as an event in the workflow history, persisted to PostgreSQL. On crash recovery, the workflow function is **replayed** from the event history, fast-forwarding through completed activities. This is fundamentally more robust than checkpoint-based persistence:
@@ -469,7 +469,7 @@ LangGraph's advantages (declarative graph inspection, simpler deployment, native
 - [PydanticAI Documentation](https://ai.pydantic.dev/)
 - [PydanticAI License (MIT)](https://github.com/pydantic/pydantic-ai/blob/main/LICENSE)
 - [PydanticAI — Durability recommendation](https://ai.pydantic.dev/multi-agent-applications/#nested-agent-calls)
-- [`docs/architecture.md`](../architecture.md) — Framework architecture specification
+- [`docs/framework-spec.md`](../framework-spec.md) — Framework architecture specification
 - [ADR-001](001-agent-orchestration-framework.md) — Initial framework selection (LangGraph vs CrewAI vs AutoGen)
 
 ---

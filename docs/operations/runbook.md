@@ -1,7 +1,7 @@
 # Operational Runbook
 
 **Audience:** Platform engineers, SRE, on-call operators
-**Related:** [`hld.md` Section 9 — HA and Disaster Recovery](../hld.md), [`infrastructure.md`](../infrastructure.md)
+**Related:** [`system-design.md` Section 9 — HA and Disaster Recovery](../system-design.md), [`infrastructure.md`](../infrastructure.md)
 
 ---
 
@@ -163,7 +163,7 @@ SHOW max_connections;
 ```
 
 **Resolution:**
-1. If running > 3 workers without PgBouncer: deploy PgBouncer (see [`hld.md` Section 4.6](../hld.md)).
+1. If running > 3 workers without PgBouncer: deploy PgBouncer (see [`system-design.md` Section 4.6](../system-design.md)).
 2. Check for connection leaks: `SELECT * FROM pg_stat_activity WHERE state = 'idle' AND query_start < now() - interval '1 hour';`
 3. Temporary: `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle in transaction' AND query_start < now() - interval '10 minutes';`
 

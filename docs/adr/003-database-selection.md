@@ -13,7 +13,7 @@
 
 ### Data Categories
 
-Analysis of `architecture.md` and the product requirements identifies six distinct storage concerns:
+Analysis of `framework-spec.md` and the product requirements identifies six distinct storage concerns:
 
 | # | Data Category | Shape | Access Pattern | Retention | Volume |
 |---|---|---|---|---|---|
@@ -351,5 +351,5 @@ GRANT ALL ON rak.audit_entries TO rak_admin;
 - [PostgreSQL JSONB Documentation](https://www.postgresql.org/docs/16/datatype-json.html)
 - [PostgreSQL Table Partitioning](https://www.postgresql.org/docs/16/ddl-partitioning.html)
 - [pg_partman — Partition Management](https://github.com/pgpartman/pg_partman)
-- [`docs/architecture.md`](../architecture.md) — Framework architecture specification
+- [`docs/framework-spec.md`](../framework-spec.md) — Framework architecture specification
 - [ADR-002](002-langgraph-vs-temporal-pydanticai.md) — Temporal + PydanticAI selection

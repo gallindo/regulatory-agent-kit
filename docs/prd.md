@@ -16,8 +16,8 @@ This repository's documentation is split into three layers to maintain regulatio
 
 | Document | Purpose | Contains regulation-specific content? |
 |---|---|---|
-| **[`docs/architecture.md`](architecture.md)** | Pure framework specification — agents, plugins, events, security, deployment | **No** — completely regulation-agnostic |
-| **`docs/regulatory-agent-kit.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
+| **[`docs/framework-spec.md`](framework-spec.md)** | Pure framework specification — agents, plugins, events, security, deployment | **No** — completely regulation-agnostic |
+| **`docs/prd.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
 | **[`regulations/README.md`](../regulations/README.md)** | Plugin catalog, contribution guide, plugin roadmap | Yes — lists all planned and community regulation plugins |
 | **[`regulations/dora/README.md`](../regulations/dora/README.md)** | DORA-specific plugin documentation (five pillars, RTS/ITS, cross-references) | Yes — entirely DORA-specific |
 
@@ -291,6 +291,8 @@ The kit's most strategically important capability is its **total decoupling of r
 
 **Plugin Structure:**
 
+> **Note:** The example below uses DORA (Digital Operational Resilience Act) as an illustrative regulation. The framework itself is regulation-agnostic — any regulation can be expressed using this same YAML schema. The DORA-specific fields (`dora_pillar`, `rts_reference`) are examples of custom plugin fields that are passed through to templates and reports without being processed by the framework core.
+
 ```yaml
 # regulations/dora_ict.yaml
 id: "dora-ict-risk-2025"
@@ -390,7 +392,7 @@ kafka_event:
 
 ### 4.3 Feature 2 — Temporal + PydanticAI Multi-Agent Orchestration
 
-The workflow engine is built on **Temporal** (self-hosted, Go binary) with **PydanticAI** as the agent framework (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)). Each agent phase is a Temporal Activity, and transitions are governed by explicit workflow logic, including human approval gates via Temporal Signals. Pipeline state is durably persisted to PostgreSQL via Temporal's event-sourced history, ensuring crash recovery at any point in the pipeline. The canonical state machine definition is maintained in [`architecture.md` Section 4](architecture.md#4-agent-orchestration).
+The workflow engine is built on **Temporal** (self-hosted, Go binary) with **PydanticAI** as the agent framework (see [ADR-002](adr/002-langgraph-vs-temporal-pydanticai.md)). Each agent phase is a Temporal Activity, and transitions are governed by explicit workflow logic, including human approval gates via Temporal Signals. Pipeline state is durably persisted to PostgreSQL via Temporal's event-sourced history, ensuring crash recovery at any point in the pipeline. The canonical state machine definition is maintained in [`framework-spec.md` Section 4](framework-spec.md#4-agent-orchestration).
 
 ```mermaid
 stateDiagram-v2
@@ -439,7 +441,7 @@ stateDiagram-v2
     end note
 ```
 
-> The state names above are conceptual. The canonical state machine is defined in [`architecture.md` Section 4](architecture.md#4-agent-orchestration). For the implementation-level state mapping (DB status vs Temporal phase), see [`lld.md` Section 4.1](lld.md#41-pipeline-run-lifecycle).
+> The state names above are conceptual. The canonical state machine is defined in [`framework-spec.md` Section 4](framework-spec.md#4-agent-orchestration). For the implementation-level state mapping (DB status vs Temporal phase), see [`implementation-design.md` Section 4.1](implementation-design.md#41-pipeline-run-lifecycle).
 
 **Key additions to the orchestration model:**
 
@@ -450,7 +452,7 @@ stateDiagram-v2
 - **Repository-level locking** via Temporal workflow ID uniqueness to prevent conflicts from concurrent pipeline runs
 - **Dead letter queue** for failed repositories, with retry support via `rak retry-failures --run-id <id>`
 
-**Agent responsibilities** (canonical contracts: [`architecture.md` Section 4.3](architecture.md#43-agent-contracts)):
+**Agent responsibilities** (canonical contracts: [`framework-spec.md` Section 4.3](framework-spec.md#43-agent-contracts)):
 
 | Agent | Input | Core Capability | Output |
 |---|---|---|---|
@@ -680,7 +682,7 @@ graph LR
 
 ### 5.2 Integration Reference Table
 
-For detailed integration specifications including rate limits, retry strategies, and timeouts, see [`hld.md` Section 6.2](hld.md#62-integration-specification-table).
+For detailed integration specifications including rate limits, retry strategies, and timeouts, see [`system-design.md` Section 6.2](system-design.md#62-integration-specification-table).
 
 | Category | Integration | Protocol | Authentication | Notes |
 |---|---|---|---|---|
@@ -707,7 +709,7 @@ For detailed integration specifications including rate limits, retry strategies,
 
 ### 5.3 Deployment Options
 
-The framework supports multiple deployment models ranging from zero-infrastructure evaluation to production Kubernetes with full HA. For the canonical list of deployment options (including Lite Mode, Docker Compose, Kubernetes, and cloud-native configurations for AWS, GCP, and Azure), hardware sizing, and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
+The framework supports multiple deployment models ranging from zero-infrastructure evaluation to production Kubernetes with full HA. For the canonical list of deployment options (including Lite Mode, Docker Compose, Kubernetes, and cloud-native configurations for AWS, GCP, and Azure), hardware sizing, and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`framework-spec.md` Section 11 — Deployment Options](framework-spec.md#11-deployment-options).
 
 ### 5.4 Analysis Scope — Beyond Application Code
 
@@ -743,7 +745,7 @@ The framework analyzes not just application source code but the full spectrum of
 
 ### 6.2 Security Architecture
 
-The framework enforces eight security boundaries covering tool isolation, output validation, sandboxed execution, non-bypassable human review, credential management, data residency routing, cryptographic audit signing, and supply chain verification. For the full security architecture including threat mitigations and credential management, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture).
+The framework enforces eight security boundaries covering tool isolation, output validation, sandboxed execution, non-bypassable human review, credential management, data residency routing, cryptographic audit signing, and supply chain verification. For the full security architecture including threat mitigations and credential management, see [`framework-spec.md` Section 9 — Security Architecture](framework-spec.md#9-security-architecture).
 
 ### 6.3 Market & Strategic Risks
 
@@ -1040,7 +1042,7 @@ rak rollback --run-id <id>
 
 ## Appendix B — Regulation Plugin Schema Reference
 
-For the complete plugin YAML schema with all required and optional fields, see [`architecture.md` Section 12 — Plugin Schema Reference](architecture.md#12-plugin-schema-reference). A worked example using DORA is provided in [Section 4.2](#42-feature-1--regulation-as-yaml-plugin-system) of this document.
+For the complete plugin YAML schema with all required and optional fields, see [`framework-spec.md` Section 12 — Plugin Schema Reference](framework-spec.md#12-plugin-schema-reference). A worked example using DORA is provided in [Section 4.2](#42-feature-1--regulation-as-yaml-plugin-system) of this document.
 
 ---
 
@@ -1070,7 +1072,7 @@ For the complete plugin YAML schema with all required and optional fields, see [
 
 | Your goal | Start here |
 |---|---|
-| Understand the architecture | [`architecture.md`](architecture.md) — framework contracts, plugin system, orchestration |
+| Understand the architecture | [`framework-spec.md`](framework-spec.md) — framework contracts, plugin system, orchestration |
 | Deploy and evaluate | [`getting-started.md`](getting-started.md) — 5-minute Lite Mode walkthrough |
 | Write a regulation plugin | [`plugin-template-guide.md`](plugin-template-guide.md) — Jinja2 template authoring |
 | Deploy to production | [`infrastructure.md`](infrastructure.md) — Docker, Kubernetes, AWS/GCP/Azure |

@@ -17,11 +17,11 @@ With the orchestration framework (Temporal + PydanticAI) and database (PostgreSQ
 |---|---|---|
 | Orchestration | Temporal (self-hosted) + Python SDK | ADR-002 |
 | Agent framework | PydanticAI | ADR-002 |
-| LLM gateway | LiteLLM | `architecture.md` SS6 |
+| LLM gateway | LiteLLM | `framework-spec.md` SS6 |
 | Database | PostgreSQL (single instance) | ADR-003 |
-| Search / knowledge base | Elasticsearch 8.x | `architecture.md` SS5 |
+| Search / knowledge base | Elasticsearch 8.x | `framework-spec.md` SS5 |
 | LLM trace collector | MLflow (see [ADR-005](005-llm-observability-platform.md)) | ADR-005 |
-| Operational metrics | OpenTelemetry -> Prometheus | `architecture.md` SS7 |
+| Operational metrics | OpenTelemetry -> Prometheus | `framework-spec.md` SS7 |
 
 ### Layers Requiring Library Selection
 
@@ -80,7 +80,7 @@ With the orchestration framework (Temporal + PydanticAI) and database (PostgreSQ
 
 **Rationale:**
 - `uv` resolves the dependency tree for this project (Temporal SDK + PydanticAI + LiteLLM + Elasticsearch + tree-sitter + Kafka + cryptography) in seconds, not minutes.
-- Native `--require-hashes` support aligns with the architecture's supply chain security requirement (`architecture.md` SS9: "Pinned deps with hash verification").
+- Native `--require-hashes` support aligns with the architecture's supply chain security requirement (`framework-spec.md` SS9: "Pinned deps with hash verification").
 - `uv.lock` provides reproducible builds. `uv export --format requirements-txt` generates `requirements.txt` for Docker builds.
 - Same creator as Ruff (Astral) — consistent toolchain.
 - PEP 621 `pyproject.toml` — no proprietary metadata format.
@@ -96,7 +96,7 @@ With the orchestration framework (Temporal + PydanticAI) and database (PostgreSQ
 - Pydantic models define: plugin YAML schema validation, agent input/output contracts, event schemas, API request/response models, audit entry structure, database record DTOs.
 - `pydantic-settings` for configuration management (environment variables, `.env` files, secrets).
 - Pydantic v2's Rust-based core (`pydantic-core`) provides 5-50x faster validation than v1.
-- The architecture mandates "Pydantic output validation" as a security boundary (`architecture.md` SS9).
+- The architecture mandates "Pydantic output validation" as a security boundary (`framework-spec.md` SS9).
 
 ---
 
@@ -159,7 +159,7 @@ class AuditRepository:
 **Rationale:**
 - FastAPI's native Pydantic v2 integration means request/response validation uses the same models as the rest of the application — zero duplication.
 - Auto-generated OpenAPI schema is valuable for the CI/CD integration API and the webhook event source.
-- The architecture specifies a "built-in HTTP endpoint (FastAPI)" for `WebhookEventSource` (`architecture.md` SS5.1).
+- The architecture specifies a "built-in HTTP endpoint (FastAPI)" for `WebhookEventSource` (`framework-spec.md` SS5.1).
 - Async support aligns with Temporal's async Python SDK.
 - Largest ecosystem for middleware (CORS, authentication, rate limiting).
 
@@ -182,7 +182,7 @@ class AuditRepository:
 **Decision:** `tree-sitter` (Python bindings) for AST parsing across all supported languages.
 
 **Rationale:**
-- The architecture mandates tree-sitter for universal AST parsing (`architecture.md` SS2, "AST Tools (tree-sitter)").
+- The architecture mandates tree-sitter for universal AST parsing (`framework-spec.md` SS2, "AST Tools (tree-sitter)").
 - Supports partial parsing (syntactically invalid files still produce usable ASTs) — critical for analyzing code mid-refactor.
 - Language grammars are separate packages (`tree-sitter-java`, `tree-sitter-python`, `tree-sitter-kotlin`), installed per deployment's language scope.
 - v1.0 scope: Java, Kotlin, Python. v2.0: Go, TypeScript.
@@ -252,7 +252,7 @@ class GitClient:
 **Decision:** Jinja2 for remediation and test template rendering.
 
 **Rationale:**
-- The architecture specifies Jinja2 templates for all remediation strategies (`architecture.md` SS3.4).
+- The architecture specifies Jinja2 templates for all remediation strategies (`framework-spec.md` SS3.4).
 - Plugins reference templates as `.j2` files (`template: "templates/audit_log_annotation.j2"`).
 - Jinja2 is the de facto Python template engine. Sandboxed mode (`SandboxedEnvironment`) prevents template injection in user-contributed plugins.
 
@@ -518,7 +518,7 @@ rak = "regulatory_agent_kit.cli:app"
 
 5. **Async-first but not async-only** — Temporal activities and FastAPI handlers are async. The CLI (`rak run --lite`) supports synchronous execution for evaluation mode. Psycopg 3 supports both modes.
 
-6. **Supply chain security** — `uv.lock` with hash verification, `pip-audit` in CI, SBOM generation via Syft/CycloneDX. Aligns with `architecture.md` SS9.
+6. **Supply chain security** — `uv.lock` with hash verification, `pip-audit` in CI, SBOM generation via Syft/CycloneDX. Aligns with `framework-spec.md` SS9.
 
 ---
 
@@ -544,6 +544,6 @@ rak = "regulatory_agent_kit.cli:app"
 - [tree-sitter Python Bindings](https://github.com/tree-sitter/py-tree-sitter)
 - [ruamel.yaml Documentation](https://yaml.readthedocs.io/)
 - [Typer Documentation](https://typer.tiangolo.com/)
-- [`docs/architecture.md`](../architecture.md) — Framework architecture specification
+- [`docs/framework-spec.md`](../framework-spec.md) — Framework architecture specification
 - [ADR-002](002-langgraph-vs-temporal-pydanticai.md) — Temporal + PydanticAI selection
 - [ADR-003](003-database-selection.md) — PostgreSQL selection

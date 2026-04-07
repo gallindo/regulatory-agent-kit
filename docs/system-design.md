@@ -32,10 +32,10 @@ This High-Level Design (HLD) document describes the physical and logical system 
 
 | Document | Focus | This HLD Adds |
 |---|---|---|
-| [`architecture.md`](architecture.md) | Abstract framework specification (regulation-agnostic contracts, plugin schema) | N/A — this HLD implements the abstract spec |
-| [`sad.md`](sad.md) | Software architecture (C4 model, component design, code-level abstractions, ADR decisions) | Physical deployment, hardware sizing, network topology, HA/DR strategy |
+| [`framework-spec.md`](framework-spec.md) | Abstract framework specification (regulation-agnostic contracts, plugin schema) | N/A — this HLD implements the abstract spec |
+| [`software-architecture.md`](software-architecture.md) | Software architecture (C4 model, component design, code-level abstractions, ADR decisions) | Physical deployment, hardware sizing, network topology, HA/DR strategy |
 | [`adr/*.md`](adr/) | Individual technology decisions with rationale | Concrete deployment configurations for each chosen technology |
-| [`regulatory-agent-kit.md`](regulatory-agent-kit.md) | Product requirements, market context, roadmap | Infrastructure required to deliver each roadmap phase |
+| [`prd.md`](prd.md) | Product requirements, market context, roadmap | Infrastructure required to deliver each roadmap phase |
 
 ### 1.3 Technology Decisions (Summary)
 
@@ -47,8 +47,8 @@ All technology choices are documented in ADRs. This HLD designs the physical sys
 | Database | PostgreSQL 16+ (single instance) | [ADR-003](adr/003-database-selection.md) |
 | Python stack | Python 3.12+, uv, FastAPI, Psycopg 3, tree-sitter, Typer | [ADR-004](adr/004-python-stack.md) |
 | LLM observability | MLflow (self-hosted, PostgreSQL + S3) | [ADR-005](adr/005-llm-observability-platform.md) |
-| LLM gateway | LiteLLM (proxy mode, 2+ replicas) | `architecture.md` SS6 |
-| Search/knowledge base | Elasticsearch 8.x | `architecture.md` SS5 |
+| LLM gateway | LiteLLM (proxy mode, 2+ replicas) | `framework-spec.md` SS6 |
+| Search/knowledge base | Elasticsearch 8.x | `framework-spec.md` SS5 |
 
 ### 1.4 Kubernetes Concepts Primer
 
@@ -168,7 +168,7 @@ graph TB
             TEMPORAL_HISTORY["temporal-history\nDeployment (2 replicas)\nWorkflow history service\n\nCPU: 1 / Memory: 2Gi"]
             TEMPORAL_MATCHING["temporal-matching\nDeployment (2 replicas)\nTask queue matching\n\nCPU: 1 / Memory: 2Gi"]
             TEMPORAL_WORKER_SVC["temporal-worker\nDeployment (2 replicas)\nInternal system workflows\n\nCPU: 0.5 / Memory: 1Gi"]
-            TEMPORAL_UI_DEPLOY["temporal-ui\nDeployment (1 replica)\nWeb UI\n\nCPU: 0.25 / Memory: 256Mi\nPorts: 8080"]
+            TEMPORAL_UI_DEPLOY["temporal-ui\nDeployment (1 replica)\nWeb UI\n\nCPU: 0.25 / Memory: 256Mi\nInternal port: 8080\n(Docker Compose maps to 8233)"]
         end
 
         subgraph DATA_NS["Namespace: data"]
@@ -220,45 +220,36 @@ graph TB
 
 ### 2.3 Physical Deployment Architecture (Development — Docker Compose)
 
+```mermaid
+graph TB
+    subgraph DOCKER["docker-compose.yml"]
+        direction TB
+        PG["postgres:5432\nPostgreSQL 16\n(temporal + rak + mlflow schemas)"]
+        ES["elasticsearch:9200\nElasticsearch 8\n(single node)"]
+        TS["temporal:7233\nTemporal Server\n(auto-setup)"]
+        TUI["temporal-ui:8080\n→ host: 8233\nTemporal Web UI"]
+        WRK["worker\nTemporal Worker\n(single replica)"]
+        API["api:8000\nFastAPI\n(webhook + API)"]
+        LT["litellm:4000\nLiteLLM Proxy\n(single replica)"]
+        MF["mlflow:5000\nMLflow Server\n(single replica)"]
+        PR["prometheus:9090\nPrometheus\n(single)"]
+        GR["grafana:3000\nGrafana\n(single)"]
+    end
+
+    WRK -->|"gRPC"| TS
+    API -->|"gRPC"| TS
+    TS --> PG
+    WRK --> PG
+    WRK --> ES
+    WRK --> LT
+    WRK --> MF
+    MF --> PG
+    LT --> MF
+    WRK --> PR
 ```
-docker-compose.yml
-+-------------------------------------------------------------------+
-|                                                                    |
-|  +------------------+    +------------------+                      |
-|  | postgres:5432    |    | elasticsearch:   |                      |
-|  | PostgreSQL 16    |    | 9200             |                      |
-|  | (temporal + rak  |    | Elasticsearch 8  |                      |
-|  |  + mlflow)       |    | (single node)    |                      |
-|  +------------------+    +------------------+                      |
-|                                                                    |
-|  +------------------+    +------------------+                      |
-|  | temporal:7233    |    | temporal-ui:8080 |                      |
-|  | Temporal Server  |    | Temporal Web UI  |                      |
-|  | (auto-setup)     |    |                  |                      |
-|  +------------------+    +------------------+                      |
-|                                                                    |
-|  +------------------+    +------------------+                      |
-|  | worker           |    | api:8000         |                      |
-|  | Temporal Worker   |    | FastAPI          |                      |
-|  | (single replica) |    | (webhook + API)  |                      |
-|  +------------------+    +------------------+                      |
-|                                                                    |
-|  +------------------+    +------------------+                      |
-|  | litellm:4000     |    | mlflow:5000      |                      |
-|  | LiteLLM Proxy    |    | MLflow Server    |                      |
-|  | (single replica) |    | (single replica) |                      |
-|  +------------------+    +------------------+                      |
-|                                                                    |
-|  +------------------+    +------------------+                      |
-|  | prometheus:9090  |    | grafana:3000     |                      |
-|  | Prometheus       |    | Grafana          |                      |
-|  | (single)         |    | (single)         |                      |
-|  +------------------+    +------------------+                      |
-|                                                                    |
-|  Volumes: pgdata, esdata, prometheusdata                          |
-|  Network: rak-network (bridge)                                     |
-+-------------------------------------------------------------------+
-```
+
+**Volumes:** `pgdata`, `esdata`, `prometheusdata`
+**Network:** `rak-network` (bridge)
 
 ---
 
@@ -366,151 +357,21 @@ Bottleneck shifts to:
 
 ## 4. Database Design Overview
 
+> **Canonical source:** For the complete data model — table definitions, column-level data dictionary, indexing strategy, JSONB payload schemas, partitioning, and migration plan — see [`data-model.md`](data-model.md). This section provides a deployment-focused summary.
+
 ### 4.1 Database Topology
 
 A single PostgreSQL 16+ instance hosts three logically isolated schemas:
 
-```mermaid
-graph TB
-    subgraph PG["PostgreSQL 16+ (Single Instance)"]
-        subgraph TEMPORAL_SCHEMA["Schema: temporal"]
-            T_EXEC["executions"]
-            T_HISTORY["history_node / history_tree"]
-            T_VISIBILITY["visibility"]
-            T_TASKS["tasks / task_queues"]
-            T_CLUSTER["cluster_metadata"]
-        end
+| Schema | Owner | Purpose |
+|---|---|---|
+| `temporal` | Temporal server | Workflow execution state, event history, task queues |
+| `rak` | Application (Alembic) | Pipeline runs, repository progress, audit entries, checkpoint decisions, conflict log |
+| `mlflow` | MLflow server | LLM trace metadata, experiments, runs, metrics |
 
-        subgraph RAK_SCHEMA["Schema: rak"]
-            R_RUNS["pipeline_runs\n(UUID PK, regulation_id,\nstatus, cost, config JSONB)"]
-            R_PROGRESS["repository_progress\n(FK: run_id, repo_url,\nstatus, branch, PR URL)"]
-            R_AUDIT["audit_entries\n(PARTITIONED by month,\nappend-only, signed JSONB)"]
-            R_CHECKPOINTS["checkpoint_decisions\n(FK: run_id, actor,\ndecision, signature)"]
-            R_CONFLICTS["conflict_log\n(FK: run_id,\nconflicting rules JSONB)"]
-        end
+For the full topology diagram and ERD, see [`data-model.md` Section 2](data-model.md#2-entity-relationship-diagrams).
 
-        subgraph MLFLOW_SCHEMA["Schema: mlflow"]
-            M_EXPERIMENTS["experiments"]
-            M_RUNS["runs"]
-            M_METRICS["metrics / latest_metrics"]
-            M_PARAMS["params"]
-            M_TAGS["tags"]
-        end
-    end
-
-    R_RUNS -->|"FK"| R_PROGRESS
-    R_RUNS -->|"FK"| R_CHECKPOINTS
-    R_RUNS -->|"FK"| R_CONFLICTS
-    R_CHECKPOINTS -->|"FK"| R_CONFLICTS
-```
-
-### 4.2 Entity Relationship Diagram (rak Schema)
-
-```mermaid
-erDiagram
-    PIPELINE_RUNS {
-        uuid run_id PK
-        text regulation_id
-        text status
-        timestamptz created_at
-        timestamptz completed_at
-        integer total_repos
-        numeric estimated_cost
-        numeric actual_cost
-        jsonb config_snapshot
-    }
-
-    REPOSITORY_PROGRESS {
-        uuid id PK
-        uuid run_id FK
-        text repo_url
-        text status
-        text branch_name
-        text commit_sha
-        text pr_url
-        text error
-        timestamptz updated_at
-    }
-
-    AUDIT_ENTRIES {
-        uuid entry_id PK
-        uuid run_id
-        text event_type
-        timestamptz timestamp PK
-        jsonb payload
-        text signature
-    }
-
-    CHECKPOINT_DECISIONS {
-        uuid id PK
-        uuid run_id FK
-        text checkpoint_type
-        text actor
-        text decision
-        text rationale
-        text signature
-        timestamptz decided_at
-    }
-
-    CONFLICT_LOG {
-        uuid id PK
-        uuid run_id FK
-        jsonb conflicting_rules
-        jsonb affected_regions
-        text resolution
-        uuid human_decision_id FK
-        timestamptz detected_at
-    }
-
-    PIPELINE_RUNS ||--o{ REPOSITORY_PROGRESS : "has repos"
-    PIPELINE_RUNS ||--o{ CHECKPOINT_DECISIONS : "has approvals"
-    PIPELINE_RUNS ||--o{ CONFLICT_LOG : "has conflicts"
-    CHECKPOINT_DECISIONS ||--o| CONFLICT_LOG : "resolves"
-    PIPELINE_RUNS ||--o{ AUDIT_ENTRIES : "generates"
-```
-
-### 4.3 Table Sizing Estimates
-
-| Table | Rows per Pipeline Run | Growth Rate | Partition Strategy | Estimated Size (1 year, 100 runs/month) |
-|---|---|---|---|---|
-| `pipeline_runs` | 1 | Low | None | ~100 KB |
-| `repository_progress` | 1 per repo (avg 50) | Moderate | None | ~5 MB |
-| `audit_entries` | ~500-2000 per run | **High** | Monthly partitions | ~2-10 GB |
-| `checkpoint_decisions` | 2 per run | Low | None | ~50 KB |
-| `conflict_log` | 0-5 per run | Low | None | ~50 KB |
-
-### 4.4 Indexing Strategy
-
-| Table | Index | Type | Purpose |
-|---|---|---|---|
-| `pipeline_runs` | `idx_runs_status` | B-tree | Filter by status (`running`, `failed`) |
-| `pipeline_runs` | `idx_runs_regulation` | B-tree | Filter by regulation_id |
-| `pipeline_runs` | `idx_runs_created` | B-tree | Date range queries |
-| `repository_progress` | `idx_progress_run` | B-tree | All repos for a given run |
-| `repository_progress` | `idx_progress_status` | B-tree | Find failed/pending repos |
-| `audit_entries` | `idx_audit_run` | B-tree | All entries for a run |
-| `audit_entries` | `idx_audit_type` | B-tree | Filter by event type |
-| `audit_entries` | `idx_audit_payload` | GIN | Full JSON path queries on payload |
-| `checkpoint_decisions` | `idx_checkpoint_run` | B-tree | Approvals for a run |
-
-### 4.5 Partitioning and Retention
-
-`audit_entries` is the only high-growth table. It is partitioned by month:
-
-```
-audit_entries (parent, partitioned)
-  +-- audit_entries_2026_01  (January 2026)
-  +-- audit_entries_2026_02  (February 2026)
-  +-- audit_entries_2026_03  (March 2026, current)
-  +-- audit_entries_2026_04  (April 2026, pre-created)
-  ...
-```
-
-- **Partition creation:** Automated via `pg_partman` or application-level `CREATE TABLE ... PARTITION OF`.
-- **Retention:** Configurable. Default: permanent for regulatory data. Partitions older than the retention window are exported to S3 (Parquet or JSON-LD format) before being dropped.
-- **Partition drop:** `DROP TABLE audit_entries_2024_01` is O(1) — no row-by-row deletion.
-
-### 4.6 Connection Pool Design
+### 4.2 Connection Pool Design
 
 **Without PgBouncer (up to 3 workers):**
 
@@ -538,19 +399,13 @@ Allocation (3 workers):
 
 **With PgBouncer (4+ workers — mandatory):**
 
-When scaling beyond 3 workers, deploy **PgBouncer** in front of PostgreSQL to multiplex connections:
-
 ```
 Workers (N) --> PgBouncer (pool: 100) --> PostgreSQL (max_connections: 200)
 
-Allocation (5 workers via PgBouncer):
-  Temporal server:     50 connections (direct, bypasses PgBouncer)
-  PgBouncer pool:      100 connections (shared by N workers + MLflow)
-  Headroom:            50 connections (monitoring, migrations, ad-hoc)
-  TOTAL:               200 (matches max_connections)
+Rule of thumb: PgBouncer is required when (50 + N×30 + 20 + 30) > 200, i.e., N > 3 workers.
 ```
 
-**Rule of thumb:** PgBouncer is required when `(50 + N×30 + 20 + 30) > 200`, i.e., when N > 3 workers.
+For partitioning strategy, indexing details, and table sizing, see [`data-model.md` Sections 4 and 8](data-model.md#4-indexing-strategy).
 
 ---
 
@@ -1084,4 +939,4 @@ FROM python:3.12-slim AS runtime
 
 ---
 
-*This document describes the high-level system design. For software architecture (C4 model, component design, code abstractions), see [`sad.md`](sad.md). For the abstract framework specification, see [`architecture.md`](architecture.md). For technology decision rationale, see [`adr/`](adr/). For detailed deployment configurations and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For failure recovery procedures, see [`operations/runbook.md`](operations/runbook.md).*
+*This document describes the high-level system design. For software architecture (C4 model, component design, code abstractions), see [`software-architecture.md`](software-architecture.md). For the abstract framework specification, see [`framework-spec.md`](framework-spec.md). For technology decision rationale, see [`adr/`](adr/). For detailed deployment configurations and cloud-specific guides, see [`infrastructure.md`](infrastructure.md). For failure recovery procedures, see [`operations/runbook.md`](operations/runbook.md).*

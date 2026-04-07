@@ -318,7 +318,7 @@ stateDiagram-v2
     ERROR --> [*]
 ```
 
-> **Implementation mapping:** The conceptual state names above (IDLE, COMPLETE, ERROR) map to implementation-level states (PENDING, COMPLETED, FAILED, REJECTED, COST_REJECTED, CANCELLED) in the Temporal workflow and PostgreSQL `pipeline_runs.status` column. For the full mapping table, see [`lld.md` Section 4.1.1 — Pipeline Status vs Temporal Phase](lld.md#41-pipeline-run-lifecycle).
+> **Implementation mapping:** The conceptual state names above (IDLE, COMPLETE, ERROR) map to implementation-level states (PENDING, COMPLETED, FAILED, REJECTED, COST_REJECTED, CANCELLED) in the Temporal workflow and PostgreSQL `pipeline_runs.status` column. For the full mapping table, see [`implementation-design.md` Section 4.1.1 — Pipeline Status vs Temporal Phase](implementation-design.md#41-pipeline-run-lifecycle).
 
 ### 4.2 Orchestration Features
 
@@ -579,7 +579,7 @@ For detailed deployment configurations, hardware sizing, container images, Helm 
 
 ### Integration Reference
 
-The following table summarizes all external system integrations. For the detailed integration specification including rate limits, retry strategies, timeouts, and data residency routing, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table).
+The following table summarizes all external system integrations. For the detailed integration specification including rate limits, retry strategies, timeouts, and data residency routing, see [`system-design.md` Section 6.2 — Integration Specification Table](system-design.md#62-integration-specification-table).
 
 | Category | Integration | Protocol | Authentication |
 |---|---|---|---|
@@ -712,9 +712,9 @@ rak resume --run-id <id>
 
 | Your role | Read next |
 |---|---|
-| Implementing agents or workflows | [`lld.md`](lld.md) — class diagrams, algorithms, state machines |
+| Implementing agents or workflows | [`implementation-design.md`](implementation-design.md) — class diagrams, algorithms, state machines |
 | Deploying the system | [`infrastructure.md`](infrastructure.md) — Docker, Kubernetes, cloud guides |
 | Writing regulation plugins | [`plugin-template-guide.md`](plugin-template-guide.md) — Jinja2 template authoring |
 | Understanding data storage | [`data-model.md`](data-model.md) — tables, indexes, partitioning |
 
-*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/regulatory-agent-kit.md`](regulatory-agent-kit.md).*
+*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/prd.md`](prd.md).*

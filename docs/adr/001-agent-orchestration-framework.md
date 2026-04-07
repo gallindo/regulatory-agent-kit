@@ -5,6 +5,8 @@
 **Decision Makers:** Engineering Team
 **Context:** Selection of the multi-agent orchestration framework for regulatory-agent-kit
 
+> **Why this was superseded:** ADR-001 selected LangGraph based on its native state machine, checkpointing, and fan-out capabilities. During implementation review, [ADR-002](002-langgraph-vs-temporal-pydanticai.md) conducted a deeper comparison between LangGraph and Temporal + PydanticAI, concluding that Temporal's event-sourced durability, distributed activity execution, and built-in retry policies provide stronger guarantees for production-scale pipeline runs (500+ repositories). This ADR is retained for historical context — the LangGraph evaluation remains valid, but Temporal was ultimately selected for its operational robustness.
+
 ---
 
 ## Context
@@ -159,7 +161,7 @@ CrewAI and AutoGen would require building these four capabilities from scratch o
 |---|---|---|
 | LangGraph API instability | HIGH | Version pinning with hash verification. `WorkflowEngine` abstraction wraps LangGraph, limiting blast radius of API changes. Integration test suite validates behavior across upgrades. |
 | LangChain ecosystem dependency weight | MEDIUM | Use LangGraph with minimal LangChain Core imports. Avoid LangChain's higher-level chains and retrievers. Use LiteLLM directly for LLM calls where LangChain adds no value. |
-| Vendor lock-in to LangChain ecosystem | MEDIUM | The `WorkflowEngine` abstraction documented in `architecture.md` (Section 10) provides a migration path. If a superior framework emerges, only the `WorkflowEngine` implementation changes; agents and tools are unaffected. |
+| Vendor lock-in to LangChain ecosystem | MEDIUM | The `WorkflowEngine` abstraction documented in `framework-spec.md` (Section 10) provides a migration path. If a superior framework emerges, only the `WorkflowEngine` implementation changes; agents and tools are unaffected. |
 | LangGraph learning curve for contributors | LOW | Documented patterns, graph visualization tools (`langgraph-studio`), and a contributor guide with worked examples lower the barrier. |
 
 ---
@@ -182,5 +184,5 @@ CrewAI and AutoGen would require building these four capabilities from scratch o
 - [LangGraph Checkpoint PostgreSQL](https://langchain-ai.github.io/langgraph/reference/checkpoints/#postgresql)
 - [CrewAI Documentation](https://docs.crewai.com/)
 - [AutoGen Documentation](https://microsoft.github.io/autogen/)
-- [`docs/architecture.md`](../architecture.md) — Framework architecture specification
-- [`docs/regulatory-agent-kit.md`](../regulatory-agent-kit.md) — Full product requirements document
+- [`docs/framework-spec.md`](../framework-spec.md) — Framework architecture specification
+- [`docs/prd.md`](../prd.md) — Full product requirements document

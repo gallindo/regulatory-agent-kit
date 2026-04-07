@@ -9,7 +9,7 @@
 
 ## Context
 
-`regulatory-agent-kit` requires full observability of every LLM interaction as a first-class output, not a side effect (`architecture.md` SS7). In a regulated environment, the observability platform must capture:
+`regulatory-agent-kit` requires full observability of every LLM interaction as a first-class output, not a side effect (`framework-spec.md` SS7). In a regulated environment, the observability platform must capture:
 
 | Observable Event | Data Captured | Retention |
 |---|---|---|
@@ -376,7 +376,7 @@ The deciding factors align with the architectural principles established in prev
 - [Langfuse Open Source Strategy (June 2025)](https://langfuse.com/changelog/2025-06-04-open-sourcing-langfuse)
 - [Opik Documentation](https://www.comet.com/docs/opik/)
 - [Opik GitHub](https://github.com/comet-ml/opik)
-- [`docs/architecture.md`](../architecture.md) — Framework architecture specification
+- [`docs/framework-spec.md`](../framework-spec.md) — Framework architecture specification
 - [ADR-003](003-database-selection.md) — PostgreSQL selection
 - [ADR-004](004-python-stack.md) — Python stack selection
 

@@ -5,7 +5,7 @@
 > **Version:** 1.0
 > **Date:** 2026-03-27
 > **Status:** Active Development
-> **Scope:** This document describes the concrete technology architecture implementing the framework specification in [`architecture.md`](architecture.md). It reflects all accepted Architecture Decision Records (ADRs).
+> **Scope:** This document describes the concrete technology architecture implementing the framework specification in [`framework-spec.md`](framework-spec.md). It reflects all accepted Architecture Decision Records (ADRs).
 
 ---
 
@@ -37,7 +37,7 @@
 
 This Software Architecture Document (SAD) describes the concrete technology architecture of `regulatory-agent-kit` — an open-source Python framework for building production-grade, multi-agent AI pipelines that automate the detection, analysis, and remediation of regulatory compliance issues across large software codebases.
 
-This document bridges the gap between the abstract framework specification ([`architecture.md`](architecture.md)) and the implementation. Where `architecture.md` describes what the system does in technology-agnostic terms, this SAD describes how it is built, with which technologies, and why.
+This document bridges the gap between the abstract framework specification ([`framework-spec.md`](framework-spec.md)) and the implementation. Where `framework-spec.md` describes what the system does in technology-agnostic terms, this SAD describes how it is built, with which technologies, and why.
 
 ### 1.2 System Scope
 
@@ -76,27 +76,26 @@ This document covers:
 
 This document does **not** cover:
 - Regulation-specific business rules (see [`regulations/`](../regulations/README.md))
-- Market positioning or business strategy (see [`regulatory-agent-kit.md`](regulatory-agent-kit.md))
+- Market positioning or business strategy (see [`prd.md`](prd.md))
 - Plugin authoring guides (see [`regulations/README.md`](../regulations/README.md))
 
 ### 1.3 Architectural Principles
 
-The framework is built on four non-negotiable principles:
+The framework is built on four non-negotiable principles, defined in [`framework-spec.md` Section 1](framework-spec.md#1-architectural-principles):
 
-1. **Regulation-as-Configuration.** All regulatory knowledge is expressed as declarative YAML plugins. The framework core contains zero regulation-specific logic.
+1. **Regulation-as-Configuration.**
+2. **Human-in-the-Loop by Design.**
+3. **Audit-First Observability.**
+4. **Infrastructure Agnosticism.**
 
-2. **Human-in-the-Loop by Design.** Every AI-generated output passes through non-bypassable human checkpoints before affecting any external system.
-
-3. **Audit-First Observability.** Every agent decision, LLM call, tool invocation, and human approval is traced, signed, and stored as a first-class output.
-
-4. **Infrastructure Agnosticism.** Event sources, LLM providers, Git providers, storage backends, and notification channels are all pluggable via well-defined interfaces.
+These principles are elaborated with five cross-cutting design principles in [Section 2.3](#23-overarching-design-principles) of this document.
 
 ### 1.4 Document Relationships
 
 | Document | Relationship |
 |---|---|
-| [`architecture.md`](architecture.md) | Abstract specification — this SAD implements it with concrete technologies |
-| [`regulatory-agent-kit.md`](regulatory-agent-kit.md) | Product requirements — this SAD fulfills the technical requirements |
+| [`framework-spec.md`](framework-spec.md) | Abstract specification — this SAD implements it with concrete technologies |
+| [`prd.md`](prd.md) | Product requirements — this SAD fulfills the technical requirements |
 | [`adr/001-*.md`](adr/001-agent-orchestration-framework.md) | Superseded — initial framework selection |
 | [`adr/002-*.md`](adr/002-langgraph-vs-temporal-pydanticai.md) | Accepted — Temporal + PydanticAI selection |
 | [`adr/003-*.md`](adr/003-database-selection.md) | Accepted — PostgreSQL as single database |
@@ -438,7 +437,7 @@ class AuditRepository:
 
 # --- Plugin Layer ---
 class RegulationPlugin(BaseModel):
-    """Pydantic model validated from YAML. Schema in architecture.md SS12."""
+    """Pydantic model validated from YAML. Schema in framework-spec.md SS12."""
     id: str
     name: str
     version: str
@@ -788,7 +787,7 @@ flowchart LR
 
 The pipeline is implemented as a Temporal workflow with child workflows for per-repository processing. Temporal's event-sourced execution provides durable state, automatic crash recovery, and distributed fan-out.
 
-The canonical state machine diagram is defined in [`architecture.md` Section 4.1 — Workflow Engine](architecture.md#41-workflow-engine). The conceptual states (IDLE, COMPLETE, ERROR) used in the architecture-level diagram map to implementation-level states documented in [`lld.md` Section 4.1 — Pipeline Run Lifecycle](lld.md#41-pipeline-run-lifecycle), which also provides the mapping between Temporal workflow phases and PostgreSQL `pipeline_runs.status` values.
+The canonical state machine diagram is defined in [`framework-spec.md` Section 4.1 — Workflow Engine](framework-spec.md#41-workflow-engine). The conceptual states (IDLE, COMPLETE, ERROR) used in the architecture-level diagram map to implementation-level states documented in [`implementation-design.md` Section 4.1 — Pipeline Run Lifecycle](implementation-design.md#41-pipeline-run-lifecycle), which also provides the mapping between Temporal workflow phases and PostgreSQL `pipeline_runs.status` values.
 
 ### 8.2 Workflow Structure
 
@@ -910,7 +909,7 @@ refactor_agent = Agent(
 
 ### 9.2 Agent Contracts
 
-Four PydanticAI agents (Analyzer, Refactor, TestGenerator, Reporter) with typed Pydantic input/output models and disjoint tool sets enforcing minimum privilege per agent. For the canonical contract table and tool isolation matrix, see [`architecture.md` Section 4.3 — Agent Contracts](architecture.md#43-agent-contracts). For implementation-level class definitions, see [`lld.md` Section 2.3](lld.md#23-workflow-and-activity-layer-workflows-activities).
+Four PydanticAI agents (Analyzer, Refactor, TestGenerator, Reporter) with typed Pydantic input/output models and disjoint tool sets enforcing minimum privilege per agent. For the canonical contract table and tool isolation matrix, see [`framework-spec.md` Section 4.3 — Agent Contracts](framework-spec.md#43-agent-contracts). For implementation-level class definitions, see [`implementation-design.md` Section 2.3](implementation-design.md#23-workflow-and-activity-layer-workflows-activities).
 
 ---
 
@@ -918,7 +917,7 @@ Four PydanticAI agents (Analyzer, Refactor, TestGenerator, Reporter) with typed 
 
 The framework treats regulatory changes as domain events from pluggable sources (Kafka, Webhook, SQS, File), all implementing a common `EventSource` interface and producing a normalized `RegulatoryEvent`. It also supports shift-left integration via CI/CD pipeline gates, PR review bots, and pre-commit hooks.
 
-For the canonical event schema, source table, and shift-left integration details, see [`architecture.md` Section 5 — Event Architecture](architecture.md#5-event-architecture). For implementation-level class definitions (KafkaEventSource, WebhookEventSource, etc.), see [`lld.md` Section 2.6 — Event System](lld.md#26-event-system-events).
+For the canonical event schema, source table, and shift-left integration details, see [`framework-spec.md` Section 5 — Event Architecture](framework-spec.md#5-event-architecture). For implementation-level class definitions (KafkaEventSource, WebhookEventSource, etc.), see [`implementation-design.md` Section 2.6 — Event System](implementation-design.md#26-event-system-events).
 
 ---
 
@@ -1012,11 +1011,11 @@ Observability is split into two complementary layers:
 
 ### 13.1 Security Boundaries
 
-The framework enforces eight security boundaries. For the canonical listing, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture).
+The framework enforces eight security boundaries. For the canonical listing, see [`framework-spec.md` Section 9 — Security Architecture](framework-spec.md#9-security-architecture).
 
 ### 13.2 Threat Mitigations
 
-For the canonical threat mitigation table and credential management requirements, see [`architecture.md` Section 9 — Security Architecture](architecture.md#9-security-architecture). Key highlights:
+For the canonical threat mitigation table and credential management requirements, see [`framework-spec.md` Section 9 — Security Architecture](framework-spec.md#9-security-architecture). Key highlights:
 
 - **LLM prompt injection** — input sanitization, Pydantic structured output, tool-level isolation, human checkpoints
 - **Test execution as RCE** — sandboxed containers (`--network=none --read-only`), static AST analysis, resource limits
@@ -1031,7 +1030,7 @@ For the canonical threat mitigation table and credential management requirements
 
 ### 14.1 Deployment Options
 
-Multiple deployment models are supported — from Lite Mode (zero-infrastructure evaluation) through Docker Compose and Kubernetes (Helm) to cloud-native configurations (AWS, GCP, Azure). For the canonical deployment options with hardware sizing, cloud-specific configurations, and Helm chart values, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
+Multiple deployment models are supported — from Lite Mode (zero-infrastructure evaluation) through Docker Compose and Kubernetes (Helm) to cloud-native configurations (AWS, GCP, Azure). For the canonical deployment options with hardware sizing, cloud-specific configurations, and Helm chart values, see [`infrastructure.md`](infrastructure.md). For the architecture-level summary, see [`framework-spec.md` Section 11 — Deployment Options](framework-spec.md#11-deployment-options).
 
 ### 14.2 Docker Compose Topology
 
@@ -1096,7 +1095,7 @@ services:
 
 ### 14.4 Integration Reference
 
-For the detailed integration specification table including protocols, authentication, rate limits, retry strategies, and timeouts, see [`hld.md` Section 6.2 — Integration Specification Table](hld.md#62-integration-specification-table). For a summary-level integration reference, see [`architecture.md` Section 11 — Deployment Options](architecture.md#11-deployment-options).
+For the detailed integration specification table including protocols, authentication, rate limits, retry strategies, and timeouts, see [`system-design.md` Section 6.2 — Integration Specification Table](system-design.md#62-integration-specification-table). For a summary-level integration reference, see [`framework-spec.md` Section 11 — Deployment Options](framework-spec.md#11-deployment-options).
 
 ---
 
@@ -1113,13 +1112,13 @@ The project follows a standard Python `src/` layout. Key top-level directories:
 | `docs/` | Architecture documentation and ADRs |
 | `helm/` | Kubernetes Helm chart |
 
-For the full directory tree with per-file descriptions, see [`lld.md` Section 2 — Class Diagrams](lld.md#2-class-diagrams), which maps each source file to its class hierarchy and responsibilities.
+For the full directory tree with per-file descriptions, see [`implementation-design.md` Section 2 — Class Diagrams](implementation-design.md#2-class-diagrams), which maps each source file to its class hierarchy and responsibilities.
 
 ---
 
 ## 17. Technical Risks and Mitigations
 
-For the canonical risk table, see [`architecture.md` Section 10 — Technical Risks & Mitigations](architecture.md#10-technical-risks--mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
+For the canonical risk table, see [`framework-spec.md` Section 10 — Technical Risks & Mitigations](framework-spec.md#10-technical-risks--mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
@@ -1129,4 +1128,24 @@ For the canonical risk table, see [`architecture.md` Section 10 — Technical Ri
 
 ---
 
-*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`architecture.md`](architecture.md). For the canonical database schema, see [`data-model.md`](data-model.md). For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements, see [`regulatory-agent-kit.md`](regulatory-agent-kit.md).*
+## See Also
+
+| Document | What You'll Find |
+|---|---|
+| [`framework-spec.md`](framework-spec.md) | Abstract framework specification, agent contracts, plugin schema |
+| [`implementation-design.md`](implementation-design.md) | Class diagrams, detailed sequence diagrams, algorithms, error handling |
+| [`system-design.md`](system-design.md) | Deployment topology, hardware sizing, Kubernetes configuration |
+| [`data-model.md`](data-model.md) | Full database schema, indexing strategy, JSONB payload schemas |
+| [`operations/runbook.md`](operations/runbook.md) | Failure scenarios, recovery procedures, maintenance tasks |
+
+### How to Read This Document
+
+This document uses the [C4 model](https://c4model.com/) at four levels of abstraction:
+
+- **Level 1 — System Context:** Shows the system and its relationships with external actors (engineers, Git providers, LLM providers).
+- **Level 2 — Containers:** Shows the deployable units (CLI, API server, Temporal, workers, databases).
+- **Level 3 — Components:** Shows the internal structure of the Worker container (workflows, activities, agents, tools).
+
+Start at Level 1 to understand the big picture, then drill down to Level 3 for implementation details.
+
+*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`framework-spec.md`](framework-spec.md). For the canonical database schema, see [`data-model.md`](data-model.md). For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements, see [`prd.md`](prd.md).*
