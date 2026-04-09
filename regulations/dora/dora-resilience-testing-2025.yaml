@@ -1,0 +1,115 @@
+# DORA Pillar 3 — Digital Operational Resilience Testing
+# Regulation (EU) 2022/2554, Articles 24–27
+# RTS on TLPT (based on TIBER-EU)
+
+id: dora-resilience-testing-2025
+name: "DORA Digital Operational Resilience Testing Requirements"
+version: "1.0.0"
+effective_date: "2025-01-17"
+jurisdiction: "EU"
+authority: "European Banking Authority"
+source_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554"
+
+disclaimer: >
+  This plugin represents one interpretation of Regulation (EU) 2022/2554 (DORA),
+  Articles 24–27 and associated TLPT RTS. It does not constitute legal advice.
+  Organizations must validate compliance with their own legal and compliance teams.
+  Automated checks cannot replace threat-led penetration testing (TLPT).
+
+changelog: "1.0.0: Initial release aligned with DORA application date 2025-01-17."
+
+regulatory_technical_standards:
+  - id: "TLPT-RTS"
+    name: "RTS on threat-led penetration testing"
+    url: "https://www.eba.europa.eu/activities/digital-finance/digital-operational-resilience-act-dora"
+
+cross_references:
+  - regulation_id: "nis2"
+    relationship: takes_precedence
+    articles: ["1(2)"]
+  - regulation_id: "dora-ict-risk-2025"
+    relationship: complementary
+    articles: ["24(1)"]
+
+event_trigger:
+  topic: "regulatory-changes"
+  schema:
+    regulation_id: "dora-resilience-testing-2025"
+    change_type: "new_requirement"
+
+rules:
+  - id: DORA-RT-001
+    description: >
+      ICT systems must have resilience test coverage including failover,
+      switchover, and recovery tests per DORA Article 24(1) on the
+      general requirements for digital operational resilience testing.
+    severity: high
+    dora_pillar: digital_operational_resilience_testing
+    dora_article: "Article 24(1)"
+    affects:
+      - pattern: "**/src/test/**/*.java"
+        condition: "NOT has_annotation(@ResilienceTest)"
+      - pattern: "**/tests/**/*.py"
+        condition: "NOT has_decorator(@resilience_test)"
+    remediation:
+      strategy: generate_file
+      template: templates/resilience_test_coverage.j2
+      test_template: templates/resilience_test_validation.j2
+      confidence_threshold: 0.70
+
+  - id: DORA-RT-002
+    description: >
+      Chaos engineering or fault injection configuration must be present
+      for critical services per DORA Article 25 on testing of ICT tools
+      and systems. This validates that infrastructure supports controlled
+      failure injection.
+    severity: medium
+    dora_pillar: digital_operational_resilience_testing
+    dora_article: "Article 25"
+    affects:
+      - pattern: "**/service-manifest.yaml"
+        condition: "NOT has_key(testing.chaos_engineering.enabled)"
+      - pattern: "**/service-manifest.yml"
+        condition: "NOT has_key(testing.chaos_engineering.enabled)"
+    remediation:
+      strategy: add_configuration
+      template: templates/chaos_config.j2
+      confidence_threshold: 0.80
+
+  - id: DORA-RT-003
+    description: >
+      TLPT infrastructure markers must be present for entities subject to
+      advanced testing per DORA Article 26 on threat-led penetration testing.
+      This validates documentation and infrastructure readiness, not the
+      test itself.
+    severity: medium
+    dora_pillar: digital_operational_resilience_testing
+    dora_article: "Article 26"
+    affects:
+      - pattern: "**/service-manifest.yaml"
+        condition: "NOT has_key(testing.tlpt.scope) OR NOT has_key(testing.tlpt.last_conducted)"
+      - pattern: "**/service-manifest.yml"
+        condition: "NOT has_key(testing.tlpt.scope) OR NOT has_key(testing.tlpt.last_conducted)"
+    remediation:
+      strategy: add_configuration
+      template: templates/tlpt_infrastructure.j2
+      confidence_threshold: 0.85
+
+  - id: DORA-RT-004
+    description: >
+      Test results must be documented and retained per DORA Article 24(5)
+      on reporting of resilience test results to competent authorities.
+    severity: medium
+    dora_pillar: digital_operational_resilience_testing
+    dora_article: "Article 24(5)"
+    affects:
+      - pattern: "**/*.java"
+        condition: "class implements TestReporter AND NOT has_method(archiveResults)"
+      - pattern: "**/*.py"
+        condition: "class implements TestReporter AND NOT has_method(archive_results)"
+    remediation:
+      strategy: replace_pattern
+      template: templates/test_result_archive.j2
+      confidence_threshold: 0.75
+
+supersedes: null

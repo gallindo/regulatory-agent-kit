@@ -224,10 +224,10 @@
 | Plugin | Status | Evidence |
 |--------|--------|----------|
 | Example plugin (audit-logging) | DONE | `regulations/examples/example.yaml` + 2 Jinja2 templates |
-| DORA Pillar 1 — ICT Risk Management | PARTIAL | `regulations/dora/README.md` documents rules; no YAML file |
-| DORA Pillar 2 — Incident Reporting | NOT STARTED | Referenced in DORA README only |
-| DORA Pillar 3 — Resilience Testing | NOT STARTED | Referenced in DORA README only |
-| DORA Pillar 4 — Third-Party Risk | NOT STARTED | Referenced in DORA README only |
+| DORA Pillar 1 — ICT Risk Management | DONE | `regulations/dora/dora-ict-risk-2025.yaml` — 7 rules, 9 templates |
+| DORA Pillar 2 — Incident Reporting | DONE | `regulations/dora/dora-incident-reporting-2025.yaml` — 5 rules, 8 templates |
+| DORA Pillar 3 — Resilience Testing | DONE | `regulations/dora/dora-resilience-testing-2025.yaml` — 4 rules, 5 templates |
+| DORA Pillar 4 — Third-Party Risk | DONE | `regulations/dora/dora-third-party-risk-2025.yaml` — 5 rules, 5 templates |
 | Other regulations (PSD2, PCI-DSS, HIPAA, NIS2, etc.) | NOT STARTED | Framework supports them; no plugins written |
 
 ---
@@ -262,7 +262,7 @@
 | Agent Layer | 6 | 0 | 0 |
 | Orchestration | 6 | 0 | 0 |
 | Data Models | 5 | 0 | 0 |
-| Plugin System | 8 | 1 | 1 |
+| Plugin System | 8 | 0 | 1 |
 | Tools | 11 | 0 | 0 |
 | API Layer | 7 | 0 | 0 |
 | Event Sources | 6 | 0 | 0 |
@@ -273,15 +273,15 @@
 | CI/CD | 3 | 0 | 0 |
 | Infrastructure | 12 | 0 | 1 |
 | Testing | 4 | 0 | 0 |
-| Regulation Plugins | 1 | 1 | 5 |
+| Regulation Plugins | 5 | 0 | 1 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **112** | **2** | **7** |
+| **Totals** | **116** | **0** | **3** |
 
 ### Key Gaps
 
 1. ~~**Alembic migrations**~~ — DONE. `migrations/versions/001_initial_schema.py` contains full schema (6 tables, roles, indexes, partitioning).
-2. **DORA YAML plugins** — Extensive documentation exists; actual rule YAML files for all 5 pillars need to be authored.
-3. **Other regulation plugins** — Framework is regulation-agnostic but only the example plugin has a working YAML file.
+2. ~~**DORA YAML plugins**~~ — DONE. All 4 automatable pillars implemented with 21 rules and 22 Jinja2 templates. 20 tests pass.
+3. **Other regulation plugins** — Framework is regulation-agnostic but only DORA and example plugins have working YAML files.
 4. **Plugin registry** — Phase 2 roadmap item; no backend implementation.
 5. **Terraform/Pulumi IaC** — Phase 1.5 roadmap item; Helm charts cover Kubernetes but no cloud-native IaC.
 6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.

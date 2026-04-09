@@ -1,0 +1,14 @@
+{# Test template for DORA-RT-001 — Validates resilience tests exist #}
+{% if language == "java" %}
+@Test
+void shouldHaveResilienceTestCoverage() {
+    // Verify that resilience test class exists for {{ service_name }}
+    assertDoesNotThrow(() -> Class.forName("{{ package }}.{{ class_name }}ResilienceTest"));
+}
+{% elif language == "python" %}
+def test_resilience_test_coverage_exists():
+    """Verify resilience test module exists for {{ service_name }}."""
+    import importlib
+    mod = importlib.import_module("tests.resilience.test_{{ service_name | snake_case }}")
+    assert mod is not None
+{% endif %}

@@ -1,0 +1,15 @@
+{# Test template for DORA-IR-002 — Reporting timeline enforcement #}
+{% if language == "java" %}
+@Test
+void shouldEnforceInitialNotificationDeadline() {
+    Incident incident = new Incident();
+    incident.setClassifiedAt(Instant.now().minus(Duration.ofHours(5)));
+    reporter.sendInitialNotification(incident);
+    verify(auditLog).record(eq("initial_notification_sent"), eq(incident.getId()), any());
+}
+{% elif language == "python" %}
+def test_enforce_initial_notification_deadline():
+    incident = Incident(classified_at=datetime.now(UTC) - timedelta(hours=5))
+    reporter.send_initial_notification(incident)
+    audit_log.record.assert_called_once()
+{% endif %}
