@@ -75,3 +75,7 @@ class EventSourceError(RAKError):
 
 class DatabaseError(RAKError):
     """Raised when a database operation fails."""
+
+
+class RegistryError(RAKError):
+    """Raised when a plugin registry operation fails."""

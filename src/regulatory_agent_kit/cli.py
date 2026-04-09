@@ -817,6 +817,133 @@ def plugin_search(
 
 
 # ---------------------------------------------------------------------------
+# rak plugin publish
+# ---------------------------------------------------------------------------
+
+
+@plugin_app.command(name="publish")
+def plugin_publish(
+    path: Annotated[
+        Path,
+        typer.Argument(help="Path to the regulation plugin YAML file."),
+    ],
+    registry_url: Annotated[
+        str,
+        typer.Option(help="Registry API base URL."),
+    ] = "http://localhost:8000",
+    author: Annotated[
+        str,
+        typer.Option(help="Author name for the published plugin."),
+    ] = "",
+    tags: Annotated[
+        str,
+        typer.Option(help="Comma-separated tags."),
+    ] = "",
+) -> None:
+    """Publish a regulation plugin to the remote registry."""
+    if not path.exists():
+        console.print(f"[red]File not found: {path}[/red]")
+        raise typer.Exit(code=1)
+
+    loader = PluginLoader()
+    try:
+        plugin = loader.load(path)
+    except (PluginLoadError, PluginValidationError) as exc:
+        console.print(f"[red]Plugin validation failed: {exc}[/red]")
+        raise typer.Exit(code=1) from None
+
+    console.print(
+        f"Publishing [cyan]{plugin.id}[/cyan] v{plugin.version} "
+        f"({plugin.jurisdiction})..."
+    )
+
+    yaml_content = path.read_text(encoding="utf-8")
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+    _run_async(_publish_plugin(registry_url, yaml_content, author, tag_list))
+    console.print(f"[green]Published {plugin.id} v{plugin.version}.[/green]")
+
+
+async def _publish_plugin(
+    registry_url: str,
+    yaml_content: str,
+    author: str,
+    tags: list[str],
+) -> None:
+    """POST a plugin to the registry API."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{registry_url}/plugins",
+            json={
+                "yaml_content": yaml_content,
+                "author": author,
+                "tags": tags,
+            },
+        )
+        if response.status_code not in (200, 201):
+            console.print(f"[red]Registry error: {response.text}[/red]")
+            raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# rak plugin install
+# ---------------------------------------------------------------------------
+
+
+@plugin_app.command(name="install")
+def plugin_install(
+    plugin_id: Annotated[
+        str,
+        typer.Argument(help="Plugin ID to install from the registry."),
+    ],
+    registry_url: Annotated[
+        str,
+        typer.Option(help="Registry API base URL."),
+    ] = "http://localhost:8000",
+    output_dir: Annotated[
+        str,
+        typer.Option(help="Directory to save the plugin."),
+    ] = "regulations",
+) -> None:
+    """Download and install a regulation plugin from the remote registry."""
+    console.print(f"Fetching [cyan]{plugin_id}[/cyan] from registry...")
+    _run_async(_install_plugin(plugin_id, registry_url, output_dir))
+
+
+async def _install_plugin(
+    plugin_id: str,
+    registry_url: str,
+    output_dir: str,
+) -> None:
+    """GET a plugin from the registry and save locally."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(f"{registry_url}/plugins/{plugin_id}/versions")
+        if response.status_code == 404:
+            console.print(f"[red]Plugin '{plugin_id}' not found in registry.[/red]")
+            raise typer.Exit(code=1)
+        response.raise_for_status()
+        versions = response.json()
+
+    if not versions:
+        console.print(f"[yellow]No versions found for '{plugin_id}'.[/yellow]")
+        raise typer.Exit(code=1)
+
+    latest = versions[0]
+    out_path = Path(output_dir) / plugin_id
+    out_path.mkdir(parents=True, exist_ok=True)
+    meta_path = out_path / "registry-metadata.json"
+    meta_path.write_text(json.dumps(latest, indent=2, default=str), encoding="utf-8")
+
+    console.print(
+        f"[green]Installed {plugin_id} v{latest['version']} → {out_path}[/green]"
+    )
+
+
+# ---------------------------------------------------------------------------
 # rak db clean-cache
 # ---------------------------------------------------------------------------
 

@@ -79,6 +79,24 @@ class PluginLoader:
         self._cache[plugin.id] = plugin
         return plugin
 
+    def load_from_string(self, yaml_content: str) -> RegulationPlugin:
+        """Parse and validate a plugin from a YAML string (no caching)."""
+        import io
+
+        try:
+            raw_yaml = self._yaml.load(io.StringIO(yaml_content))
+        except Exception as exc:
+            msg = f"Failed to parse YAML string: {exc}"
+            raise PluginLoadError(msg) from exc
+        if not isinstance(raw_yaml, dict):
+            msg = f"YAML string must contain a mapping, got {type(raw_yaml).__name__}"
+            raise PluginLoadError(msg)
+        try:
+            return RegulationPlugin.model_validate(raw_yaml)
+        except Exception as exc:
+            msg = f"Plugin validation failed: {exc}"
+            raise PluginValidationError(msg) from exc
+
     def load_all(self) -> list[RegulationPlugin]:
         """Load all .yaml/.yml plugins from the plugin directory."""
         if self._plugin_dir is None:

@@ -77,7 +77,7 @@
 | Plugin certification tiers | DONE | `plugins/certification.py` |
 | Example regulation plugin | DONE | `regulations/examples/example.yaml` + templates |
 | DORA plugin suite (5 pillars) | PARTIAL | `regulations/dora/README.md` exists with full documentation; no YAML rule files yet |
-| Plugin registry (discovery, search, publication) | NOT STARTED | Documented in PRD as Phase 2 roadmap |
+| Plugin registry (discovery, search, publication) | DONE | Models, migration 002, repository, API routes, CLI publish/install |
 
 ---
 
@@ -262,7 +262,7 @@
 | Agent Layer | 6 | 0 | 0 |
 | Orchestration | 6 | 0 | 0 |
 | Data Models | 5 | 0 | 0 |
-| Plugin System | 8 | 0 | 1 |
+| Plugin System | 9 | 0 | 0 |
 | Tools | 11 | 0 | 0 |
 | API Layer | 7 | 0 | 0 |
 | Event Sources | 6 | 0 | 0 |
@@ -275,14 +275,14 @@
 | Testing | 4 | 0 | 0 |
 | Regulation Plugins | 5 | 0 | 1 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **116** | **0** | **3** |
+| **Totals** | **117** | **0** | **2** |
 
 ### Key Gaps
 
 1. ~~**Alembic migrations**~~ — DONE. `migrations/versions/001_initial_schema.py` contains full schema (6 tables, roles, indexes, partitioning).
 2. ~~**DORA YAML plugins**~~ — DONE. All 4 automatable pillars implemented with 21 rules and 22 Jinja2 templates. 20 tests pass.
 3. **Other regulation plugins** — Framework is regulation-agnostic but only DORA and example plugins have working YAML files.
-4. **Plugin registry** — Phase 2 roadmap item; no backend implementation.
+4. ~~**Plugin registry**~~ — DONE. Models, Alembic migration 002, repository, FastAPI routes, CLI publish/install commands. 16 tests pass.
 5. **Terraform/Pulumi IaC** — Phase 1.5 roadmap item; Helm charts cover Kubernetes but no cloud-native IaC.
 6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.
 7. **CI/CD pipeline analysis mode** — Roadmap v2.0; shift-left scanner exists but full pipeline analysis is not implemented.

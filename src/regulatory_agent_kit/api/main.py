@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from regulatory_agent_kit.api.middleware import add_auth_middleware
 from regulatory_agent_kit.api.routes.approvals import router as approvals_router
 from regulatory_agent_kit.api.routes.events import router as events_router
+from regulatory_agent_kit.api.routes.plugins import router as plugins_router
 from regulatory_agent_kit.api.routes.runs import router as runs_router
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ app = FastAPI(
 app.include_router(events_router)
 app.include_router(approvals_router)
 app.include_router(runs_router)
+app.include_router(plugins_router)
 
 
 @app.get("/health")
