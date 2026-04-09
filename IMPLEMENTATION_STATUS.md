@@ -204,7 +204,7 @@
 | Grafana dashboards | DONE | `docker/grafana/` |
 | Helm charts (Kubernetes) | DONE | `helm/regulatory-agent-kit/` |
 | Alembic migrations | DONE | `migrations/versions/001_initial_schema.py` — all 6 tables, roles, indexes, partitioning |
-| Terraform / Pulumi IaC | NOT STARTED | Documented in roadmap Phase 1.5 |
+| Terraform IaC (AWS) | DONE | 7 modules (networking, rds, opensearch, s3, eks, iam, secrets) + staging/production envs |
 
 ---
 
@@ -271,11 +271,11 @@
 | Observability | 6 | 0 | 0 |
 | Utilities | 4 | 0 | 0 |
 | CI/CD | 3 | 0 | 0 |
-| Infrastructure | 12 | 0 | 1 |
+| Infrastructure | 13 | 0 | 0 |
 | Testing | 4 | 0 | 0 |
 | Regulation Plugins | 5 | 0 | 1 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **117** | **0** | **2** |
+| **Totals** | **118** | **0** | **1** |
 
 ### Key Gaps
 
@@ -283,6 +283,6 @@
 2. ~~**DORA YAML plugins**~~ — DONE. All 4 automatable pillars implemented with 21 rules and 22 Jinja2 templates. 20 tests pass.
 3. **Other regulation plugins** — Framework is regulation-agnostic but only DORA and example plugins have working YAML files.
 4. ~~**Plugin registry**~~ — DONE. Models, Alembic migration 002, repository, FastAPI routes, CLI publish/install commands. 16 tests pass.
-5. **Terraform/Pulumi IaC** — Phase 1.5 roadmap item; Helm charts cover Kubernetes but no cloud-native IaC.
+5. ~~**Terraform IaC**~~ — DONE. 7 AWS modules + staging/production environments (29 files). Matches docs/infrastructure.md specs.
 6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.
 7. **CI/CD pipeline analysis mode** — Roadmap v2.0; shift-left scanner exists but full pipeline analysis is not implemented.
