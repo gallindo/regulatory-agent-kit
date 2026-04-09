@@ -182,8 +182,9 @@
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
-| Compliance scanner (shift-left) | DONE | `ci/compliance_scanner.py` — exit codes, scan_files() |
-| PR reviewer automation | DONE | `ci/pr_reviewer.py` |
+| Compliance scanner (shift-left) | DONE | `ci/compliance_scanner.py` — exit codes, scan_files(), --pipeline-analysis |
+| PR reviewer automation | DONE | `ci/pr_reviewer.py` — format_combined_markdown() |
+| CI/CD pipeline analysis | DONE | `ci/pipeline_parser.py`, `ci/pipeline_checks.py`, `ci/pipeline_analyzer.py` |
 | GitHub Actions workflow | DONE | `.github/workflows/ci.yml`, `compliance-check.yml`, `container-build.yml` |
 
 ---
@@ -270,12 +271,12 @@
 | Templates | 4 | 0 | 0 |
 | Observability | 6 | 0 | 0 |
 | Utilities | 4 | 0 | 0 |
-| CI/CD | 3 | 0 | 0 |
+| CI/CD | 4 | 0 | 0 |
 | Infrastructure | 13 | 0 | 0 |
 | Testing | 4 | 0 | 0 |
 | Regulation Plugins | 5 | 0 | 1 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **118** | **0** | **1** |
+| **Totals** | **119** | **0** | **0** |
 
 ### Key Gaps
 
@@ -285,4 +286,4 @@
 4. ~~**Plugin registry**~~ — DONE. Models, Alembic migration 002, repository, FastAPI routes, CLI publish/install commands. 16 tests pass.
 5. ~~**Terraform IaC**~~ — DONE. 7 AWS modules + staging/production environments (29 files). Matches docs/infrastructure.md specs.
 6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.
-7. **CI/CD pipeline analysis mode** — Roadmap v2.0; shift-left scanner exists but full pipeline analysis is not implemented.
+7. ~~**CI/CD pipeline analysis mode**~~ — DONE. Pipeline parser (GHA + GitLab CI), 6 compliance checks, analyzer, CLI `rak ci analyze`, extended scanner. 16 tests pass.

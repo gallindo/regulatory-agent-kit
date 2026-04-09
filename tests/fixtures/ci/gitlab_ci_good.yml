@@ -1,0 +1,28 @@
+stages:
+  - test
+  - security
+  - deploy
+
+variables:
+  POSTGRES_DB: test_db
+
+test:
+  stage: test
+  script:
+    - pytest tests/ -v
+
+security_scan:
+  stage: security
+  image: semgrep/semgrep
+  script:
+    - semgrep --config auto .
+    - pip-audit --strict
+
+deploy_production:
+  stage: deploy
+  environment:
+    name: production
+    action: manual
+  when: manual
+  script:
+    - kubectl apply -f k8s/

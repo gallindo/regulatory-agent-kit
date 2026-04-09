@@ -240,6 +240,12 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Glob patterns for files to skip (e.g. '.github/**' 'docker/**')",
     )
+    parser.add_argument(
+        "--pipeline-analysis",
+        action="store_true",
+        default=False,
+        help="Additionally analyze CI/CD pipeline configs for compliance",
+    )
 
     args = parser.parse_args(argv)
 
@@ -272,11 +278,21 @@ def main(argv: list[str] | None = None) -> int:
         _print(f"ERROR: Scan failed: {exc}")
         return 2
 
+    # Pipeline analysis (optional)
+    pipeline_result = None
+    if args.pipeline_analysis:
+        from regulatory_agent_kit.ci.pipeline_analyzer import analyze_pipelines
+
+        pipeline_result = analyze_pipelines(Path(args.repo_root))
+
     # Write JSON report
     if args.output:
+        output_data = result.to_dict()
+        if pipeline_result is not None:
+            output_data["pipeline_analysis"] = pipeline_result.to_dict()
         output_path = Path(args.output)
         output_path.write_text(
-            json.dumps(result.to_dict(), indent=2) + "\n",
+            json.dumps(output_data, indent=2) + "\n",
             encoding="utf-8",
         )
 
@@ -285,6 +301,18 @@ def main(argv: list[str] | None = None) -> int:
     _print(f"Files scanned: {result.files_scanned}")
     _print(f"Rules checked: {result.rules_checked}")
     _print(f"Violations: {result.violation_count}")
+
+    if pipeline_result is not None:
+        _print("")
+        _print(f"Pipeline configs analyzed: {pipeline_result.pipelines_analyzed}")
+        _print(
+            f"Pipeline checks: {pipeline_result.checks_passed}/"
+            f"{pipeline_result.checks_run} passed"
+        )
+        if pipeline_result.checks_failed > 0:
+            for f in pipeline_result.findings:
+                if not f.passed:
+                    _print(f"  [{f.severity.upper()}] {f.check_id}: {f.detail or f.description}")
 
     if result.violations:
         _print("")

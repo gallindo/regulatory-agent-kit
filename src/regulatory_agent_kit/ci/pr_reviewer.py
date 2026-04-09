@@ -98,6 +98,32 @@ def format_scan_as_markdown(result: ScanResult) -> str:
     return "\n".join(lines)
 
 
+def format_combined_markdown(
+    result: ScanResult,
+    pipeline_result: Any | None = None,
+) -> str:
+    """Format combined compliance scan + pipeline analysis as markdown.
+
+    Args:
+        result: The compliance scan result.
+        pipeline_result: Optional PipelineAnalysisResult.
+
+    Returns:
+        Combined markdown string.
+    """
+    markdown = format_scan_as_markdown(result)
+
+    if pipeline_result is not None:
+        from regulatory_agent_kit.ci.pipeline_analyzer import (
+            format_pipeline_analysis_as_markdown,
+        )
+
+        markdown += "\n\n---\n\n"
+        markdown += format_pipeline_analysis_as_markdown(pipeline_result)
+
+    return markdown
+
+
 # ---------------------------------------------------------------------------
 # GitHub PR reviewer
 # ---------------------------------------------------------------------------

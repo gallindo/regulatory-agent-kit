@@ -58,6 +58,13 @@ db_app = typer.Typer(
 )
 app.add_typer(db_app, name="db")
 
+ci_app = typer.Typer(
+    name="ci",
+    help="CI/CD compliance analysis commands.",
+    no_args_is_help=True,
+)
+app.add_typer(ci_app, name="ci")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1058,6 +1065,79 @@ async def _create_partitions(months: int) -> list[str] | None:
                 logger.debug("Partition %s may already exist", partition_name, exc_info=True)
 
     return created
+
+
+# ---------------------------------------------------------------------------
+# rak ci analyze
+# ---------------------------------------------------------------------------
+
+
+@ci_app.command(name="analyze")
+def ci_analyze(
+    repo_path: Annotated[
+        str,
+        typer.Option(help="Repository root directory to analyze."),
+    ] = ".",
+    output: Annotated[
+        str | None,
+        typer.Option(help="Path to write JSON report."),
+    ] = None,
+    format_type: Annotated[
+        str,
+        typer.Option("--format", help="Output format: json, markdown."),
+    ] = "json",
+) -> None:
+    """Analyze CI/CD pipeline configurations for compliance gaps."""
+    from regulatory_agent_kit.ci.pipeline_analyzer import (
+        analyze_pipelines,
+        format_pipeline_analysis_as_markdown,
+    )
+
+    root = Path(repo_path)
+    if not root.is_dir():
+        console.print(f"[red]Directory not found: {root}[/red]")
+        raise typer.Exit(code=1)
+
+    result = analyze_pipelines(root)
+
+    if result.pipelines_analyzed == 0:
+        console.print("[yellow]No CI/CD pipeline configs found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    if output:
+        out_path = Path(output)
+        out_path.write_text(
+            json.dumps(result.to_dict(), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        console.print(f"[green]Report written to {out_path}[/green]")
+
+    if format_type == "markdown":
+        console.print(format_pipeline_analysis_as_markdown(result))
+    else:
+        table = Table(title="CI/CD Pipeline Analysis")
+        table.add_column("Check", style="cyan")
+        table.add_column("Severity", style="white")
+        table.add_column("Status", style="green")
+        table.add_column("Detail")
+
+        for finding in result.findings:
+            status = "[green]PASS[/green]" if finding.passed else "[red]FAIL[/red]"
+            table.add_row(
+                finding.check_id,
+                finding.severity.upper(),
+                status,
+                finding.detail or finding.description,
+            )
+
+        console.print(table)
+        console.print(
+            f"\n[bold]Pipelines: {result.pipelines_analyzed}[/bold] | "
+            f"Checks: {result.checks_passed}/{result.checks_run} passed"
+        )
+
+    if result.checks_failed > 0:
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
