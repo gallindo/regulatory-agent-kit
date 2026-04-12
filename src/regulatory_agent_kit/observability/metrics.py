@@ -12,7 +12,7 @@ Usage::
         record_tool_invocation,
     )
 
-    record_pipeline_started("dora-ict-risk-2025")
+    record_pipeline_started("example-regulation-2025")
 """
 
 from __future__ import annotations

@@ -35,7 +35,7 @@ class TestE2EAPI:
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
                 # Submit a regulatory event
                 event_payload = {
-                    "regulation_id": "dora-ict-risk-2025",
+                    "regulation_id": "example-regulation-2025",
                     "change_type": "new_requirement",
                     "source": "webhook",
                     "payload": {},

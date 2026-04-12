@@ -55,7 +55,7 @@ async def test_health_returns_ok(client: httpx.AsyncClient) -> None:
 
 async def test_post_event_valid_returns_202(client: httpx.AsyncClient) -> None:
     payload = {
-        "regulation_id": "dora-ict-risk-2025",
+        "regulation_id": "example-regulation-2025",
         "change_type": "new_requirement",
         "source": "webhook",
     }
@@ -74,7 +74,7 @@ async def test_post_event_invalid_returns_422(client: httpx.AsyncClient) -> None
 
 async def test_post_event_bad_change_type_returns_422(client: httpx.AsyncClient) -> None:
     payload = {
-        "regulation_id": "dora-ict-risk-2025",
+        "regulation_id": "example-regulation-2025",
         "change_type": "invalid_type",
         "source": "webhook",
     }

@@ -68,15 +68,15 @@ class TestMetricRecording:
     def test_record_pipeline_started(self) -> None:
         otel = self._configured_otel()
         # Should not raise
-        otel.record_pipeline_started(regulation_id="dora-ict-risk-2025")
+        otel.record_pipeline_started(regulation_id="example-regulation-2025")
 
     def test_record_pipeline_completed(self) -> None:
         otel = self._configured_otel()
-        otel.record_pipeline_completed(regulation_id="dora-ict-risk-2025")
+        otel.record_pipeline_completed(regulation_id="example-regulation-2025")
 
     def test_record_pipeline_failed(self) -> None:
         otel = self._configured_otel()
-        otel.record_pipeline_failed(regulation_id="dora-ict-risk-2025")
+        otel.record_pipeline_failed(regulation_id="example-regulation-2025")
 
     def test_record_llm_call(self) -> None:
         otel = self._configured_otel()

@@ -102,24 +102,19 @@ class PluginRegistryRepository(BaseRepository):
             conditions.append("tags @> %s::jsonb")
             params.append(json.dumps(tags))
 
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
-        count_row = await self._fetch_one(
-            f"SELECT count(*) AS total FROM rak.plugin_registry {where}",
-            tuple(params),
-        )
+        count_sql = "SELECT count(*) AS total FROM rak.plugin_registry" + where_clause
+        count_row = await self._fetch_one(count_sql, tuple(params))
         total = count_row["total"] if count_row else 0
 
         params.extend([limit, offset])
-        rows = await self._fetch_all(
-            f"""
-            SELECT * FROM rak.plugin_registry
-            {where}
-            ORDER BY published_at DESC
-            LIMIT %s OFFSET %s
-            """,
-            tuple(params),
+        list_sql = (
+            "SELECT * FROM rak.plugin_registry"
+            + where_clause
+            + " ORDER BY published_at DESC LIMIT %s OFFSET %s"
         )
+        rows = await self._fetch_all(list_sql, tuple(params))
 
         return rows, total
 

@@ -200,7 +200,7 @@ class TestHtmlReport:
         gen = ComplianceReportGenerator(output_dir=tmp_path)
         conflicts = [
             {
-                "conflicting_rule_ids": ["DORA-001", "GDPR-003"],
+                "conflicting_rule_ids": ["RULE-001", "GDPR-003"],
                 "description": "Conflicting logging requirements",
                 "resolution": None,
             },
@@ -213,7 +213,7 @@ class TestHtmlReport:
             conflicts=conflicts,
         )
         html = artefacts.report_path.read_text(encoding="utf-8")
-        assert "DORA-001" in html
+        assert "RULE-001" in html
         assert "GDPR-003" in html
 
 

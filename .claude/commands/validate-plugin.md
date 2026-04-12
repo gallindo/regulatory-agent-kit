@@ -2,7 +2,7 @@
 description: Validate a regulation plugin YAML file against the schema
 ---
 
-Validate a regulation plugin. Ask the user for the plugin path (default: `regulations/dora/dora-ict-risk-2025.yaml`).
+Validate a regulation plugin. Ask the user for the plugin path (default: `regulations/examples/example.yaml`).
 
 Then:
 1. Read the YAML file

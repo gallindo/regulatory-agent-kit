@@ -1107,7 +1107,7 @@ The project follows a standard Python `src/` layout. Key top-level directories:
 |---|---|
 | `src/regulatory_agent_kit/` | Application code — CLI, API, workflows, activities, agents, tools, plugins, events, repositories, models, observability |
 | `migrations/` | Alembic migrations for the `rak` schema |
-| `regulations/` | Regulation YAML plugins (e.g., `dora/`) |
+| `regulations/` | Regulation YAML plugins (e.g., `examples/`); regulation-specific plugins installed separately via `rak plugin install` |
 | `tests/` | Unit (no external deps), integration (testcontainers), e2e (Docker Compose) |
 | `docs/` | Architecture documentation and ADRs |
 | `helm/` | Kubernetes Helm chart |

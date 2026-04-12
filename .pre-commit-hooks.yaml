@@ -11,7 +11,7 @@
 #       rev: v0.1.0
 #       hooks:
 #         - id: rak-compliance-check
-#           args: [--regulation, regulations/dora/dora-ict-risk-2025.yaml]
+#           args: [--regulation, regulations/examples/example.yaml]
 # ---------------------------------------------------------------
 
 - id: rak-compliance-check

@@ -22,11 +22,13 @@ You are the regulatory compliance specialist for regulatory-agent-kit. Your doma
 - Each regulation lives in `regulations/<regulation-name>/` with a README.md
 
 ## Supported Regulations
-- **DORA** (EU 2022/2554) — 5 pillars: ICT Risk, Incident Reporting, Resilience Testing, Third-Party Risk, Information Sharing
-- **Roadmap:** PCI-DSS v4.0, PSD2, EU AI Act, NIS2, MiCA, HIPAA, GDPR
+
+The framework core is **regulation-agnostic** — it does not ship with any
+specific regulation plugin built-in. Regulation-specific plugins are
+distributed as separate packages and installed via `rak plugin install`.
 
 ## Reference Files
 - `docs/plugin-template-guide.md` — Jinja2 template authoring guide
 - `docs/architecture.md` — plugin system specification
-- `regulations/` — existing plugins and README
+- `regulations/examples/` — example plugin template
 - `src/regulatory_agent_kit/plugins/` — loader, schema, condition DSL

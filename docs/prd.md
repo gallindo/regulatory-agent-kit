@@ -19,7 +19,7 @@ This repository's documentation is split into three layers to maintain regulatio
 | **[`docs/framework-spec.md`](framework-spec.md)** | Pure framework specification — agents, plugins, events, security, deployment | **No** — completely regulation-agnostic |
 | **`docs/prd.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
 | **[`regulations/README.md`](../regulations/README.md)** | Plugin catalog, contribution guide, plugin roadmap | Yes — lists all planned and community regulation plugins |
-| **[`regulations/dora/README.md`](../regulations/dora/README.md)** | DORA-specific plugin documentation (five pillars, RTS/ITS, cross-references) | Yes — entirely DORA-specific |
+| **[`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md)** | DORA-specific plugin documentation (five pillars, RTS/ITS, cross-references) | Yes — entirely DORA-specific |
 
 **The framework codebase is regulation-agnostic.** All regulatory knowledge lives in YAML plugins under `regulations/`. Specific regulations mentioned in this document (DORA, PCI-DSS, PSD2, etc.) are used as illustrative examples for market positioning and business context, not as framework dependencies.
 
@@ -183,7 +183,7 @@ flowchart TD
 
 - **Compliance costs at major banks grew 60% over the preceding decade**, with technology investment as the primary mitigation strategy
 - Average time from regulatory publication to implementation deadline: **6–18 months**
-- DORA empowers national competent authorities to impose administrative penalties on financial entities (amounts vary by member state), and enables Lead Overseers to levy periodic penalty payments on critical ICT third-party providers of **up to 1% of average daily global turnover per day of non-compliance** (Article 35(8), Regulation (EU) 2022/2554) [11]
+- DORA empowers national competent authorities to impose administrative penalties on financial entities (amounts vary by member state), and enables Lead Overseers to levy periodic penalty payments on critical ICT third-party providers of **up to 1% of average daily global turnover per day of non-compliance** (Article 35(8), the target regulation) [11]
 - GDPR fines reached **EUR 2.1 billion in 2023 alone**
 - PCI-DSS v4.0 final deadline for all "future-dated" requirements: **March 31, 2025** — PCI-DSS v3.2.1 is now fully retired
 
@@ -291,11 +291,11 @@ The kit's most strategically important capability is its **total decoupling of r
 
 **Plugin Structure:**
 
-> **Note:** The example below uses DORA (Digital Operational Resilience Act) as an illustrative regulation. The framework itself is regulation-agnostic — any regulation can be expressed using this same YAML schema. The DORA-specific fields (`dora_pillar`, `rts_reference`) are examples of custom plugin fields that are passed through to templates and reports without being processed by the framework core.
+> **Note:** The example below uses DORA (Digital Operational Resilience Act) as an illustrative regulation. The framework itself is regulation-agnostic — any regulation can be expressed using this same YAML schema. The DORA-specific fields (`plugin_pillar`, `rts_reference`) are examples of custom plugin fields that are passed through to templates and reports without being processed by the framework core.
 
 ```yaml
 # regulations/dora_ict.yaml
-id: "dora-ict-risk-2025"
+id: "example-regulation-2025"
 name: "DORA ICT Risk Management Requirements"
 version: "1.0.0"
 effective_date: "2025-01-17"
@@ -323,10 +323,10 @@ cross_references:
     articles: ["2(1)(a)"]
 
 rules:
-  - id: "DORA-ICT-001"
+  - id: "RULE-001"
     description: "All ICT systems must implement structured logging for audit purposes"
     severity: "critical"
-    dora_pillar: "ict_risk_management"  # One of 5 DORA pillars
+    plugin_pillar: "ict_risk_management"  # One of 5 DORA pillars
     rts_reference: "JC-2023-86"
     affects:
       - pattern: "**/*.java"
@@ -339,10 +339,10 @@ rules:
       test_template: "templates/audit_log_test.j2"
       confidence_threshold: 0.85  # Below this, require additional human review
 
-  - id: "DORA-ICT-002"
+  - id: "RULE-002"
     description: "RTO/RPO objectives must be documented in service manifests"
     severity: "high"
-    dora_pillar: "digital_operational_resilience_testing"
+    plugin_pillar: "digital_operational_resilience_testing"
     affects:
       - pattern: "**/service-manifest.yaml"
         condition: "NOT has_key(resilience.rto) OR NOT has_key(resilience.rpo)"
@@ -356,20 +356,20 @@ changelog: "Initial release aligned with DORA application date 2025-01-17"
 
 # Legal disclaimer (required field)
 disclaimer: >
-  This plugin represents one interpretation of Regulation (EU) 2022/2554 (DORA).
+  This plugin represents one interpretation of the target regulation (DORA).
   It does not constitute legal advice. Organizations must validate compliance
   with their own legal and compliance teams.
 
 kafka_event:
   topic: "regulatory-changes"
   schema:
-    regulation_id: "dora-ict-risk-2025"
+    regulation_id: "example-regulation-2025"
     change_type: "new_requirement"
 ```
 
 **DORA Coverage — Five Pillars:**
 
-> For detailed DORA plugin documentation including all five pillars, RTS/ITS references, enforcement architecture, and cross-regulation dependencies, see [`regulations/dora/README.md`](../regulations/dora/README.md).
+> For detailed DORA plugin documentation including all five pillars, RTS/ITS references, enforcement architecture, and cross-regulation dependencies, see [`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md).
 
 | Pillar | Automation Potential |
 |---|---|
@@ -578,7 +578,7 @@ A single code change may trigger multiple regulations simultaneously. The kit's 
 | `supersedes` | Replaces the referenced regulation entirely | New version replaces old version |
 | `references` | Cites the other without a precedence relationship | EU AI Act references GDPR for data governance |
 
-> For the complete DORA cross-regulation dependency map, see [`regulations/dora/README.md`](../regulations/dora/README.md).
+> For the complete DORA cross-regulation dependency map, see [`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md).
 
 **Practical implications (regulation-agnostic behavior):**
 - The Analyzer Agent evaluates **all loaded regulation plugins** for each code change, not just one
@@ -981,7 +981,7 @@ Beyond the planned roadmap, the following areas are under active investigation:
 
 | # | Reference | URL |
 |---|---|---|
-| [11] | Regulation (EU) 2022/2554 — Digital Operational Resilience Act (DORA) | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554 |
+| [11] | the target regulation — Digital Operational Resilience Act (DORA) | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554 |
 | [17] | NIST SP 800-53 Rev. 5 — Security and Privacy Controls | DOI: 10.6028/NIST.SP.800-53r5 |
 | [20] | ISO/IEC 27001:2022 — Information Security | https://www.iso.org/standard/27001 |
 | [24] | Regulation (EU) 2024/1689 — EU Artificial Intelligence Act | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689 |
@@ -1021,7 +1021,7 @@ docker compose up -d  # Temporal, Elasticsearch, MLflow, PostgreSQL
 
 # Run with full infrastructure
 rak run \
-  --regulation regulations/dora_ict.yaml \
+  --regulation regulations/example-regulation/example-regulation.yaml \
   --repos https://github.com/your-org/service-a \
            https://github.com/your-org/service-b \
   --checkpoint-mode slack \

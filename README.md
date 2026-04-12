@@ -129,22 +129,22 @@ Both human checkpoints are **non-bypassable** — no code path can skip them.
 Regulation plugins are declarative YAML files that compliance officers and engineers can co-author:
 
 ```yaml
-id: dora-ict-risk-2025
-name: "DORA ICT Risk Management"
+id: example-regulation-2025
+name: "Example Regulation"
 version: "1.0.0"
-effective_date: "2025-01-17"
-jurisdiction: "EU"
-authority: "European Banking Authority"
-source_url: "https://eur-lex.europa.eu/eli/reg/2022/2554"
+effective_date: "2025-01-01"
+jurisdiction: "EXAMPLE"
+authority: "Example Regulatory Authority"
+source_url: "https://example.com/regulations/audit-logging"
 disclaimer: "Compliance tool output — not legal advice."
 
 rules:
-  - id: DORA-ICT-001
-    description: "All ICT services must implement structured audit logging"
+  - id: RULE-001
+    description: "All services must implement structured audit logging"
     severity: critical
     affects:
       - pattern: "**/*.java"
-        condition: "class implements ICTService AND NOT has_annotation(@AuditLog)"
+        condition: "class implements Service AND NOT has_annotation(@AuditLog)"
     remediation:
       strategy: add_annotation
       template: templates/audit_log.j2
@@ -152,9 +152,15 @@ rules:
       confidence_threshold: 0.85
 
 cross_references:
-  - regulation_id: "gdpr"
+  - regulation_id: "other-regulation"
     relationship: does_not_override
     conflict_handling: escalate_to_human
+```
+
+Regulation-specific plugins (DORA, PSD2, PCI-DSS, HIPAA, Open Finance, etc.) are distributed as separate GitHub repositories and installed via the CLI:
+
+```bash
+rak plugin install <plugin-id>
 ```
 
 ### Condition DSL
@@ -297,7 +303,7 @@ docker compose up -d
 
 ## Project Status
 
-**Alpha (v0.1.0)** -- Foundation complete. The framework scaffold, all domain models, plugin system, agent definitions, orchestration layer, API, CLI, and infrastructure are implemented. Production regulation plugins (DORA, NIS2, etc.) are planned for v0.2.0+.
+**Alpha (v0.1.0)** -- Foundation complete. The framework scaffold, all domain models, plugin system, agent definitions, orchestration layer, API, CLI, and infrastructure are implemented. Regulation-specific plugins are distributed as separate repositories and installed via `rak plugin install`.
 
 ---
 

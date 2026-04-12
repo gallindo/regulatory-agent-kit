@@ -26,8 +26,8 @@ from regulatory_agent_kit.ci.pr_reviewer import (
 def passing_result() -> ScanResult:
     """A scan result with no violations."""
     return ScanResult(
-        regulation_id="DORA-2025",
-        regulation_name="DORA ICT Risk",
+        regulation_id="EXAMPLE-2025",
+        regulation_name="Example Regulation",
         violation_count=0,
         violations=[],
         files_scanned=5,
@@ -39,12 +39,12 @@ def passing_result() -> ScanResult:
 def failing_result() -> ScanResult:
     """A scan result with violations of multiple severities."""
     return ScanResult(
-        regulation_id="DORA-2025",
-        regulation_name="DORA ICT Risk",
+        regulation_id="EXAMPLE-2025",
+        regulation_name="Example Regulation",
         violation_count=4,
         violations=[
             Violation(
-                rule_id="DORA-001",
+                rule_id="RULE-001",
                 severity="critical",
                 description="Missing encryption at rest",
                 file_path="src/db.py",
@@ -52,7 +52,7 @@ def failing_result() -> ScanResult:
                 condition="has_unencrypted_storage",
             ),
             Violation(
-                rule_id="DORA-002",
+                rule_id="RULE-002",
                 severity="high",
                 description="No retry policy configured",
                 file_path="src/api.py",
@@ -60,7 +60,7 @@ def failing_result() -> ScanResult:
                 condition="has_no_retry",
             ),
             Violation(
-                rule_id="DORA-003",
+                rule_id="RULE-003",
                 severity="medium",
                 description="Logging PII fields",
                 file_path="src/logger.py",
@@ -68,7 +68,7 @@ def failing_result() -> ScanResult:
                 condition="contains_pii_logging",
             ),
             Violation(
-                rule_id="DORA-004",
+                rule_id="RULE-004",
                 severity="low",
                 description="Deprecated config format",
                 file_path="config.yaml",
@@ -114,8 +114,8 @@ class TestFormatScanAsMarkdown:
 
     def test_passing_shows_regulation(self, passing_result: ScanResult) -> None:
         md = format_scan_as_markdown(passing_result)
-        assert "DORA ICT Risk" in md
-        assert "`DORA-2025`" in md
+        assert "Example Regulation" in md
+        assert "`EXAMPLE-2025`" in md
 
     def test_passing_shows_stats(self, passing_result: ScanResult) -> None:
         md = format_scan_as_markdown(passing_result)
@@ -148,7 +148,7 @@ class TestFormatScanAsMarkdown:
     def test_failing_shows_violation_details(self, failing_result: ScanResult) -> None:
         md = format_scan_as_markdown(failing_result)
         assert "`src/db.py`" in md
-        assert "`DORA-001`" in md
+        assert "`RULE-001`" in md
         assert "Missing encryption at rest" in md
 
     def test_failing_contains_table_headers(self, failing_result: ScanResult) -> None:

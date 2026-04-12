@@ -70,7 +70,7 @@ alembic upgrade head                         # apply all
 alembic revision --autogenerate -m "name"    # create new
 
 # CLI (after install)
-rak run --regulation regulations/dora/dora-ict-risk-2025.yaml --repos <url> --checkpoint-mode terminal
+rak run --regulation regulations/examples/example.yaml --repos <url> --checkpoint-mode terminal
 rak run --lite --regulation <path> --repos <path>  # no Docker required
 ```
 

@@ -64,7 +64,7 @@ When a template is rendered, the following variables are available in the Jinja2
 | `file_path` | `str` | Absolute path to the file being modified |
 | `file_content` | `str` | Current content of the file |
 | `rule` | `Rule` | The matched rule object from the plugin YAML |
-| `rule.id` | `str` | Rule identifier (e.g., `"DORA-ICT-001"`) |
+| `rule.id` | `str` | Rule identifier (e.g., `"RULE-001"`) |
 | `rule.description` | `str` | Plain-language rule description |
 | `rule.severity` | `str` | `critical`, `high`, `medium`, or `low` |
 | `match` | `RuleMatch` | The match result from the Analyzer Agent |
@@ -92,15 +92,15 @@ Any additional fields defined in the plugin YAML (beyond the schema) are passed 
 
 ```yaml
 rules:
-  - id: "DORA-ICT-001"
-    dora_pillar: "ict_risk_management"
+  - id: "RULE-001"
+    plugin_pillar: "ict_risk_management"
     rts_reference: "JC-2023-86"
 ```
 
 These are accessible as:
 
 ```jinja2
-{{ rule.model_extra.dora_pillar }}
+{{ rule.model_extra.plugin_pillar }}
 {{ rule.model_extra.rts_reference }}
 ```
 
@@ -284,4 +284,4 @@ The `rak plugin test` command:
 
 ---
 
-*See also: [`framework-spec.md` Section 12](framework-spec.md#12-plugin-schema-reference) for the full plugin YAML schema, [`regulations/dora/`](../regulations/dora/) for a real-world plugin example, and [`cli-reference.md`](cli-reference.md) for all `rak plugin` commands.*
+*See also: [`framework-spec.md` Section 12](framework-spec.md#12-plugin-schema-reference) for the full plugin YAML schema, [`regulations/example-regulation/`](../regulations/example-regulation/) for a real-world plugin example, and [`cli-reference.md`](cli-reference.md) for all `rak plugin` commands.*

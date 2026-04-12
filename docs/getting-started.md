@@ -39,7 +39,7 @@ export OPENAI_API_KEY="sk-..."
 
 ```bash
 rak run --lite \
-  --regulation regulations/dora/dora-ict-risk-2025.yaml \
+  --regulation regulations/example-regulation/example-regulation.yaml \
   --repo https://github.com/your-org/example-service
 ```
 

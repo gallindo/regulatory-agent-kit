@@ -136,8 +136,8 @@ class EventTrigger(BaseModel):
 class RegulationPlugin(BaseModel):
     """Top-level model for a regulation YAML plugin file.
 
-    Uses ``extra="allow"`` so domain-specific fields (e.g., ``dora_pillar``)
-    are preserved in ``model_extra``.
+    Uses ``extra="allow"`` so domain-specific fields defined by individual
+    regulation plugins are preserved in ``model_extra``.
     """
 
     model_config = ConfigDict(extra="allow")

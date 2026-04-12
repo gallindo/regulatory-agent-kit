@@ -14,7 +14,7 @@ from regulatory_agent_kit.models.events import RegulatoryEvent
 
 def _make_event() -> RegulatoryEvent:
     return RegulatoryEvent(
-        regulation_id="dora-ict-risk-2025",
+        regulation_id="example-regulation-2025",
         change_type="new_requirement",
         source="test",
     )

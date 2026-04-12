@@ -23,7 +23,7 @@ def _write_event_json(directory: Path, filename: str, data: dict[str, object]) -
 
 def _valid_event_data() -> dict[str, str]:
     return {
-        "regulation_id": "dora-ict-risk-2025",
+        "regulation_id": "example-regulation-2025",
         "change_type": "new_requirement",
         "source": "file_watcher",
     }
@@ -44,7 +44,7 @@ class TestFileEventSource:
         callback.assert_called_once()
         event = callback.call_args[0][0]
         assert isinstance(event, RegulatoryEvent)
-        assert event.regulation_id == "dora-ict-risk-2025"
+        assert event.regulation_id == "example-regulation-2025"
 
     async def test_removes_file_after_processing(self, tmp_path: Path) -> None:
         callback = AsyncMock()

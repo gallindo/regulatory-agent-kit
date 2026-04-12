@@ -53,8 +53,8 @@ class TestSearchClientDegradation:
         mock_es.index.side_effect = ConnectionError("Connection refused")
 
         mock_plugin = MagicMock()
-        mock_plugin.id = "dora-2025"
-        mock_plugin.name = "DORA ICT Risk"
+        mock_plugin.id = "example-plugin-2025"
+        mock_plugin.name = "Example Regulation"
         mock_plugin.jurisdiction = "EU"
         mock_plugin.authority = "EBA"
         mock_plugin.rules = []
@@ -150,8 +150,8 @@ class TestPluginIngestion:
         mock_rule_2.model_extra = {}
 
         mock_plugin = MagicMock()
-        mock_plugin.id = "dora-2025"
-        mock_plugin.name = "DORA"
+        mock_plugin.id = "example-plugin-2025"
+        mock_plugin.name = "Example"
         mock_plugin.jurisdiction = "EU"
         mock_plugin.authority = "EBA"
         mock_plugin.source_url = "https://example.com"
@@ -166,8 +166,8 @@ class TestPluginIngestion:
 
         # Verify document IDs follow the convention
         call_ids = {c.kwargs["id"] for c in mock_es.index.call_args_list}
-        assert "dora-2025:R-001" in call_ids
-        assert "dora-2025:R-002" in call_ids
+        assert "example-plugin-2025:R-001" in call_ids
+        assert "example-plugin-2025:R-002" in call_ids
 
     async def test_ingest_empty_plugin_returns_zero(self) -> None:
         client = SearchClient()
@@ -195,7 +195,7 @@ class TestContextChunkIndexing:
 
         with patch.object(client, "_client", mock_es):
             await client.index_context_chunk(
-                regulation_id="dora-2025",
+                regulation_id="example-plugin-2025",
                 content="Article 5 requires ICT risk management.",
                 section="Chapter II",
                 article="Article 5",
@@ -206,7 +206,7 @@ class TestContextChunkIndexing:
 
         mock_es.index.assert_called_once()
         doc = mock_es.index.call_args.kwargs["document"]
-        assert doc["regulation_id"] == "dora-2025"
+        assert doc["regulation_id"] == "example-plugin-2025"
         assert doc["content"] == "Article 5 requires ICT risk management."
         assert doc["section"] == "Chapter II"
 
@@ -218,7 +218,7 @@ class TestContextChunkIndexing:
         embedding = [0.1] * 1536
         with patch.object(client, "_client", mock_es):
             await client.index_context_chunk(
-                regulation_id="dora-2025",
+                regulation_id="example-plugin-2025",
                 content="Test content",
                 embedding=embedding,
             )
@@ -328,7 +328,7 @@ class TestBuildRagContext:
 class TestSearchStrategies:
     def test_rules_strategy_with_regulation_filter(self) -> None:
         strategy = RulesSearchStrategy()
-        body = strategy.build_query(query="logging", regulation_id="dora-2025")
+        body = strategy.build_query(query="logging", regulation_id="example-plugin-2025")
         assert "filter" in body["query"]["bool"]
 
     def test_rules_strategy_without_filter(self) -> None:

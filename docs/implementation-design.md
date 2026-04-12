@@ -636,7 +636,7 @@ sequenceDiagram
     participant TE as TemplateEngine
     participant FS as Filesystem
 
-    CLI->>PL: load(path="regulations/dora/dora-ict-risk-2025.yaml")
+    CLI->>PL: load(path="regulations/example-regulation/example-regulation.yaml")
     PL->>FS: Read YAML file
     FS-->>PL: Raw bytes
     PL->>YAML: parse(bytes)
@@ -747,7 +747,7 @@ sequenceDiagram
     participant LLM as LiteLLM
     participant AL as AuditLogger
 
-    ACT->>GIT: create_branch(repo, "rak/dora-ict-risk/DORA-ICT-001")
+    ACT->>GIT: create_branch(repo, "rak/example-regulation/RULE-001")
     GIT-->>ACT: Branch created
 
     loop For each FileImpact in impact_map
@@ -791,7 +791,7 @@ sequenceDiagram
         end
     end
 
-    ACT->>GIT: commit(repo, "rak: DORA-ICT-001 remediation")
+    ACT->>GIT: commit(repo, "rak: RULE-001 remediation")
     GIT-->>ACT: commit_sha
 
     ACT->>AL: log_tool_invocation(run_id, "refactor", input, output)
@@ -1276,7 +1276,7 @@ Each `event_type` has a specific `payload` structure:
   "temperature": 0.0,
   "agent": "analyzer",
   "purpose": "evaluate_condition",
-  "rule_id": "DORA-ICT-001",
+  "rule_id": "RULE-001",
   "file_path": "src/main/java/com/example/UserService.java",
   "confidence": 0.92
 }
@@ -1290,7 +1290,7 @@ Each `event_type` has a specific `payload` structure:
   "decision": "approved",
   "rationale": "Impact assessment looks correct. Proceed with remediation.",
   "repos_affected": 42,
-  "rules_matched": ["DORA-ICT-001", "DORA-ICT-002"]
+  "rules_matched": ["RULE-001", "RULE-002"]
 }
 
 // event_type: "state_transition"
@@ -1693,7 +1693,7 @@ def generate_branch_name(regulation_id: str, rule_id: str) -> str:
     Deterministic branch naming for idempotent operations.
 
     Format: rak/{regulation_id}/{rule_id}
-    Example: rak/dora-ict-risk-2025/DORA-ICT-001
+    Example: rak/example-regulation-2025/RULE-001
 
     Properties:
     - Deterministic: same inputs always produce the same branch name

@@ -24,7 +24,7 @@ class RegulatoryEvent(BaseModel):
     regulation_id: str = Field(
         ...,
         min_length=1,
-        description="ID of the regulation plugin (e.g., 'dora-ict-risk-2025').",
+        description="ID of the regulation plugin (e.g., 'example-regulation-2025').",
     )
     change_type: Literal["new_requirement", "amendment", "withdrawal"] = Field(
         ...,

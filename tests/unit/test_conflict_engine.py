@@ -91,7 +91,7 @@ class TestConflictDetection:
 class TestPrecedence:
     def test_takes_precedence(self) -> None:
         p1 = _make_plugin(
-            "dora",
+            "example-plugin",
             cross_references=[
                 {
                     "regulation_id": "nis2",
@@ -102,8 +102,8 @@ class TestPrecedence:
         p2 = _make_plugin("nis2")
         engine = ConflictEngine([p1, p2])
 
-        assert engine.get_precedence("dora", "nis2") == "dora"
-        assert engine.get_precedence("nis2", "dora") == "dora"
+        assert engine.get_precedence("example-plugin", "nis2") == "example-plugin"
+        assert engine.get_precedence("nis2", "example-plugin") == "example-plugin"
 
     def test_no_precedence(self) -> None:
         p1 = _make_plugin("plugin-a")

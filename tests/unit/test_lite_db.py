@@ -83,18 +83,18 @@ class TestLitePipelineRunRepository:
     async def test_create_and_get(self, db_path: Path) -> None:
         repo = LitePipelineRunRepository(db_path)
         run_id = await repo.create(
-            regulation_id="dora-ict-risk-2025",
+            regulation_id="example-regulation-2025",
             total_repos=2,
             config_snapshot={"model": "test"},
         )
         row = await repo.get(run_id)
         assert row is not None
-        assert row["regulation_id"] == "dora-ict-risk-2025"
+        assert row["regulation_id"] == "example-regulation-2025"
         assert row["status"] == "pending"
 
     async def test_update_status(self, db_path: Path) -> None:
         repo = LitePipelineRunRepository(db_path)
-        run_id = await repo.create("dora", 1, {})
+        run_id = await repo.create("example-plugin", 1, {})
         await repo.update_status(run_id, "running")
         row = await repo.get(run_id)
         assert row is not None
@@ -111,7 +111,7 @@ class TestLiteRepositoryProgressRepository:
 
     async def test_create_and_get_by_run(self, db_path: Path) -> None:
         pipeline_repo = LitePipelineRunRepository(db_path)
-        run_id = await pipeline_repo.create("dora", 1, {})
+        run_id = await pipeline_repo.create("example-plugin", 1, {})
 
         repo = LiteRepositoryProgressRepository(db_path)
         entry_id = await repo.create(run_id, "https://github.com/example/repo")
@@ -122,7 +122,7 @@ class TestLiteRepositoryProgressRepository:
 
     async def test_update_status(self, db_path: Path) -> None:
         pipeline_repo = LitePipelineRunRepository(db_path)
-        run_id = await pipeline_repo.create("dora", 1, {})
+        run_id = await pipeline_repo.create("example-plugin", 1, {})
 
         repo = LiteRepositoryProgressRepository(db_path)
         entry_id = await repo.create(run_id, "https://github.com/example/repo")
@@ -136,7 +136,7 @@ class TestLiteAuditRepository:
 
     async def test_insert_and_get_by_run(self, db_path: Path) -> None:
         pipeline_repo = LitePipelineRunRepository(db_path)
-        run_id = await pipeline_repo.create("dora", 1, {})
+        run_id = await pipeline_repo.create("example-plugin", 1, {})
 
         repo = LiteAuditRepository(db_path)
         entry_id = await repo.insert(
@@ -157,7 +157,7 @@ class TestLiteCheckpointDecisionRepository:
 
     async def test_create_and_get_by_run(self, db_path: Path) -> None:
         pipeline_repo = LitePipelineRunRepository(db_path)
-        run_id = await pipeline_repo.create("dora", 1, {})
+        run_id = await pipeline_repo.create("example-plugin", 1, {})
 
         repo = LiteCheckpointDecisionRepository(db_path)
         decision_id = await repo.create(
@@ -175,7 +175,7 @@ class TestLiteCheckpointDecisionRepository:
 
     async def test_get_latest(self, db_path: Path) -> None:
         pipeline_repo = LitePipelineRunRepository(db_path)
-        run_id = await pipeline_repo.create("dora", 1, {})
+        run_id = await pipeline_repo.create("example-plugin", 1, {})
 
         repo = LiteCheckpointDecisionRepository(db_path)
         await repo.create(

@@ -39,13 +39,13 @@ from regulatory_agent_kit.models import (
 class TestRegulatoryEvent:
     def test_valid_event(self) -> None:
         event = RegulatoryEvent(
-            regulation_id="dora-ict-risk-2025",
+            regulation_id="example-regulation-2025",
             change_type="new_requirement",
             source="webhook",
         )
         assert isinstance(event.event_id, UUID)
         assert isinstance(event.timestamp, datetime)
-        assert event.regulation_id == "dora-ict-risk-2025"
+        assert event.regulation_id == "example-regulation-2025"
         assert event.change_type == "new_requirement"
         assert event.source == "webhook"
         assert event.payload == {}
@@ -146,11 +146,11 @@ class TestCostEstimate:
 class TestPipelineInput:
     def test_valid_input(self) -> None:
         inp = PipelineInput(
-            regulation_id="dora-ict-risk-2025",
+            regulation_id="example-regulation-2025",
             repo_urls=["https://github.com/org/repo-a"],
-            plugin={"id": "dora-ict-risk-2025"},
+            plugin={"id": "example-regulation-2025"},
         )
-        assert inp.regulation_id == "dora-ict-risk-2025"
+        assert inp.regulation_id == "example-regulation-2025"
         assert len(inp.repo_urls) == 1
 
     def test_empty_repo_urls_rejected(self) -> None:
@@ -191,7 +191,7 @@ class TestRepoResult:
         result = RepoResult(
             repo_url="https://github.com/org/repo",
             status="completed",
-            branch_name="rak/dora/ICT-001",
+            branch_name="rak/example/ICT-001",
             pr_url="https://github.com/org/repo/pull/42",
         )
         assert result.status == "completed"
@@ -333,7 +333,7 @@ class TestASTRegion:
 class TestRuleMatch:
     def test_valid_match(self) -> None:
         match = RuleMatch(
-            rule_id="DORA-ICT-001",
+            rule_id="RULE-001",
             description="Structured logging required",
             severity="critical",
             confidence=0.92,
@@ -388,7 +388,7 @@ class TestConflictRecord:
     def test_valid_conflict(self) -> None:
         region = ASTRegion(start_line=1, end_line=10, start_col=0, end_col=80, node_type="class")
         conflict = ConflictRecord(
-            conflicting_rule_ids=["DORA-001", "GDPR-005"],
+            conflicting_rule_ids=["RULE-001", "GDPR-005"],
             affected_regions=[region],
             description="Overlapping logging requirements",
         )
@@ -444,7 +444,7 @@ class TestFileDiff:
 class TestChangeSet:
     def test_valid_changeset(self) -> None:
         cs = ChangeSet(
-            branch_name="rak/dora/ICT-001",
+            branch_name="rak/example/ICT-001",
             diffs=[
                 FileDiff(
                     file_path="a.py",

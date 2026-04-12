@@ -2,43 +2,35 @@
 
 This directory contains regulation-specific YAML plugins for `regulatory-agent-kit`. Each plugin encodes the rules, conditions, and remediation strategies for a specific regulation or standard.
 
-**The framework core is regulation-agnostic.** All regulatory knowledge lives here, in plugins.
+**The framework core is regulation-agnostic.** This repository does not ship with built-in regulation plugins. Regulation plugins (DORA, PCI-DSS, PSD2, HIPAA, GDPR, Open Finance, etc.) are distributed as **separate packages** and installed via the CLI.
 
 ---
 
-## Plugin Catalog
+## Installing a Plugin
 
-### Official Plugins (maintained by core team)
+Plugins live in separate GitHub repositories and are installed into your local `regulations/` directory via the CLI:
 
-| Plugin | Regulation | Jurisdiction | Status | Directory |
-|---|---|---|---|---|
-| `dora-ict-risk-2025` | DORA — ICT Risk Management | EU | Planned (v1.5) | [`dora/`](dora/) |
-| `dora-incident-reporting-2025` | DORA — ICT Incident Reporting | EU | Planned (v1.5) | [`dora/`](dora/) |
-| `dora-resilience-testing-2025` | DORA — Resilience Testing | EU | Planned (v1.5) | [`dora/`](dora/) |
-| `dora-third-party-risk-2025` | DORA — Third-Party Risk | EU | Planned (v1.5) | [`dora/`](dora/) |
-| `pci-dss-v4-2025` | PCI-DSS v4.0 | Global | Planned (v1.5) | `pci-dss/` |
-| `psd2-sca-2025` | PSD2 — Strong Customer Authentication | EU | Planned (v1.5) | `psd2/` |
-| `eu-ai-act-high-risk-2026` | EU AI Act — High-Risk AI Systems | EU | Planned (v2.0) | `eu-ai-act/` |
-| `nis2-essential-2025` | NIS2 — Essential Entities | EU | Planned (v2.0) | `nis2/` |
-| `mica-casp-2025` | MiCA — Crypto-Asset Service Providers | EU | Planned (v2.0) | `mica/` |
-| `hipaa-technical-2025` | HIPAA — Technical Safeguards | US | Planned (v2.0) | `hipaa/` |
-| `gdpr-privacy-engineering-2025` | GDPR — Technical Implementation | EU | Planned (v2.0) | `gdpr/` |
+```bash
+# Install from the plugin registry
+rak plugin install <plugin-id>
 
-### Community Plugins
+# Example:
+rak plugin install dora-ict-risk-2025
+```
 
-Community-contributed plugins will be listed here once the plugin registry launches in v1.5. To contribute a plugin, see [Contributing a Plugin](#contributing-a-plugin) below.
+Once installed, run a compliance pipeline against the plugin:
+
+```bash
+rak run --regulation regulations/<plugin-id>/<plugin-id>.yaml --repos <repo-url>
+```
 
 ---
 
-## Plugin Roadmap
+## Example Plugin
 
-| Phase | Target Date | Plugins |
-|---|---|---|
-| **v1.5** | Q2–Q3 2026 | PCI-DSS v4.0, DORA (all 5 pillars), PSD2 |
-| **v2.0** | Q3–Q4 2026 | EU AI Act, NIS2, MiCA, HIPAA, GDPR |
-| **v2.5+** | Q1 2027+ | Community-contributed via plugin marketplace |
+The `examples/` directory contains a minimal, self-contained example plugin used for testing and as a reference for plugin authors. It does **not** represent any real regulation.
 
-This roadmap covers **official plugins only**. The framework supports any regulation from v1.0 — you can write plugins for any regulation today using the YAML schema.
+See [`examples/example.yaml`](examples/example.yaml) for the full schema.
 
 ---
 
@@ -55,7 +47,7 @@ rak plugin init --name my-regulation
 #   my-regulation.yaml      # Plugin definition
 #   templates/               # Jinja2 remediation templates
 #   tests/                   # Test fixtures
-#   README.md               # Plugin documentation
+#   README.md                # Plugin documentation
 ```
 
 ### Plugin Structure
@@ -89,33 +81,21 @@ rak plugin test regulations/my-regulation/my-regulation.yaml --repo tests/fixtur
 
 ---
 
-## Contributing a Plugin
+## Publishing a Plugin
 
-### Who Can Contribute
+Plugins are published to the plugin registry so other teams can install them:
 
-- **Compliance engineers** — domain expertise in specific regulations
-- **Legal professionals** — understanding of regulatory interpretation
-- **Platform engineers** — technical implementation of remediation templates
+```bash
+# Publish a plugin to the registry
+rak plugin publish regulations/my-regulation/my-regulation.yaml \
+    --registry-url https://registry.example.com
+```
 
-### Contribution Process
+See [`docs/plugin-template-guide.md`](../docs/plugin-template-guide.md) for the full publication workflow.
 
-1. Fork the repository
-2. `rak plugin init --name your-regulation`
-3. Write the YAML plugin following the schema reference
-4. Write Jinja2 templates for each remediation strategy
-5. Write test fixtures demonstrating the plugin against sample code
-6. Run `rak plugin validate` to verify
-7. Submit a pull request
+---
 
-### Review Process
-
-All regulation plugins undergo:
-
-1. **Automated validation** — schema correctness, template rendering, test passing (CI)
-2. **Domain review** — at least 2 reviewers with expertise in the regulation
-3. **Technical review** — at least 1 reviewer for template quality and edge cases
-
-### Mandatory Fields
+## Mandatory Fields
 
 Every contributed plugin MUST include:
 
@@ -124,7 +104,7 @@ Every contributed plugin MUST include:
 - At least one rule with a test template
 - A `README.md` documenting the regulation context and plugin decisions
 
-### Plugin Certification Tiers
+## Plugin Certification Tiers
 
 | Tier | Badge | Meaning |
 |---|---|---|
@@ -143,25 +123,19 @@ The plugin schema is **open** — you may include arbitrary additional fields be
 Examples:
 
 ```yaml
-# DORA-specific extension fields
-dora_pillar: "ict_risk_management"
-rts_reference: "JC-2023-86"
+# Pillar/section reference (common across regulations)
+pillar: "risk_management"
+rts_reference: "standard-id"
 
-# PCI-DSS-specific extension fields
-pci_requirement: "6.4.3"
-pci_testing_procedure: "6.4.3.a"
+# Implementation requirement level
+implementation_level: "required"
 
-# HIPAA-specific extension fields
-hipaa_standard: "164.312(a)(1)"
-hipaa_implementation: "required"
-
-# BACEN-specific extension fields
-bacen_circular: "4.015/2020"
-open_finance_phase: "4"
+# Cross-regulation linkage
+related_standards: ["iso-27001", "nist-csf"]
 ```
 
-These fields are available in your Jinja2 templates as `{{ rule.dora_pillar }}`, `{{ rule.pci_requirement }}`, etc.
+These fields are available in your Jinja2 templates as `{{ rule.pillar }}`, `{{ rule.rts_reference }}`, etc.
 
 ---
 
-*For the framework architecture (regulation-agnostic), see [`docs/architecture.md`](../docs/architecture.md). For the full product document, see [`docs/regulatory-agent-kit-v2.md`](../docs/regulatory-agent-kit-v2.md).*
+*For the framework architecture (regulation-agnostic), see [`docs/architecture.md`](../docs/architecture.md).*

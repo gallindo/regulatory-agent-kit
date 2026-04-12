@@ -95,8 +95,8 @@ class TestPipelineMetrics:
     def test_record_pipeline_started(
         self, metrics: MetricsRegistry, registry: CollectorRegistry,
     ) -> None:
-        metrics.pipeline_runs_total.labels(regulation_id="dora").inc()
-        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "dora"}) == 1.0
+        metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
+        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 1.0
 
     def test_record_pipeline_completed(
         self, metrics: MetricsRegistry, registry: CollectorRegistry,
@@ -117,9 +117,9 @@ class TestPipelineMetrics:
     def test_double_increment(
         self, metrics: MetricsRegistry, registry: CollectorRegistry,
     ) -> None:
-        metrics.pipeline_runs_total.labels(regulation_id="dora").inc()
-        metrics.pipeline_runs_total.labels(regulation_id="dora").inc()
-        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "dora"}) == 2.0
+        metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
+        metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
+        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -238,8 +238,8 @@ class TestHelperFunctions:
             "regulatory_agent_kit.observability.metrics.get_metrics_registry",
             return_value=get_metrics_registry(registry=reg),
         ):
-            record_pipeline_started("dora")
-        assert _sample_value(reg, "rak_pipeline_runs_total", {"regulation_id": "dora"}) == 1.0
+            record_pipeline_started("example-plugin")
+        assert _sample_value(reg, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 1.0
 
     def test_record_pipeline_completed_helper(self) -> None:
         reg = CollectorRegistry()
@@ -247,9 +247,9 @@ class TestHelperFunctions:
             "regulatory_agent_kit.observability.metrics.get_metrics_registry",
             return_value=get_metrics_registry(registry=reg),
         ):
-            record_pipeline_completed("dora")
+            record_pipeline_completed("example-plugin")
         assert _sample_value(
-            reg, "rak_pipeline_runs_completed", {"regulation_id": "dora"},
+            reg, "rak_pipeline_runs_completed", {"regulation_id": "example-plugin"},
         ) == 1.0
 
     def test_record_pipeline_failed_helper(self) -> None:
@@ -258,9 +258,9 @@ class TestHelperFunctions:
             "regulatory_agent_kit.observability.metrics.get_metrics_registry",
             return_value=get_metrics_registry(registry=reg),
         ):
-            record_pipeline_failed("dora")
+            record_pipeline_failed("example-plugin")
         assert _sample_value(
-            reg, "rak_pipeline_runs_failed", {"regulation_id": "dora"},
+            reg, "rak_pipeline_runs_failed", {"regulation_id": "example-plugin"},
         ) == 1.0
 
     def test_record_repo_processed_helper(self) -> None:

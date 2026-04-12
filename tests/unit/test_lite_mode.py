@@ -21,9 +21,9 @@ class TestLiteModeExecutor:
     async def test_run_completes_successfully(self, lite_db: Path) -> None:
         executor = LiteModeExecutor(db_path=lite_db)
         result = await executor.run(
-            regulation_id="dora-ict-risk-2025",
+            regulation_id="example-regulation-2025",
             repo_urls=["https://github.com/example/repo1"],
-            plugin_data={"id": "dora-ict-risk-2025"},
+            plugin_data={"id": "example-regulation-2025"},
         )
         assert result.status == "completed"
         assert isinstance(result, LiteModeResult)
@@ -31,7 +31,7 @@ class TestLiteModeExecutor:
     async def test_all_phases_executed_in_order(self, lite_db: Path) -> None:
         executor = LiteModeExecutor(db_path=lite_db)
         result = await executor.run(
-            regulation_id="dora-ict-risk-2025",
+            regulation_id="example-regulation-2025",
             repo_urls=["https://github.com/example/repo1"],
             plugin_data={},
         )

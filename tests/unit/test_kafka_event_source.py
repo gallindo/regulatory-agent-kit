@@ -11,7 +11,7 @@ from regulatory_agent_kit.models.events import RegulatoryEvent
 
 def _valid_event_data() -> dict[str, str]:
     return {
-        "regulation_id": "dora-ict-risk-2025",
+        "regulation_id": "example-regulation-2025",
         "change_type": "new_requirement",
         "source": "kafka",
     }
@@ -32,7 +32,7 @@ class TestKafkaEventSource:
         callback.assert_called_once()
         event = callback.call_args[0][0]
         assert isinstance(event, RegulatoryEvent)
-        assert event.regulation_id == "dora-ict-risk-2025"
+        assert event.regulation_id == "example-regulation-2025"
 
     async def test_handles_invalid_json(self) -> None:
         callback = AsyncMock()

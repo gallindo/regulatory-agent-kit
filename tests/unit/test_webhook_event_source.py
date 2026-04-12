@@ -20,7 +20,7 @@ _SECRET = "test-webhook-secret"  # noqa: S105
 
 def _valid_event_data() -> dict[str, str]:
     return {
-        "regulation_id": "dora-ict-risk-2025",
+        "regulation_id": "example-regulation-2025",
         "change_type": "new_requirement",
         "source": "webhook",
     }
@@ -63,7 +63,7 @@ class TestWebhookEventSource:
         callback.assert_called_once()
         event = callback.call_args[0][0]
         assert isinstance(event, RegulatoryEvent)
-        assert event.regulation_id == "dora-ict-risk-2025"
+        assert event.regulation_id == "example-regulation-2025"
 
     async def test_missing_signature_returns_401(
         self, webhook_app: tuple[FastAPI, AsyncMock]

@@ -35,10 +35,10 @@ class TestRegulationPlugin:
 
     def test_extra_fields_allowed(self) -> None:
         plugin = RegulationPlugin.model_validate(
-            _minimal_plugin(dora_pillar="ICT Risk Management")
+            _minimal_plugin(plugin_pillar="ICT Risk Management")
         )
         assert plugin.model_extra is not None
-        assert plugin.model_extra["dora_pillar"] == "ICT Risk Management"
+        assert plugin.model_extra["plugin_pillar"] == "ICT Risk Management"
 
     def test_cross_references(self) -> None:
         plugin = RegulationPlugin.model_validate(

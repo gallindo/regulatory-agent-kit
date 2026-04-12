@@ -302,7 +302,7 @@ class SearchClient:
                     "indexed_at": datetime.now(UTC).isoformat(),
                 }
                 # Include optional plugin-specific fields
-                for extra_field in ("pillar", "rts_reference", "dora_pillar"):
+                for extra_field in ("pillar", "rts_reference"):
                     val = getattr(rule, extra_field, None) or rule.model_extra.get(extra_field)
                     if val:
                         doc[extra_field] = val

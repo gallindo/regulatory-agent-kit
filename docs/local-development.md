@@ -66,7 +66,7 @@ Edit `rak-config.yaml`:
 # ---------------------------------------------------------------
 
 # Which regulation plugin to enforce
-regulation: regulations/dora/dora-ict-risk-2025.yaml
+regulation: regulations/example-regulation/example-regulation.yaml
 
 # Repositories to analyze (HTTPS URLs or local paths mounted into the container)
 repos:
@@ -126,7 +126,7 @@ docker compose exec worker rak run \
 # Or via the API
 curl -X POST http://localhost:8000/events \
   -H "Content-Type: application/json" \
-  -d '{"regulation_id": "dora-ict-risk-2025", "change_type": "new_requirement"}'
+  -d '{"regulation_id": "example-regulation-2025", "change_type": "new_requirement"}'
 ```
 
 ---
@@ -198,7 +198,7 @@ docker compose exec worker rak run --config /app/rak-config.yaml
 # Via API (from your host machine)
 curl -X POST http://localhost:8000/events \
   -H "Content-Type: application/json" \
-  -d '{"regulation_id": "dora-ict-risk-2025", "change_type": "new_requirement"}'
+  -d '{"regulation_id": "example-regulation-2025", "change_type": "new_requirement"}'
 ```
 
 ### Check pipeline status

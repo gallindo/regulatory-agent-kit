@@ -130,9 +130,9 @@ class TestEsSearch:
         mock_client.close = AsyncMock()
 
         with patch(_SEARCH_CLIENT, return_value=mock_client):
-            await es_search("rak-regulation-context", "DORA", max_results=5)
+            await es_search("rak-regulation-context", "Example", max_results=5)
 
-        mock_client.search_context.assert_awaited_once_with("DORA", limit=5)
+        mock_client.search_context.assert_awaited_once_with("Example", limit=5)
 
 
 # ------------------------------------------------------------------

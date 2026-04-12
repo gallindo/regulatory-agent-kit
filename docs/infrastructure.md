@@ -64,7 +64,7 @@ pip install regulatory-agent-kit
 export ANTHROPIC_API_KEY=sk-...
 
 rak run --lite \
-  --regulation regulations/dora/dora-ict-risk-2025.yaml \
+  --regulation regulations/example-regulation/example-regulation.yaml \
   --repos ./my-local-repo \
   --checkpoint-mode terminal
 ```
@@ -988,7 +988,7 @@ export ANTHROPIC_API_KEY=sk-...
 # - Terminal-based human checkpoints (interactive prompts)
 
 rak run --lite \
-  --regulation regulations/dora/dora-ict-risk-2025.yaml \
+  --regulation regulations/example-regulation/example-regulation.yaml \
   --repos ./my-local-repo \
   --checkpoint-mode terminal
 ```

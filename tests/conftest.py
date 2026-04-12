@@ -5,5 +5,5 @@ import pytest
 
 @pytest.fixture
 def sample_regulation_path() -> str:
-    """Path to the sample DORA regulation plugin."""
-    return "regulations/dora/dora-ict-risk-2025.yaml"
+    """Path to the sample example regulation plugin."""
+    return "regulations/examples/example.yaml"

@@ -225,11 +225,7 @@
 | Plugin | Status | Evidence |
 |--------|--------|----------|
 | Example plugin (audit-logging) | DONE | `regulations/examples/example.yaml` + 2 Jinja2 templates |
-| DORA Pillar 1 — ICT Risk Management | DONE | `regulations/dora/dora-ict-risk-2025.yaml` — 7 rules, 9 templates |
-| DORA Pillar 2 — Incident Reporting | DONE | `regulations/dora/dora-incident-reporting-2025.yaml` — 5 rules, 8 templates |
-| DORA Pillar 3 — Resilience Testing | DONE | `regulations/dora/dora-resilience-testing-2025.yaml` — 4 rules, 5 templates |
-| DORA Pillar 4 — Third-Party Risk | DONE | `regulations/dora/dora-third-party-risk-2025.yaml` — 5 rules, 5 templates |
-| Other regulations (PSD2, PCI-DSS, HIPAA, NIS2, etc.) | NOT STARTED | Framework supports them; no plugins written |
+| Regulation-specific plugins (DORA, PSD2, PCI-DSS, HIPAA, NIS2, Open Finance, etc.) | OUT OF SCOPE | Plugins live in separate repositories and are installed via `rak plugin install`. The core framework remains regulation-agnostic. |
 
 ---
 
@@ -251,7 +247,7 @@
 | Glossary | DONE | `docs/glossary.md` |
 | ADR documents | DONE | `docs/adr/` |
 | Operations guides | DONE | `docs/operations/` |
-| DORA regulation README | DONE | `regulations/dora/README.md` |
+| Plugin catalog README | DONE | `regulations/README.md` — explains plugin installation flow |
 
 ---
 
@@ -274,15 +270,14 @@
 | CI/CD | 4 | 0 | 0 |
 | Infrastructure | 13 | 0 | 0 |
 | Testing | 4 | 0 | 0 |
-| Regulation Plugins | 5 | 0 | 1 |
+| Regulation Plugins | 1 | 0 | 0 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **119** | **0** | **0** |
+| **Totals** | **115** | **0** | **0** |
 
 ### Key Gaps
 
 1. ~~**Alembic migrations**~~ — DONE. `migrations/versions/001_initial_schema.py` contains full schema (6 tables, roles, indexes, partitioning).
-2. ~~**DORA YAML plugins**~~ — DONE. All 4 automatable pillars implemented with 21 rules and 22 Jinja2 templates. 20 tests pass.
-3. **Other regulation plugins** — Framework is regulation-agnostic but only DORA and example plugins have working YAML files.
+2. **Regulation-specific plugins** — OUT OF SCOPE for this repository. Plugins (DORA, PSD2, PCI-DSS, HIPAA, Open Finance, etc.) are distributed as separate repositories and installed via `rak plugin install`. Only the generic `examples/example.yaml` is kept for testing.
 4. ~~**Plugin registry**~~ — DONE. Models, Alembic migration 002, repository, FastAPI routes, CLI publish/install commands. 16 tests pass.
 5. ~~**Terraform IaC**~~ — DONE. 7 AWS modules + staging/production environments (29 files). Matches docs/infrastructure.md specs.
 6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.

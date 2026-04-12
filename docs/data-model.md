@@ -163,7 +163,7 @@ Tracks the lifecycle of a single compliance pipeline execution.
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `run_id` | `UUID` | NO | `gen_random_uuid()` | Primary key. Globally unique pipeline run identifier. |
-| `regulation_id` | `TEXT` | NO | — | ID of the regulation plugin that triggered this run (e.g., `dora-ict-risk-2025`). Must match a loaded plugin ID. |
+| `regulation_id` | `TEXT` | NO | — | ID of the regulation plugin that triggered this run (e.g., `example-regulation-2025`). Must match a loaded plugin ID. |
 | `status` | `TEXT` | NO | `'pending'` | Coarse lifecycle state. Constrained to: `pending`, `running`, `cost_rejected`, `completed`, `failed`, `rejected`, `cancelled`. This tracks the **lifecycle**, not the granular workflow phase — Temporal manages intermediate phases (e.g., `ANALYZING`, `AWAITING_IMPACT_REVIEW`) via its event-sourced history. `running` covers all active intermediate phases. See [`implementation-design.md` Section 4.1.1](implementation-design.md) for the full mapping. |
 | `created_at` | `TIMESTAMPTZ` | NO | `now()` | Timestamp when the pipeline run was created. |
 | `completed_at` | `TIMESTAMPTZ` | YES | `NULL` | Timestamp when the run reached a terminal state. NOT NULL when status is terminal; NULL when running. Enforced by CHECK constraint. |
@@ -389,7 +389,7 @@ Each `audit_entries.event_type` has a defined payload schema. These schemas are 
   "temperature": 0.0,
   "agent": "analyzer",
   "purpose": "evaluate_condition",
-  "rule_id": "DORA-ICT-001",
+  "rule_id": "RULE-001",
   "file_path": "src/main/java/com/example/UserService.java",
   "confidence": 0.92
 }
@@ -472,7 +472,7 @@ Each `audit_entries.event_type` has a defined payload schema. These schemas are 
   "decision": "approved",
   "rationale": "Impact assessment looks correct. Proceed with remediation.",
   "repos_affected": 42,
-  "rules_matched": ["DORA-ICT-001", "DORA-ICT-002"],
+  "rules_matched": ["RULE-001", "RULE-002"],
   "decision_id": "550e8400-e29b-41d4-a716-446655440000",
   "wait_duration_ms": 7200000
 }
@@ -485,12 +485,12 @@ Each `audit_entries.event_type` has a defined payload schema. These schemas are 
   "@context": "https://schema.org",
   "@type": "ConflictDetected",
   "conflicting_rules": [
-    {"regulation_id": "dora-ict-risk-2025", "rule_id": "DORA-ICT-001"},
+    {"regulation_id": "example-regulation-2025", "rule_id": "RULE-001"},
     {"regulation_id": "gdpr-privacy-2025", "rule_id": "GDPR-MIN-003"}
   ],
   "file_path": "src/main/java/com/example/AuditService.java",
   "region": {"start_line": 45, "end_line": 78},
-  "conflict_description": "DORA-ICT-001 requires adding detailed audit logging; GDPR-MIN-003 requires minimizing personal data in logs.",
+  "conflict_description": "RULE-001 requires adding detailed audit logging; GDPR-MIN-003 requires minimizing personal data in logs.",
   "relationship": "does_not_override"
 }
 ```
@@ -549,9 +549,9 @@ Each `audit_entries.event_type` has a defined payload schema. These schemas are 
   "repo_url": "https://github.com/org/service-a",
   "pr_url": "https://github.com/org/service-a/pull/42",
   "pr_number": 42,
-  "branch": "rak/dora-ict-risk-2025/DORA-ICT-001",
-  "title": "rak: DORA-ICT-001 — Add audit logging to ICT services",
-  "rules_addressed": ["DORA-ICT-001"],
+  "branch": "rak/example-regulation-2025/RULE-001",
+  "title": "rak: RULE-001 — Add audit logging to ICT services",
+  "rules_addressed": ["RULE-001"],
   "files_changed": 3,
   "insertions": 45,
   "deletions": 2

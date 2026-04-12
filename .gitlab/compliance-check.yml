@@ -10,7 +10,7 @@
 #       file: '.gitlab/compliance-check.yml'
 #
 #   variables:
-#     RAK_REGULATION_PLUGIN: regulations/dora/dora-ict-risk-2025.yaml
+#     RAK_REGULATION_PLUGIN: regulations/examples/example.yaml
 # ---------------------------------------------------------------
 
 variables:
