@@ -7,6 +7,7 @@ compliance analysis.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -309,39 +310,83 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
 
 
 # ---------------------------------------------------------------------------
-# Auto-detection
+# Parser registry (Open/Closed)
 # ---------------------------------------------------------------------------
+
+
+ParserFn = Callable[[Path], CIPipelineConfig]
+
+
+@dataclass(frozen=True)
+class PipelineParserSpec:
+    """A registered CI/CD parser and how to discover its config files.
+
+    The registry uses ``relative_dir`` + ``file_patterns`` to locate
+    candidate files, or ``relative_files`` for single fixed-name files
+    (e.g. ``.gitlab-ci.yml``).
+    """
+
+    platform: str
+    parser: ParserFn
+    relative_dir: str = ""
+    file_patterns: tuple[str, ...] = ()
+    relative_files: tuple[str, ...] = ()
+
+
+PIPELINE_PARSERS: list[PipelineParserSpec] = [
+    PipelineParserSpec(
+        platform="github_actions",
+        parser=parse_github_actions,
+        relative_dir=".github/workflows",
+        file_patterns=("*.yml", "*.yaml"),
+    ),
+    PipelineParserSpec(
+        platform="gitlab_ci",
+        parser=parse_gitlab_ci,
+        relative_files=(".gitlab-ci.yml",),
+    ),
+]
+
+
+def register_parser(spec: PipelineParserSpec) -> None:
+    """Register a new CI/CD parser.
+
+    New platforms (CircleCI, Azure Pipelines, etc.) can be added without
+    modifying :func:`discover_pipeline_configs`.
+    """
+    PIPELINE_PARSERS.append(spec)
+
+
+def _iter_candidate_paths(repo_path: Path, spec: PipelineParserSpec) -> Iterator[Path]:
+    """Yield files in *repo_path* that match *spec*."""
+    if spec.relative_dir and spec.file_patterns:
+        target_dir = repo_path / spec.relative_dir
+        if target_dir.is_dir():
+            for pattern in spec.file_patterns:
+                yield from sorted(target_dir.glob(pattern))
+    for rel_file in spec.relative_files:
+        candidate = repo_path / rel_file
+        if candidate.exists():
+            yield candidate
 
 
 def discover_pipeline_configs(repo_path: Path) -> list[CIPipelineConfig]:
     """Discover and parse all CI/CD configs in a repository.
 
-    Args:
-        repo_path: Root path of the repository.
-
-    Returns:
-        List of parsed pipeline configurations.
+    Iterates over every parser registered in :data:`PIPELINE_PARSERS`.
     """
     configs: list[CIPipelineConfig] = []
-
-    # GitHub Actions
-    gha_dir = repo_path / ".github" / "workflows"
-    if gha_dir.is_dir():
-        for pattern in ("*.yml", "*.yaml"):
-            for wf in sorted(gha_dir.glob(pattern)):
-                try:
-                    configs.append(parse_github_actions(wf))
-                except Exception:
-                    logger.warning("Failed to parse GHA workflow: %s", wf, exc_info=True)
-
-    # GitLab CI
-    gitlab_ci = repo_path / ".gitlab-ci.yml"
-    if gitlab_ci.exists():
-        try:
-            configs.append(parse_gitlab_ci(gitlab_ci))
-        except Exception:
-            logger.warning("Failed to parse GitLab CI: %s", gitlab_ci, exc_info=True)
-
+    for spec in PIPELINE_PARSERS:
+        for path in _iter_candidate_paths(repo_path, spec):
+            try:
+                configs.append(spec.parser(path))
+            except Exception:
+                logger.warning(
+                    "Failed to parse %s config: %s",
+                    spec.platform,
+                    path,
+                    exc_info=True,
+                )
     return configs
 
 

@@ -69,35 +69,34 @@ def analyze_pipelines(repo_path: Path) -> PipelineAnalysisResult:
     """
     configs = discover_pipeline_configs(repo_path)
 
-    result = PipelineAnalysisResult(
+    if not configs:
+        logger.info("No CI/CD pipeline configurations found in %s", repo_path)
+        return PipelineAnalysisResult(pipeline_configs=[])
+
+    findings: list[PipelineCheckResult] = []
+    for config in configs:
+        findings.extend(_run_checks(config))
+
+    return PipelineAnalysisResult(
         pipelines_analyzed=len(configs),
+        checks_run=len(findings),
+        checks_passed=sum(1 for f in findings if f.passed),
+        checks_failed=sum(1 for f in findings if not f.passed),
+        findings=findings,
         pipeline_configs=[c.source_file for c in configs],
     )
 
-    if not configs:
-        logger.info("No CI/CD pipeline configurations found in %s", repo_path)
-        return result
 
-    for config in configs:
-        _run_checks(config, result)
+def _run_checks(config: CIPipelineConfig) -> list[PipelineCheckResult]:
+    """Run all pipeline checks against a single config.
 
-    return result
-
-
-def _run_checks(
-    config: CIPipelineConfig,
-    result: PipelineAnalysisResult,
-) -> None:
-    """Run all pipeline checks against a single config."""
+    Returns the list of check results. Checks that raise are logged and
+    skipped rather than aborting the batch.
+    """
+    results: list[PipelineCheckResult] = []
     for check in PIPELINE_CHECKS:
         try:
-            check_result = check.check_fn(config)
-            result.findings.append(check_result)
-            result.checks_run += 1
-            if check_result.passed:
-                result.checks_passed += 1
-            else:
-                result.checks_failed += 1
+            results.append(check.check_fn(config))
         except Exception:
             logger.warning(
                 "Check %s failed on %s",
@@ -105,6 +104,7 @@ def _run_checks(
                 config.source_file,
                 exc_info=True,
             )
+    return results
 
 
 def format_pipeline_analysis_as_markdown(result: PipelineAnalysisResult) -> str:

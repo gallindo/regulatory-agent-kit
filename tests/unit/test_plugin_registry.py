@@ -192,3 +192,26 @@ class TestPluginRegistryAPI:
             response = await client.get("/plugins/nonexistent/versions")
         assert response.status_code == 200
         assert response.json() == []
+
+    async def test_download_roundtrips_yaml_content(self) -> None:
+        yaml_content = EXAMPLE_PLUGIN.read_text(encoding="utf-8")
+        transport = ASGITransport(app=app)  # type: ignore[arg-type]
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            publish_response = await client.post(
+                "/plugins",
+                json={"yaml_content": yaml_content, "author": "t", "tags": []},
+            )
+            assert publish_response.status_code == 201
+            plugin_id = publish_response.json()["plugin_id"]
+
+            download = await client.get(f"/plugins/{plugin_id}/download")
+        assert download.status_code == 200
+        body = download.json()
+        assert body["plugin_id"] == plugin_id
+        assert body["yaml_content"]["id"] == plugin_id
+
+    async def test_download_missing_plugin_returns_404(self) -> None:
+        transport = ASGITransport(app=app)  # type: ignore[arg-type]
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/plugins/nonexistent/download")
+        assert response.status_code == 404

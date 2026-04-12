@@ -97,14 +97,11 @@ class PartitionManager:
             List of (year, month) tuples covering the window.
         """
         ref = reference_date or date.today()
+        base = ref.year * 12 + (ref.month - 1)
         result: list[tuple[int, int]] = []
         for offset in range(self.months_ahead + 1):
-            month = ref.month + offset
-            year = ref.year
-            while month > 12:
-                month -= 12
-                year += 1
-            result.append((year, month))
+            year, month_idx = divmod(base + offset, 12)
+            result.append((year, month_idx + 1))
         return result
 
     def compute_cutoff_date(

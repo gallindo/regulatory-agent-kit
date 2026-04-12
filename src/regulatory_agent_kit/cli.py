@@ -924,29 +924,46 @@ async def _install_plugin(
     registry_url: str,
     output_dir: str,
 ) -> None:
-    """GET a plugin from the registry and save locally."""
+    """Download a plugin's YAML from the registry and save it locally."""
     import httpx
+    from ruamel.yaml import YAML
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{registry_url}/plugins/{plugin_id}/versions")
+        response = await client.get(f"{registry_url}/plugins/{plugin_id}/download")
         if response.status_code == 404:
             console.print(f"[red]Plugin '{plugin_id}' not found in registry.[/red]")
             raise typer.Exit(code=1)
         response.raise_for_status()
-        versions = response.json()
+        payload = response.json()
 
-    if not versions:
-        console.print(f"[yellow]No versions found for '{plugin_id}'.[/yellow]")
-        raise typer.Exit(code=1)
+    version = payload["version"]
+    yaml_content = payload["yaml_content"]
 
-    latest = versions[0]
     out_path = Path(output_dir) / plugin_id
     out_path.mkdir(parents=True, exist_ok=True)
+    yaml_path = out_path / f"{plugin_id}.yaml"
     meta_path = out_path / "registry-metadata.json"
-    meta_path.write_text(json.dumps(latest, indent=2, default=str), encoding="utf-8")
+
+    yaml_writer = YAML()
+    yaml_writer.default_flow_style = False
+    with yaml_path.open("w", encoding="utf-8") as fh:
+        yaml_writer.dump(yaml_content, fh)
+
+    meta_path.write_text(
+        json.dumps(
+            {
+                "plugin_id": plugin_id,
+                "version": version,
+                "yaml_hash": payload.get("yaml_hash", ""),
+                "source": registry_url,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     console.print(
-        f"[green]Installed {plugin_id} v{latest['version']} → {out_path}[/green]"
+        f"[green]Installed {plugin_id} v{version} → {yaml_path}[/green]"
     )
 
 
@@ -1025,15 +1042,12 @@ def db_create_partitions(
             console.print(f"  [green]Created:[/green] {name}")
 
 
-def _month_start(anchor: datetime, months_ahead: int) -> datetime:
-    """Return the first day (UTC) of the month ``months_ahead`` after *anchor*."""
-    total = anchor.year * 12 + (anchor.month - 1) + months_ahead
-    year, month = divmod(total, 12)
-    return datetime(year, month + 1, 1, tzinfo=UTC)
-
-
 async def _create_partitions(months: int) -> list[str] | None:
-    """Create monthly range partitions for rak.audit_entries."""
+    """Create monthly range partitions for rak.audit_entries.
+
+    Thin CLI wrapper delegating to :class:`PartitionManager`. Returns
+    ``None`` when no PostgreSQL pool is available (e.g., Lite Mode).
+    """
     try:
         from regulatory_agent_kit.database.pool import get_pool
 
@@ -1041,26 +1055,13 @@ async def _create_partitions(months: int) -> list[str] | None:
     except RuntimeError:
         return None
 
-    now = datetime.now(UTC)
-    created: list[str] = []
+    from regulatory_agent_kit.database.partition_manager import PartitionManager
 
-    async with pool.connection() as conn:
-        for offset in range(months):
-            start = _month_start(now, offset)
-            end = _month_start(now, offset + 1)
-            partition_name = f"audit_entries_y{start.year}m{start.month:02d}"
-
-            try:
-                await conn.execute(
-                    f"CREATE TABLE IF NOT EXISTS rak.{partition_name} "
-                    f"PARTITION OF rak.audit_entries "
-                    f"FOR VALUES FROM ('{start.date()}') TO ('{end.date()}')"
-                )
-                created.append(partition_name)
-            except Exception:
-                logger.debug("Partition %s may already exist", partition_name, exc_info=True)
-
-    return created
+    # The CLI argument is the number of months to create, including the
+    # current one, while ``PartitionManager.months_ahead`` counts months
+    # *in addition to* the current one.
+    manager = PartitionManager(months_ahead=max(months - 1, 0))
+    return await manager.ensure_future_partitions(pool)
 
 
 # ---------------------------------------------------------------------------

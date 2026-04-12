@@ -118,6 +118,14 @@ class InMemoryPluginRegistry:
     async def list_versions(self, plugin_id: str) -> list[dict[str, Any]]:
         return list(self._versions.get(plugin_id, []))
 
+    async def get_version(
+        self, plugin_id: str, version: str
+    ) -> dict[str, Any] | None:
+        for entry in self._versions.get(plugin_id, []):
+            if entry.get("version") == version:
+                return entry
+        return None
+
 
 # Module-level default instance — shared by the FastAPI routes and their
 # test helpers so tests can seed/clear without instantiating their own

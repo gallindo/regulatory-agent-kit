@@ -124,6 +124,43 @@ async def list_versions(
     ]
 
 
+@router.get(
+    "/{plugin_id}/download",
+    summary="Download plugin YAML content",
+)
+async def download_plugin(
+    plugin_id: str,
+    version: str | None = Query(default=None, description="Specific version (default: latest)"),
+    store: Any = Depends(get_plugin_registry),  # noqa: B008
+) -> dict[str, Any]:
+    """Return a plugin version's metadata plus the stored YAML content."""
+    entry = await store.get(plugin_id)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Plugin {plugin_id} not found.",
+        )
+
+    target_version = version or entry["latest_version"]
+    version_row = await store.get_version(plugin_id, target_version)
+    if version_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Plugin {plugin_id} version {target_version} not found.",
+        )
+
+    yaml_content = version_row.get("yaml_content", {})
+    if isinstance(yaml_content, str):
+        yaml_content = json.loads(yaml_content)
+
+    return {
+        "plugin_id": plugin_id,
+        "version": target_version,
+        "yaml_hash": version_row.get("yaml_hash", ""),
+        "yaml_content": yaml_content,
+    }
+
+
 @router.post(
     "",
     response_model=PluginRegistryEntry,
