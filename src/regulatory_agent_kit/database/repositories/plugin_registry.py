@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from regulatory_agent_kit.database.repositories.base import BaseRepository
@@ -29,8 +30,6 @@ class PluginRegistryRepository(BaseRepository):
 
         Upserts the registry entry and inserts a new version record.
         """
-        import json
-
         tags_json = json.dumps(tags)
 
         await self._execute(
@@ -101,7 +100,6 @@ class PluginRegistryRepository(BaseRepository):
 
         if tags:
             conditions.append("tags @> %s::jsonb")
-            import json
             params.append(json.dumps(tags))
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""

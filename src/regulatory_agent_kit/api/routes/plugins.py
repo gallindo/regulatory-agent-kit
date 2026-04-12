@@ -265,7 +265,10 @@ async def _publish_to_db(
         PluginRegistryRepository,
     )
 
-    yaml_content = json.loads(request.yaml_content) if request.yaml_content.strip().startswith("{") else {"raw": request.yaml_content}
+    if request.yaml_content.strip().startswith("{"):
+        yaml_content = json.loads(request.yaml_content)
+    else:
+        yaml_content = {"raw": request.yaml_content}
 
     async with db_pool.connection() as conn:
         repo = PluginRegistryRepository(conn)

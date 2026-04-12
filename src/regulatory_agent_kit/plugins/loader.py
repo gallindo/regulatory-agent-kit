@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from pathlib import Path  # noqa: TC003
 from typing import Any, Protocol, runtime_checkable
@@ -81,8 +82,6 @@ class PluginLoader:
 
     def load_from_string(self, yaml_content: str) -> RegulationPlugin:
         """Parse and validate a plugin from a YAML string (no caching)."""
-        import io
-
         try:
             raw_yaml = self._yaml.load(io.StringIO(yaml_content))
         except Exception as exc:

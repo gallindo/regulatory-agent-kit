@@ -334,16 +334,12 @@ def discover_pipeline_configs(repo_path: Path) -> list[CIPipelineConfig]:
     # GitHub Actions
     gha_dir = repo_path / ".github" / "workflows"
     if gha_dir.is_dir():
-        for wf in sorted(gha_dir.glob("*.yml")):
-            try:
-                configs.append(parse_github_actions(wf))
-            except Exception:
-                logger.warning("Failed to parse GHA workflow: %s", wf, exc_info=True)
-        for wf in sorted(gha_dir.glob("*.yaml")):
-            try:
-                configs.append(parse_github_actions(wf))
-            except Exception:
-                logger.warning("Failed to parse GHA workflow: %s", wf, exc_info=True)
+        for pattern in ("*.yml", "*.yaml"):
+            for wf in sorted(gha_dir.glob(pattern)):
+                try:
+                    configs.append(parse_github_actions(wf))
+                except Exception:
+                    logger.warning("Failed to parse GHA workflow: %s", wf, exc_info=True)
 
     # GitLab CI
     gitlab_ci = repo_path / ".gitlab-ci.yml"

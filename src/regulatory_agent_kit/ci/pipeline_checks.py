@@ -115,7 +115,7 @@ def _check_no_hardcoded_secrets(config: CIPipelineConfig) -> PipelineCheckResult
 
     return PipelineCheckResult(
         check_id="PIPE-005",
-        passed=len(hardcoded) == 0,
+        passed=not hardcoded,
         severity="critical",
         description="Secrets must not be hardcoded in pipeline configuration.",
         detail=f"Potentially hardcoded secrets: {', '.join(hardcoded)}" if hardcoded else "",
