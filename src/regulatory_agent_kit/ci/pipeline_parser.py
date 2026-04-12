@@ -100,6 +100,59 @@ _SIGNING_PATTERNS = frozenset({
     "cosign", "sigstore", "gpg --sign", "sign", "notary",
 })
 
+# GitLab CI top-level keys that are not job definitions.
+_GITLAB_RESERVED_KEYS = frozenset({
+    "stages", "variables", "default", "include", "workflow",
+    "before_script", "after_script", "image", "services", "cache",
+})
+
+# Feature flags accumulated by scanning CI step text.
+_FEATURE_FLAG_PATTERNS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("has_security_scanning", _SECURITY_SCAN_PATTERNS),
+    ("has_dependency_scanning", _DEPENDENCY_SCAN_PATTERNS),
+    ("has_test_step", _TEST_PATTERNS),
+    ("has_deployment_step", _DEPLOY_PATTERNS),
+    ("has_artifact_signing", _SIGNING_PATTERNS),
+)
+
+
+def _new_feature_flags() -> dict[str, bool]:
+    """Return a fresh dict of feature flags (all False) plus approval gate."""
+    flags = {name: False for name, _ in _FEATURE_FLAG_PATTERNS}
+    flags["has_approval_gate"] = False
+    return flags
+
+
+def _update_feature_flags(searchable: str, flags: dict[str, bool]) -> None:
+    """Turn on any flag whose pattern set matches *searchable*."""
+    for flag_name, patterns in _FEATURE_FLAG_PATTERNS:
+        if not flags[flag_name] and _matches_any(searchable, patterns):
+            flags[flag_name] = True
+
+
+def _build_config(
+    path: Path,
+    platform: str,
+    jobs: list[PipelineJob],
+    secrets: list[str],
+    flags: dict[str, bool],
+    raw: dict[str, Any],
+) -> CIPipelineConfig:
+    """Assemble a CIPipelineConfig from per-parser collected state."""
+    return CIPipelineConfig(
+        source_file=str(path),
+        platform=platform,
+        jobs=jobs,
+        secrets_referenced=list(set(secrets)),
+        has_security_scanning=flags["has_security_scanning"],
+        has_dependency_scanning=flags["has_dependency_scanning"],
+        has_test_step=flags["has_test_step"],
+        has_deployment_step=flags["has_deployment_step"],
+        has_approval_gate=flags["has_approval_gate"],
+        has_artifact_signing=flags["has_artifact_signing"],
+        raw_config=raw,
+    )
+
 
 # ---------------------------------------------------------------------------
 # GitHub Actions parser
@@ -120,12 +173,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
 
     jobs: list[PipelineJob] = []
     all_secrets: list[str] = []
-    has_security = False
-    has_deps = False
-    has_tests = False
-    has_deploy = False
-    has_approval = False
-    has_signing = False
+    flags = _new_feature_flags()
 
     for job_name, job_config in raw.get("jobs", {}).items():
         if not isinstance(job_config, dict):
@@ -139,7 +187,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
         if isinstance(env_block, dict):
             environment = env_block.get("name", "")
             if env_block.get("url"):
-                has_deploy = True
+                flags["has_deployment_step"] = True
         elif isinstance(env_block, str):
             environment = env_block
 
@@ -160,17 +208,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
                     all_secrets.append(secret_name)
 
             searchable = f"{step_name} {uses} {run_cmd}".lower()
-
-            if _matches_any(searchable, _SECURITY_SCAN_PATTERNS):
-                has_security = True
-            if _matches_any(searchable, _DEPENDENCY_SCAN_PATTERNS):
-                has_deps = True
-            if _matches_any(searchable, _TEST_PATTERNS):
-                has_tests = True
-            if _matches_any(searchable, _DEPLOY_PATTERNS):
-                has_deploy = True
-            if _matches_any(searchable, _SIGNING_PATTERNS):
-                has_signing = True
+            _update_feature_flags(searchable, flags)
 
             steps.append(PipelineStep(
                 name=step_name,
@@ -182,7 +220,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
         # Environment protection rules imply approval
         if environment and isinstance(env_block, dict):
             needs_approval_gate = True
-            has_approval = True
+            flags["has_approval_gate"] = True
 
         jobs.append(PipelineJob(
             name=job_name,
@@ -192,19 +230,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
             runs_on=str(job_config.get("runs-on", "")),
         ))
 
-    return CIPipelineConfig(
-        source_file=str(path),
-        platform="github_actions",
-        jobs=jobs,
-        secrets_referenced=list(set(all_secrets)),
-        has_security_scanning=has_security,
-        has_dependency_scanning=has_deps,
-        has_test_step=has_tests,
-        has_deployment_step=has_deploy,
-        has_approval_gate=has_approval,
-        has_artifact_signing=has_signing,
-        raw_config=raw,
-    )
+    return _build_config(path, "github_actions", jobs, all_secrets, flags, raw)
 
 
 # ---------------------------------------------------------------------------
@@ -224,20 +250,9 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
     yaml = YAML(typ="safe")
     raw: dict[str, Any] = yaml.load(path) or {}
 
-    # Reserved GitLab CI keys (not job definitions)
-    reserved_keys = frozenset({
-        "stages", "variables", "default", "include", "workflow",
-        "before_script", "after_script", "image", "services", "cache",
-    })
-
     jobs: list[PipelineJob] = []
     all_secrets: list[str] = []
-    has_security = False
-    has_deps = False
-    has_tests = False
-    has_deploy = False
-    has_approval = False
-    has_signing = False
+    flags = _new_feature_flags()
 
     # Extract variable references to CI/CD variables (secrets)
     variables = raw.get("variables", {})
@@ -248,7 +263,7 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
                 all_secrets.append(val_str.lstrip("$"))
 
     for key, value in raw.items():
-        if key in reserved_keys or not isinstance(value, dict):
+        if key in _GITLAB_RESERVED_KEYS or not isinstance(value, dict):
             continue
         if key.startswith("."):
             continue  # hidden/template jobs
@@ -266,30 +281,20 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
             environment = env_block.get("name", "")
             if env_block.get("action") == "manual" or value.get("when") == "manual":
                 needs_approval_gate = True
-                has_approval = True
+                flags["has_approval_gate"] = True
         elif isinstance(env_block, str):
             environment = env_block
 
         if value.get("when") == "manual":
             needs_approval_gate = True
-            has_approval = True
+            flags["has_approval_gate"] = True
 
         image = str(value.get("image", ""))
 
         for line in script_lines:
             line_str = str(line)
             searchable = f"{key} {line_str} {image}".lower()
-
-            if _matches_any(searchable, _SECURITY_SCAN_PATTERNS):
-                has_security = True
-            if _matches_any(searchable, _DEPENDENCY_SCAN_PATTERNS):
-                has_deps = True
-            if _matches_any(searchable, _TEST_PATTERNS):
-                has_tests = True
-            if _matches_any(searchable, _DEPLOY_PATTERNS):
-                has_deploy = True
-            if _matches_any(searchable, _SIGNING_PATTERNS):
-                has_signing = True
+            _update_feature_flags(searchable, flags)
 
             steps.append(PipelineStep(name=key, command=line_str))
 
@@ -300,19 +305,7 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
             needs_approval=needs_approval_gate,
         ))
 
-    return CIPipelineConfig(
-        source_file=str(path),
-        platform="gitlab_ci",
-        jobs=jobs,
-        secrets_referenced=list(set(all_secrets)),
-        has_security_scanning=has_security,
-        has_dependency_scanning=has_deps,
-        has_test_step=has_tests,
-        has_deployment_step=has_deploy,
-        has_approval_gate=has_approval,
-        has_artifact_signing=has_signing,
-        raw_config=raw,
-    )
+    return _build_config(path, "gitlab_ci", jobs, all_secrets, flags, raw)
 
 
 # ---------------------------------------------------------------------------

@@ -1025,6 +1025,13 @@ def db_create_partitions(
             console.print(f"  [green]Created:[/green] {name}")
 
 
+def _month_start(anchor: datetime, months_ahead: int) -> datetime:
+    """Return the first day (UTC) of the month ``months_ahead`` after *anchor*."""
+    total = anchor.year * 12 + (anchor.month - 1) + months_ahead
+    year, month = divmod(total, 12)
+    return datetime(year, month + 1, 1, tzinfo=UTC)
+
+
 async def _create_partitions(months: int) -> list[str] | None:
     """Create monthly range partitions for rak.audit_entries."""
     try:
@@ -1039,26 +1046,15 @@ async def _create_partitions(months: int) -> list[str] | None:
 
     async with pool.connection() as conn:
         for offset in range(months):
-            month = now.month + offset
-            year = now.year
-            while month > 12:
-                month -= 12
-                year += 1
-            next_month = month + 1
-            next_year = year
-            if next_month > 12:
-                next_month = 1
-                next_year += 1
-
-            partition_name = f"audit_entries_y{year}m{month:02d}"
-            start_date = f"{year}-{month:02d}-01"
-            end_date = f"{next_year}-{next_month:02d}-01"
+            start = _month_start(now, offset)
+            end = _month_start(now, offset + 1)
+            partition_name = f"audit_entries_y{start.year}m{start.month:02d}"
 
             try:
                 await conn.execute(
                     f"CREATE TABLE IF NOT EXISTS rak.{partition_name} "
                     f"PARTITION OF rak.audit_entries "
-                    f"FOR VALUES FROM ('{start_date}') TO ('{end_date}')"
+                    f"FOR VALUES FROM ('{start.date()}') TO ('{end.date()}')"
                 )
                 created.append(partition_name)
             except Exception:

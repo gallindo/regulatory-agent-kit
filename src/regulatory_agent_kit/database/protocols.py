@@ -56,6 +56,40 @@ class AuditStore(Protocol):
 
 
 @runtime_checkable
+class PluginRegistryStore(Protocol):
+    """Store for published regulation plugins and their versions."""
+
+    async def publish(
+        self,
+        plugin_id: str,
+        name: str,
+        version: str,
+        jurisdiction: str,
+        authority: str,
+        description: str,
+        author: str,
+        tags: list[str],
+        certification_tier: str,
+        yaml_hash: str,
+        yaml_content: dict[str, Any],
+        changelog: str = "",
+    ) -> dict[str, Any]: ...
+
+    async def get(self, plugin_id: str) -> dict[str, Any] | None: ...
+
+    async def search(
+        self,
+        query: str = "",
+        jurisdiction: str | None = None,
+        tags: list[str] | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]: ...
+
+    async def list_versions(self, plugin_id: str) -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
 class CheckpointStore(Protocol):
     """Store for human-in-the-loop checkpoint decisions."""
 

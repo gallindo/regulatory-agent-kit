@@ -125,6 +125,36 @@ def format_combined_markdown(
 
 
 # ---------------------------------------------------------------------------
+# Shared HTTP request helper
+# ---------------------------------------------------------------------------
+
+_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def _http_request(
+    method: str,
+    url: str,
+    auth_headers: dict[str, str],
+    body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Make an authenticated HTTP request returning parsed JSON.
+
+    Used by both GitHub and GitLab reviewers — the only per-provider
+    difference is the authentication header, which is supplied by the
+    caller.
+    """
+    headers = {
+        "Content-Type": "application/json",
+        **auth_headers,
+    }
+    data = json.dumps(body).encode() if body else None
+    req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
+    with urlopen(req, timeout=_REQUEST_TIMEOUT_SECONDS) as resp:  # noqa: S310
+        result: dict[str, Any] = json.loads(resp.read().decode())
+        return result
+
+
+# ---------------------------------------------------------------------------
 # GitHub PR reviewer
 # ---------------------------------------------------------------------------
 
@@ -143,17 +173,15 @@ class GitHubPRReviewer:
         body: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make an authenticated GitHub API request."""
-        headers = {
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json",
-        }
-        data = json.dumps(body).encode() if body else None
-        req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
-        timeout_seconds = 30
-        with urlopen(req, timeout=timeout_seconds) as resp:  # noqa: S310
-            result: dict[str, Any] = json.loads(resp.read().decode())
-            return result
+        return _http_request(
+            method,
+            url,
+            auth_headers={
+                "Authorization": f"token {self.token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+            body=body,
+        )
 
     def _find_existing_comment(
         self,
@@ -237,16 +265,12 @@ class GitLabPRReviewer:
         body: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make an authenticated GitLab API request."""
-        headers = {
-            "PRIVATE-TOKEN": self.token,
-            "Content-Type": "application/json",
-        }
-        data = json.dumps(body).encode() if body else None
-        req = Request(url, data=data, headers=headers, method=method)  # noqa: S310
-        timeout_seconds = 30
-        with urlopen(req, timeout=timeout_seconds) as resp:  # noqa: S310
-            result: dict[str, Any] = json.loads(resp.read().decode())
-            return result
+        return _http_request(
+            method,
+            url,
+            auth_headers={"PRIVATE-TOKEN": self.token},
+            body=body,
+        )
 
     def _find_existing_note(
         self,
