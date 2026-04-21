@@ -13,7 +13,7 @@
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 4 ✓ │ DONE — release.yml workflow added    │ Tag push v*.*.* builds sdist+wheel, creates GitHub Release, publishes to PyPI via OIDC            │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 5   │ No GitHub issue/PR templates        │ .github/ISSUE_TEMPLATE/ (bug, feature, security) and PULL_REQUEST_TEMPLATE.md are both missing    │
+  │ 5 ✓ │ DONE — issue and PR templates added  │ bug_report.yml, feature_request.yml, config.yml (security/discussion links), PR template          │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 6   │ No py.typed marker                  │ mypy strict mode is configured but PEP 561 compliance isn't signaled to downstream users          │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤

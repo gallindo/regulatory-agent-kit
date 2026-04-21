@@ -1,0 +1,61 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Describe the regulation or use-case driving your request —
+        not just the desired API — so we can design the right solution.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the compliance scenario, regulation article, or workflow gap that motivates this request.
+        If this is about a specific regulation (DORA, PCI-DSS, HIPAA, etc.), mention it here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like RAK to handle this? Include example YAML, CLI flags, or API shapes if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Any workarounds you've tried or other approaches you considered.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      multiple: true
+      options:
+        - Plugin system / YAML schema
+        - Agent behaviour (analyzer / refactor / test-generator / reporter)
+        - Orchestration (Temporal workflows)
+        - CLI
+        - API (FastAPI)
+        - Database / repositories
+        - CI/CD integration
+        - Observability / audit trail
+        - Infrastructure / deployment
+        - Documentation
+        - Other
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: This feature fits the regulation-as-configuration model (no hardcoded regulatory logic in Python)
+          required: true

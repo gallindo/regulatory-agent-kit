@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/gallindo/regulatory-agent-kit/security/advisories/new
+    about: Report a security vulnerability via GitHub Security Advisories (see SECURITY.md)
+  - name: Question or discussion
+    url: https://github.com/gallindo/regulatory-agent-kit/discussions
+    about: Ask a question or start a discussion — not for bug reports or feature requests
