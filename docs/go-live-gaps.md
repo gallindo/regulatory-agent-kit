@@ -15,7 +15,7 @@
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 5 ✓ │ DONE — issue and PR templates added  │ bug_report.yml, feature_request.yml, config.yml (security/discussion links), PR template          │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 6   │ No py.typed marker                  │ mypy strict mode is configured but PEP 561 compliance isn't signaled to downstream users          │
+  │ 6 ✓ │ DONE — py.typed marker added         │ src/regulatory_agent_kit/py.typed created; package is now PEP 561 compliant for downstream mypy   │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 7   │ No CHANGELOG.md                     │ No human-readable release notes; backfill from git log for v0.1.0                                 │
   └─────┴─────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┘
