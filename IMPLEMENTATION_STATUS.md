@@ -1,7 +1,7 @@
 # Implementation Status — regulatory-agent-kit
 
-> Generated: 2026-04-09 | Version: 0.1.0 (Alpha)
-> Source files: 89 | Test files: 76
+> Generated: 2026-04-21 | Version: 0.1.0 (Alpha)
+> Source files: 97 | Test files: 78
 
 ---
 
@@ -61,6 +61,7 @@
 | Impact map (ASTRegion, RuleMatch, FileImpact, ConflictRecord) | DONE | `models/impact_map.py` |
 | Change models (FileDiff, ChangeSet, TestResult, ReportBundle) | DONE | `models/changes.py` |
 | Audit models (AuditEntry, CheckpointDecision) | DONE | `models/audit.py` — 9 event types |
+| Registry models (PluginRegistryEntry, PluginVersion, PublishRequest, SearchQuery) | DONE | `models/registry.py` |
 
 ---
 
@@ -76,7 +77,6 @@
 | Plugin scaffolder (`rak plugin init`) | DONE | `plugins/scaffolder.py` |
 | Plugin certification tiers | DONE | `plugins/certification.py` |
 | Example regulation plugin | DONE | `regulations/examples/example.yaml` + templates |
-| DORA plugin suite (5 pillars) | PARTIAL | `regulations/dora/README.md` exists with full documentation; no YAML rule files yet |
 | Plugin registry (discovery, search, publication) | DONE | Models, migration 002, repository, API routes, CLI publish/install |
 
 ---
@@ -110,6 +110,8 @@
 | POST /events endpoint | DONE | `api/routes/events.py` |
 | GET /runs, GET /runs/{id} | DONE | `api/routes/runs.py` |
 | POST /approvals/{run_id} | DONE | `api/routes/approvals.py` — Temporal signaling |
+| Plugin registry routes (search, publish, download, list versions) | DONE | `api/routes/plugins.py` — depends only on PluginRegistryStore abstraction |
+| In-memory plugin registry adapter | DONE | `api/adapters/in_memory_registry.py` — test/Lite Mode isolation, seed/clear helpers |
 
 ---
 
@@ -138,6 +140,8 @@
 | RepositoryProgressRepository | DONE | `database/repositories/repository_progress.py` |
 | CheckpointDecisionRepository | DONE | `database/repositories/checkpoint_decisions.py` |
 | FileAnalysisCacheRepository | DONE | `database/repositories/file_analysis_cache.py` |
+| ConflictLogRepository | DONE | `database/repositories/conflict_log.py` |
+| PluginRegistryRepository | DONE | `database/repositories/plugin_registry.py` — search via parameterized SQL, GIN/trigram indexes |
 | Partition manager (audit_entries monthly) | DONE | `database/partition_manager.py` |
 | Lite Mode SQLite adapter | DONE | `database/lite.py` — 5 tables, async aiosqlite |
 
@@ -204,7 +208,7 @@
 | Alertmanager config | DONE | `docker/alertmanager.yml` |
 | Grafana dashboards | DONE | `docker/grafana/` |
 | Helm charts (Kubernetes) | DONE | `helm/regulatory-agent-kit/` |
-| Alembic migrations | DONE | `migrations/versions/001_initial_schema.py` — all 6 tables, roles, indexes, partitioning |
+| Alembic migrations | DONE | `migrations/versions/001_initial_schema.py` (6 tables, roles, partitioning) + `002_plugin_registry.py` (plugin_registry + plugin_versions tables, GIN/trigram indexes) |
 | Terraform IaC (AWS) | DONE | 7 modules (networking, rds, opensearch, s3, eks, iam, secrets) + staging/production envs |
 
 ---
@@ -213,8 +217,8 @@
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
-| Unit tests | DONE | 63 test files in `tests/unit/` |
-| Integration tests | DONE | 8 E2E/integration tests in `tests/integration/` |
+| Unit tests | DONE | 65 test files in `tests/unit/` |
+| Integration tests | DONE | 10 E2E/integration tests in `tests/integration/` |
 | Test fixtures (conftest.py) | DONE | Root and integration-level conftest |
 | Test helpers | DONE | `tests/helpers.py` |
 
@@ -258,12 +262,12 @@
 | Core Framework | 4 | 0 | 0 |
 | Agent Layer | 6 | 0 | 0 |
 | Orchestration | 6 | 0 | 0 |
-| Data Models | 5 | 0 | 0 |
+| Data Models | 6 | 0 | 0 |
 | Plugin System | 9 | 0 | 0 |
 | Tools | 11 | 0 | 0 |
-| API Layer | 7 | 0 | 0 |
+| API Layer | 9 | 0 | 0 |
 | Event Sources | 6 | 0 | 0 |
-| Database | 10 | 0 | 0 |
+| Database | 12 | 0 | 0 |
 | Templates | 4 | 0 | 0 |
 | Observability | 6 | 0 | 0 |
 | Utilities | 4 | 0 | 0 |
@@ -272,13 +276,9 @@
 | Testing | 4 | 0 | 0 |
 | Regulation Plugins | 1 | 0 | 0 |
 | Documentation | 15 | 0 | 0 |
-| **Totals** | **115** | **0** | **0** |
+| **Totals** | **120** | **0** | **0** |
 
-### Key Gaps
+### Notes
 
-1. ~~**Alembic migrations**~~ — DONE. `migrations/versions/001_initial_schema.py` contains full schema (6 tables, roles, indexes, partitioning).
-2. **Regulation-specific plugins** — OUT OF SCOPE for this repository. Plugins (DORA, PSD2, PCI-DSS, HIPAA, Open Finance, etc.) are distributed as separate repositories and installed via `rak plugin install`. Only the generic `examples/example.yaml` is kept for testing.
-4. ~~**Plugin registry**~~ — DONE. Models, Alembic migration 002, repository, FastAPI routes, CLI publish/install commands. 16 tests pass.
-5. ~~**Terraform IaC**~~ — DONE. 7 AWS modules + staging/production environments (29 files). Matches docs/infrastructure.md specs.
-6. **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them.
-7. ~~**CI/CD pipeline analysis mode**~~ — DONE. Pipeline parser (GHA + GitLab CI), 6 compliance checks, analyzer, CLI `rak ci analyze`, extended scanner. 16 tests pass.
+- **Regulation-specific plugins** — OUT OF SCOPE for this repository. Plugins (DORA, PSD2, PCI-DSS, HIPAA, Open Finance, etc.) are distributed as separate repositories and installed via `rak plugin install`. Only the generic `examples/example.yaml` is kept for testing.
+- **Go/TypeScript language support** — Roadmap v2.0; AST engine supports them but no regulation plugins target them yet.
