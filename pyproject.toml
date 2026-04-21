@@ -72,6 +72,13 @@ dev = [
     "httpx>=0.27.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/gallindo/regulatory-agent-kit"
+Repository = "https://github.com/gallindo/regulatory-agent-kit"
+Documentation = "https://github.com/gallindo/regulatory-agent-kit/tree/main/docs"
+Issues = "https://github.com/gallindo/regulatory-agent-kit/issues"
+Changelog = "https://github.com/gallindo/regulatory-agent-kit/blob/main/CHANGELOG.md"
+
 [project.scripts]
 rak = "regulatory_agent_kit.cli:app"
 

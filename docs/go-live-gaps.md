@@ -7,9 +7,9 @@
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 1 ✓ │ DONE — MIT LICENSE file added        │ LICENSE created at repo root (commit 184c287); GitHub now auto-detects MIT                         │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 2   │ No CONTRIBUTING.md                  │ README links to it but it doesn't exist; contributors have no guidance                            │
+  │ 2 ✓ │ DONE — CONTRIBUTING.md added         │ Full guide: dev setup, code standards, testing, PR workflow, plugin authoring (commit 50e4b06)    │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 3   │ No [project.urls] in pyproject.toml │ PyPI page will be bare — add homepage, repository, docs, issues links                             │
+  │ 3 ✓ │ DONE — [project.urls] added          │ Homepage, Repository, Documentation, Issues, Changelog links added to pyproject.toml              │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 4   │ No PyPI publish workflow            │ pip install regulatory-agent-kit doesn't work; need a release GitHub Action + semantic versioning │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
