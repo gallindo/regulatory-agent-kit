@@ -11,7 +11,7 @@
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 3 ✓ │ DONE — [project.urls] added          │ Homepage, Repository, Documentation, Issues, Changelog links added to pyproject.toml              │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 4   │ No PyPI publish workflow            │ pip install regulatory-agent-kit doesn't work; need a release GitHub Action + semantic versioning │
+  │ 4 ✓ │ DONE — release.yml workflow added    │ Tag push v*.*.* builds sdist+wheel, creates GitHub Release, publishes to PyPI via OIDC            │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 5   │ No GitHub issue/PR templates        │ .github/ISSUE_TEMPLATE/ (bug, feature, security) and PULL_REQUEST_TEMPLATE.md are both missing    │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
