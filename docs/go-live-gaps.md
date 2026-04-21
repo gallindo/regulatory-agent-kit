@@ -17,7 +17,7 @@
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ 6 ✓ │ DONE — py.typed marker added         │ src/regulatory_agent_kit/py.typed created; package is now PEP 561 compliant for downstream mypy   │
   ├─────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ 7   │ No CHANGELOG.md                     │ No human-readable release notes; backfill from git log for v0.1.0                                 │
+  │ 7 ✓ │ DONE — CHANGELOG.md added            │ Keep-a-Changelog format; v0.1.0 entry covers all features, ADRs, and out-of-scope note             │
   └─────┴─────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┘
 
   ---
