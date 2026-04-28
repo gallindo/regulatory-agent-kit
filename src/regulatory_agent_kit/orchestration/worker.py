@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from temporalio.worker import Worker
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_TASK_QUEUE = "rak-pipeline"
 
 
-def _build_otel_interceptors() -> list:
+def _build_otel_interceptors() -> list[Any]:
     """Build OpenTelemetry tracing interceptors for the Temporal worker.
 
     Returns:

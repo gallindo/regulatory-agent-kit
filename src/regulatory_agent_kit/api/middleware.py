@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import jwt
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -33,7 +33,7 @@ def _fetch_jwks(jwks_url: str) -> dict[str, Any]:
     dependency of the middleware (httpx is dev-only for tests).
     """
     if jwks_url in _jwks_cache:
-        return _jwks_cache[jwks_url]
+        return cast("dict[str, Any]", _jwks_cache[jwks_url])
 
     import json
     import urllib.request

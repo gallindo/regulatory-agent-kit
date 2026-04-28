@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 from uuid import UUID  # noqa: TC003
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -128,7 +128,11 @@ async def _list_runs_from_db(
 
     async with db_pool.connection() as conn:
         pipeline_repo = PipelineRunRepository(conn)
-        statuses = [status_filter] if status_filter is not None else list(ALL_STATUSES)
+        statuses = (
+            [status_filter]
+            if status_filter is not None
+            else cast("list[PipelineStatusLiteral]", list(ALL_STATUSES))
+        )
         rows: list[dict[str, Any]] = []
         for pipeline_status in statuses:
             rows.extend(await pipeline_repo.list_by_status(pipeline_status))

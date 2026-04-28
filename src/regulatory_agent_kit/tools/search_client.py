@@ -15,9 +15,9 @@ from typing import Any, Protocol, runtime_checkable
 from regulatory_agent_kit.exceptions import ToolError
 
 try:
-    from elasticsearch import ElasticsearchException
-except ImportError:
-    ElasticsearchException = Exception  # type: ignore[misc,assignment]
+    from elasticsearch import ElasticsearchException  # type: ignore[attr-defined]
+except (ImportError, AttributeError):
+    ElasticsearchException = Exception
 
 logger = logging.getLogger(__name__)
 
@@ -411,7 +411,7 @@ class SearchClient:
         """Search regulation rules by text query."""
         return await self._search_with_strategy(
             self.regulations_index,
-            RulesSearchStrategy(),
+            RulesSearchStrategy(),  # type: ignore[arg-type]
             query=query,
             regulation_id=regulation_id,
         )
@@ -424,7 +424,7 @@ class SearchClient:
         """Full-text search against the regulation context index."""
         return await self._search_with_strategy(
             self.context_index,
-            ContextSearchStrategy(),
+            ContextSearchStrategy(),  # type: ignore[arg-type]
             query=query,
             limit=limit,
         )
@@ -445,7 +445,7 @@ class SearchClient:
         """
         return await self._search_with_strategy(
             self.context_index,
-            VectorSearchStrategy(),
+            VectorSearchStrategy(),  # type: ignore[arg-type]
             embedding=embedding,
             k=k,
         )

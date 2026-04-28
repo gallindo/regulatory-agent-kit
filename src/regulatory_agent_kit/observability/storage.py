@@ -34,7 +34,7 @@ except ImportError:
     _HAS_GCS = False
 
 try:
-    from azure.storage.blob import BlobServiceClient  # type: ignore[import-untyped]
+    from azure.storage.blob import BlobServiceClient  # type: ignore[import-not-found]
 
     _HAS_AZURE = True
 except ImportError:

@@ -97,7 +97,7 @@ class _PooledRegistryProxy:
                 changelog=changelog,
             )
             await conn.commit()
-            return row  # type: ignore[no-any-return]
+            return row
 
     async def get(self, plugin_id: str) -> dict[str, Any] | None:
         from regulatory_agent_kit.database.repositories.plugin_registry import (

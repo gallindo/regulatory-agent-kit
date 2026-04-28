@@ -550,7 +550,7 @@ async def report_results(
         record_repo_processed,
     )
 
-    bundle = artefacts.to_report_bundle_dict()
+    bundle: dict[str, Any] = artefacts.to_report_bundle_dict()
     bundle["pr_urls"] = pr_urls
     activity.logger.info("Report generated at %s", bundle["report_path"])
     record_repo_processed("reported")

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 from regulatory_agent_kit.util.hashing import compute_cache_key
 
@@ -107,7 +107,7 @@ class FileAnalysisCache:
         if isinstance(raw_result, str):
             result: dict[str, Any] = json.loads(raw_result)
             return result
-        return raw_result
+        return cast("dict[str, Any]", raw_result)
 
     async def store(
         self,

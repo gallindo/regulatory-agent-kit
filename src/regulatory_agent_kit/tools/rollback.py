@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path  # noqa: TC003
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ async def load_manifest_from_audit_trail(
         is_manifest = payload.get("@type") == "RollbackManifest"
         is_merge_req = entry.get("event_type") == "merge_request"
         if is_manifest or is_merge_req:
-            return payload
+            return cast("dict[str, Any]", payload)
 
     return None
 
@@ -209,7 +209,7 @@ class RollbackExecutor:
                 error=f"Unknown action: {action.action}",
             )
         try:
-            return await handler(self, action)
+            return cast("RollbackResult", await handler(self, action))
         except Exception as exc:
             return RollbackResult(
                 repo_url=action.repo_url,

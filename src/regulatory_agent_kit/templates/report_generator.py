@@ -85,7 +85,7 @@ def _write_text_pdf(path: Path, lines: list[str]) -> None:
 
         # Content stream
         stream_parts = [f"BT\n/F1 {font_size} Tf\n"]
-        y = page_height - margin_top
+        y: float = page_height - margin_top
         for line in page_lines:
             safe = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
             if len(safe) > 90:
@@ -252,7 +252,7 @@ class ComplianceReportGenerator:
         contains the report text without styling.
         """
         try:
-            import weasyprint  # type: ignore[import-untyped]
+            import weasyprint  # type: ignore[import-not-found]
 
             weasyprint.HTML(filename=str(html_path)).write_pdf(str(pdf_path))
             logger.info("PDF generated via weasyprint: %s", pdf_path)

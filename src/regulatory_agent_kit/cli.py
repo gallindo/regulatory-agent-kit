@@ -566,7 +566,7 @@ async def _resume_lite_run(run_id: str) -> dict[str, Any] | None:
     wal_path = Path.home() / ".rak" / f"wal-{run_id}.jsonl"
     wal = WriteAheadLog(wal_path)
     audit_repo = LiteAuditRepository(_LITE_DB_PATH)
-    wal_count = await wal.replay(audit_repo)
+    wal_count = await wal.replay(audit_repo)  # type: ignore[arg-type]
 
     # Get config from original run
     config_raw = run_data.get("config_snapshot", "{}")
@@ -1008,8 +1008,8 @@ async def _clean_cache() -> int | None:
     if _LITE_DB_PATH.exists():
         from regulatory_agent_kit.database.lite import LiteFileAnalysisCacheRepository
 
-        repo = LiteFileAnalysisCacheRepository(_LITE_DB_PATH)
-        return await repo.delete_expired()
+        lite_repo = LiteFileAnalysisCacheRepository(_LITE_DB_PATH)
+        return await lite_repo.delete_expired()
 
     return None
 
