@@ -225,9 +225,7 @@ class VaultSecretsBackend:
         """
         try:
             kv_engine = self._client.secrets.kv.v2
-            response = kv_engine.read_secret_version(
-                path=key, mount_point=self._mount_point
-            )
+            response = kv_engine.read_secret_version(path=key, mount_point=self._mount_point)
             secret_data = response["data"]
             data: dict[str, Any] = secret_data["data"]
             if not data:

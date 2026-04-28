@@ -50,8 +50,15 @@ class PluginRegistryRepository(BaseRepository):
                 published_at = now()
             """,
             (
-                plugin_id, name, version, jurisdiction, authority,
-                description, author, tags_json, certification_tier,
+                plugin_id,
+                name,
+                version,
+                jurisdiction,
+                authority,
+                description,
+                author,
+                tags_json,
+                certification_tier,
             ),
         )
 
@@ -88,9 +95,7 @@ class PluginRegistryRepository(BaseRepository):
         params: list[Any] = []
 
         if query:
-            conditions.append(
-                "(plugin_id ILIKE %s OR name ILIKE %s OR description ILIKE %s)"
-            )
+            conditions.append("(plugin_id ILIKE %s OR name ILIKE %s OR description ILIKE %s)")
             like = f"%{query}%"
             params.extend([like, like, like])
 
@@ -130,9 +135,7 @@ class PluginRegistryRepository(BaseRepository):
             (plugin_id,),
         )
 
-    async def get_version(
-        self, plugin_id: str, version: str
-    ) -> dict[str, Any] | None:
+    async def get_version(self, plugin_id: str, version: str) -> dict[str, Any] | None:
         """Retrieve a specific version including YAML content."""
         return await self._fetch_one(
             """

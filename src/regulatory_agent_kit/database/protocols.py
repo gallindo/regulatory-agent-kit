@@ -88,9 +88,7 @@ class PluginRegistryStore(Protocol):
 
     async def list_versions(self, plugin_id: str) -> list[dict[str, Any]]: ...
 
-    async def get_version(
-        self, plugin_id: str, version: str
-    ) -> dict[str, Any] | None: ...
+    async def get_version(self, plugin_id: str, version: str) -> dict[str, Any] | None: ...
 
 
 @runtime_checkable

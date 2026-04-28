@@ -112,9 +112,7 @@ class AuditLogger:
         """Record a human checkpoint decision (data-model.md Section 5.4)."""
         return await self._persist(run_id, "human_decision", payload)
 
-    async def log_conflict_detected(
-        self, *, run_id: UUID, payload: dict[str, Any]
-    ) -> AuditEntry:
+    async def log_conflict_detected(self, *, run_id: UUID, payload: dict[str, Any]) -> AuditEntry:
         """Record a cross-regulation conflict (data-model.md Section 5.5)."""
         return await self._persist(run_id, "conflict_detected", payload)
 

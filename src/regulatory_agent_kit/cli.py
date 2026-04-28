@@ -480,8 +480,7 @@ def rollback(
         console.print("[yellow]Dry run — no actions executed.[/yellow]")
     else:
         console.print(
-            f"[bold]Rollback complete:[/bold] "
-            f"{success_count} succeeded, {fail_count} failed"
+            f"[bold]Rollback complete:[/bold] {success_count} succeeded, {fail_count} failed"
         )
 
 
@@ -582,9 +581,7 @@ async def _resume_lite_run(run_id: str) -> dict[str, Any] | None:
 
     if not pending_urls:
         # All repos already finished — mark run completed
-        await LitePipelineRunRepository(_LITE_DB_PATH).update_status(
-            UUID(run_id), "completed"
-        )
+        await LitePipelineRunRepository(_LITE_DB_PATH).update_status(UUID(run_id), "completed")
         return {"wal_entries": wal_count, "status": "completed", "error": ""}
 
     # Re-run pending repos
@@ -747,8 +744,7 @@ def plugin_test(
         if matches:
             total_matches += len(matches)
             console.print(
-                f"  [cyan]{rule.id}[/cyan] ({rule.severity}): "
-                f"{len(matches)} file(s) matched"
+                f"  [cyan]{rule.id}[/cyan] ({rule.severity}): {len(matches)} file(s) matched"
             )
             for m in matches[:5]:
                 console.print(f"    - {m}")
@@ -759,8 +755,7 @@ def plugin_test(
 
     console.print()
     console.print(
-        f"[bold]Summary:[/bold] {total_matches} file(s) matched "
-        f"across {len(plugin.rules)} rule(s)"
+        f"[bold]Summary:[/bold] {total_matches} file(s) matched across {len(plugin.rules)} rule(s)"
     )
 
 
@@ -796,13 +791,15 @@ def plugin_search(
         except (PluginLoadError, PluginValidationError):
             continue
 
-        searchable = " ".join([
-            plugin.id,
-            plugin.name,
-            plugin.jurisdiction,
-            plugin.authority,
-            plugin.version,
-        ]).lower()
+        searchable = " ".join(
+            [
+                plugin.id,
+                plugin.name,
+                plugin.jurisdiction,
+                plugin.authority,
+                plugin.version,
+            ]
+        ).lower()
 
         if query_lower in searchable:
             results.append(plugin)
@@ -859,8 +856,7 @@ def plugin_publish(
         raise typer.Exit(code=1) from None
 
     console.print(
-        f"Publishing [cyan]{plugin.id}[/cyan] v{plugin.version} "
-        f"({plugin.jurisdiction})..."
+        f"Publishing [cyan]{plugin.id}[/cyan] v{plugin.version} ({plugin.jurisdiction})..."
     )
 
     yaml_content = path.read_text(encoding="utf-8")
@@ -961,9 +957,7 @@ async def _install_plugin(
         encoding="utf-8",
     )
 
-    console.print(
-        f"[green]Installed {plugin_id} v{version} → {yaml_path}[/green]"
-    )
+    console.print(f"[green]Installed {plugin_id} v{version} → {yaml_path}[/green]")
 
 
 # ---------------------------------------------------------------------------
@@ -978,8 +972,7 @@ def db_clean_cache() -> None:
     deleted = _run_async(_clean_cache())
     if deleted is None:
         console.print(
-            "[yellow]Cache cleanup requires PostgreSQL "
-            "(not available in Lite Mode).[/yellow]"
+            "[yellow]Cache cleanup requires PostgreSQL (not available in Lite Mode).[/yellow]"
         )
     elif deleted == 0:
         console.print("[green]No expired cache entries found.[/green]")
@@ -1031,8 +1024,7 @@ def db_create_partitions(
     created = _run_async(_create_partitions(months))
     if created is None:
         console.print(
-            "[yellow]Partition creation requires PostgreSQL "
-            "(not available in Lite Mode).[/yellow]"
+            "[yellow]Partition creation requires PostgreSQL (not available in Lite Mode).[/yellow]"
         )
     elif not created:
         console.print("[green]All partitions already exist.[/green]")

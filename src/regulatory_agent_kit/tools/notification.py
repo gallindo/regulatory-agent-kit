@@ -187,9 +187,7 @@ class EmailNotifier:
                     server.starttls()
                 if self.username:
                     server.login(self.username, self.password)
-                server.sendmail(
-                    self.from_address, self.to_addresses, msg.as_string()
-                )
+                server.sendmail(self.from_address, self.to_addresses, msg.as_string())
             finally:
                 server.quit()
 

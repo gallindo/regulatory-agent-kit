@@ -107,9 +107,7 @@ class _LiteRepository:
             await db.execute(query, params)
             await db.commit()
 
-    async def _fetch_one(
-        self, query: str, params: tuple[Any, ...]
-    ) -> dict[str, Any] | None:
+    async def _fetch_one(self, query: str, params: tuple[Any, ...]) -> dict[str, Any] | None:
         """Execute a query and return one row as a dict, or None."""
         import aiosqlite
 
@@ -119,9 +117,7 @@ class _LiteRepository:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
-    async def _fetch_all(
-        self, query: str, params: tuple[Any, ...]
-    ) -> list[dict[str, Any]]:
+    async def _fetch_all(self, query: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
         """Execute a query and return all rows as dicts."""
         import aiosqlite
 
@@ -131,9 +127,7 @@ class _LiteRepository:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
 
-    async def _insert_returning_id(
-        self, query: str, params: tuple[Any, ...]
-    ) -> UUID:
+    async def _insert_returning_id(self, query: str, params: tuple[Any, ...]) -> UUID:
         """Generate a UUID, execute an INSERT, and return the UUID."""
         new_id = uuid4()
         await self._execute(query, (str(new_id), *params))
@@ -282,9 +276,7 @@ class LiteCheckpointDecisionRepository(_LiteRepository):
             (str(run_id),),
         )
 
-    async def get_latest(
-        self, run_id: UUID, checkpoint_type: str
-    ) -> dict[str, Any] | None:
+    async def get_latest(self, run_id: UUID, checkpoint_type: str) -> dict[str, Any] | None:
         """Get the most recent decision for a given run and checkpoint type."""
         return await self._fetch_one(
             """

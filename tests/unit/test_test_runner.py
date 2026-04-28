@@ -221,9 +221,7 @@ class TestRunTestsValidation:
         assert result.passed is True
         assert result.validation is None
 
-    async def test_validation_result_attached_to_output(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_validation_result_attached_to_output(self, tmp_path: Path) -> None:
         (tmp_path / "test_safe.py").write_text("def test_x(): pass\n")
 
         mock_proc = AsyncMock()

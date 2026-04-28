@@ -166,22 +166,32 @@ class TestMainCli:
         java = tmp_path / "Svc.java"
         java.write_text("class Svc {}")
 
-        rc = main([
-            "--regulation", str(EXAMPLE_PLUGIN),
-            "--files", "Svc.java",
-            "--repo-root", str(tmp_path),
-        ])
+        rc = main(
+            [
+                "--regulation",
+                str(EXAMPLE_PLUGIN),
+                "--files",
+                "Svc.java",
+                "--repo-root",
+                str(tmp_path),
+            ]
+        )
         assert rc == 1
 
     def test_nonmatching_file_returns_zero(self, tmp_path: Path) -> None:
         txt = tmp_path / "readme.txt"
         txt.write_text("hello")
 
-        rc = main([
-            "--regulation", str(EXAMPLE_PLUGIN),
-            "--files", "readme.txt",
-            "--repo-root", str(tmp_path),
-        ])
+        rc = main(
+            [
+                "--regulation",
+                str(EXAMPLE_PLUGIN),
+                "--files",
+                "readme.txt",
+                "--repo-root",
+                str(tmp_path),
+            ]
+        )
         assert rc == 0
 
     def test_changed_files_from_file(self, tmp_path: Path) -> None:
@@ -191,23 +201,34 @@ class TestMainCli:
         changed = tmp_path / "changed.txt"
         changed.write_text("Svc.java\n")
 
-        rc = main([
-            "--regulation", str(EXAMPLE_PLUGIN),
-            "--changed-files", str(changed),
-            "--repo-root", str(tmp_path),
-        ])
+        rc = main(
+            [
+                "--regulation",
+                str(EXAMPLE_PLUGIN),
+                "--changed-files",
+                str(changed),
+                "--repo-root",
+                str(tmp_path),
+            ]
+        )
         assert rc == 1
 
     def test_exclude_flag_skips_files(self, tmp_path: Path) -> None:
         yaml_file = tmp_path / "hooks.yaml"
         yaml_file.write_text("id: hook\n")
 
-        rc = main([
-            "--regulation", str(EXAMPLE_PLUGIN),
-            "--files", "hooks.yaml",
-            "--repo-root", str(tmp_path),
-            "--exclude", "hooks.yaml",
-        ])
+        rc = main(
+            [
+                "--regulation",
+                str(EXAMPLE_PLUGIN),
+                "--files",
+                "hooks.yaml",
+                "--repo-root",
+                str(tmp_path),
+                "--exclude",
+                "hooks.yaml",
+            ]
+        )
         assert rc == 0
 
     def test_output_writes_json(self, tmp_path: Path) -> None:
@@ -215,12 +236,18 @@ class TestMainCli:
         java.write_text("class Svc {}")
         output = tmp_path / "report.json"
 
-        main([
-            "--regulation", str(EXAMPLE_PLUGIN),
-            "--files", "Svc.java",
-            "--repo-root", str(tmp_path),
-            "--output", str(output),
-        ])
+        main(
+            [
+                "--regulation",
+                str(EXAMPLE_PLUGIN),
+                "--files",
+                "Svc.java",
+                "--repo-root",
+                str(tmp_path),
+                "--output",
+                str(output),
+            ]
+        )
 
         assert output.exists()
         data = json.loads(output.read_text())

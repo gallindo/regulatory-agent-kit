@@ -141,9 +141,7 @@ class DataResidencyRouter:
     routing_table: dict[tuple[str, str], str] = field(
         default_factory=lambda: dict(MODEL_ROUTING_TABLE)
     )
-    jurisdiction_map: dict[str, str] = field(
-        default_factory=lambda: dict(JURISDICTION_REGION_MAP)
-    )
+    jurisdiction_map: dict[str, str] = field(default_factory=lambda: dict(JURISDICTION_REGION_MAP))
 
     def resolve_region(self, jurisdiction: str) -> str:
         """Map a jurisdiction code to a canonical region.
@@ -176,12 +174,16 @@ class DataResidencyRouter:
             model = self.routing_table.get(("default", tier), self.default_model)
             logger.debug(
                 "No routing rule for region=%s tier=%s, using default: %s",
-                region, tier, model,
+                region,
+                tier,
+                model,
             )
         else:
             logger.debug(
                 "Routed jurisdiction=%s → region=%s → model=%s",
-                jurisdiction, region, model,
+                jurisdiction,
+                region,
+                model,
             )
         return model
 

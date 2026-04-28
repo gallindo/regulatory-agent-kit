@@ -130,7 +130,9 @@ class S3StorageBackend:
         self._client.put_object(Bucket=self._bucket, Key=key, Body=data)
         logger.debug(
             "S3StorageBackend: uploaded %d bytes to s3://%s/%s",
-            len(data), self._bucket, key,
+            len(data),
+            self._bucket,
+            key,
         )
 
     def download(self, path: str) -> bytes:
@@ -181,7 +183,9 @@ class GCSStorageBackend:
         blob.upload_from_string(data)
         logger.debug(
             "GCSStorageBackend: uploaded %d bytes to gs://%s/%s",
-            len(data), self._bucket_obj.name, key,
+            len(data),
+            self._bucket_obj.name,
+            key,
         )
 
     def download(self, path: str) -> bytes:
@@ -376,7 +380,10 @@ class AuditArchiver:
         entry_count = len(entries or [])
         logger.info(
             "Exported partition %04d-%02d to %s (%d entries)",
-            year, month, export_file, entry_count,
+            year,
+            month,
+            export_file,
+            entry_count,
         )
         return export_file
 

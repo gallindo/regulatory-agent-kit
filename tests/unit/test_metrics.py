@@ -38,7 +38,9 @@ def metrics(registry: CollectorRegistry) -> MetricsRegistry:
 
 
 def _sample_value(
-    registry: CollectorRegistry, name: str, labels: dict[str, str],
+    registry: CollectorRegistry,
+    name: str,
+    labels: dict[str, str],
 ) -> float:
     """Read the current value of a metric from the registry.
 
@@ -93,7 +95,9 @@ class TestPipelineMetrics:
     """Tests for pipeline counter helpers."""
 
     def test_record_pipeline_started(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
         assert (
@@ -102,23 +106,39 @@ class TestPipelineMetrics:
         )
 
     def test_record_pipeline_completed(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.pipeline_runs_completed.labels(regulation_id="gdpr").inc()
-        assert _sample_value(
-            registry, "rak_pipeline_runs_completed", {"regulation_id": "gdpr"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_pipeline_runs_completed",
+                {"regulation_id": "gdpr"},
+            )
+            == 1.0
+        )
 
     def test_record_pipeline_failed(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.pipeline_runs_failed.labels(regulation_id="nis2").inc()
-        assert _sample_value(
-            registry, "rak_pipeline_runs_failed", {"regulation_id": "nis2"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_pipeline_runs_failed",
+                {"regulation_id": "nis2"},
+            )
+            == 1.0
+        )
 
     def test_double_increment(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
@@ -137,12 +157,19 @@ class TestRepoProcessed:
     """Tests for repo processing counter."""
 
     def test_record_repo_processed(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.repos_processed_total.labels(status="analyzed").inc()
-        assert _sample_value(
-            registry, "rak_repos_processed_total", {"status": "analyzed"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_repos_processed_total",
+                {"status": "analyzed"},
+            )
+            == 1.0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -154,16 +181,22 @@ class TestCheckpointDecisions:
     """Tests for checkpoint decision counter."""
 
     def test_record_checkpoint_decision(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.checkpoint_decisions_total.labels(
-            checkpoint_type="impact-review", decision="approved",
+            checkpoint_type="impact-review",
+            decision="approved",
         ).inc()
-        assert _sample_value(
-            registry,
-            "rak_checkpoint_decisions_total",
-            {"checkpoint_type": "impact-review", "decision": "approved"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_checkpoint_decisions_total",
+                {"checkpoint_type": "impact-review", "decision": "approved"},
+            )
+            == 1.0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -175,32 +208,47 @@ class TestToolInvocation:
     """Tests for tool invocation counter and histogram."""
 
     def test_record_tool_invocation_success(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.tool_invocations_total.labels(
-            tool="git_clone", agent="analyzer", success="True",
+            tool="git_clone",
+            agent="analyzer",
+            success="True",
         ).inc()
         metrics.tool_invocation_duration.labels(
-            tool="git_clone", agent="analyzer",
+            tool="git_clone",
+            agent="analyzer",
         ).observe(150.0)
 
-        assert _sample_value(
-            registry,
-            "rak_tool_invocations_total",
-            {"tool": "git_clone", "agent": "analyzer", "success": "True"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_tool_invocations_total",
+                {"tool": "git_clone", "agent": "analyzer", "success": "True"},
+            )
+            == 1.0
+        )
 
     def test_record_tool_invocation_failure(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.tool_invocations_total.labels(
-            tool="git_clone", agent="analyzer", success="False",
+            tool="git_clone",
+            agent="analyzer",
+            success="False",
         ).inc()
-        assert _sample_value(
-            registry,
-            "rak_tool_invocations_total",
-            {"tool": "git_clone", "agent": "analyzer", "success": "False"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                registry,
+                "rak_tool_invocations_total",
+                {"tool": "git_clone", "agent": "analyzer", "success": "False"},
+            )
+            == 1.0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -212,21 +260,35 @@ class TestLLMMetrics:
     """Tests for LLM cost/token/call metrics."""
 
     def test_record_llm_call(
-        self, metrics: MetricsRegistry, registry: CollectorRegistry,
+        self,
+        metrics: MetricsRegistry,
+        registry: CollectorRegistry,
     ) -> None:
         metrics.llm_calls_total.labels(model="claude", agent="analyzer").inc()
         metrics.llm_tokens_total.labels(agent="analyzer", model="claude").inc(1000)
         metrics.llm_cost_total.labels(model="claude", agent="analyzer").inc(0.05)
         metrics.llm_call_duration.labels(model="claude", agent="analyzer").observe(500.0)
 
+        assert (
+            _sample_value(
+                registry,
+                "rak_llm_calls_total",
+                {"model": "claude", "agent": "analyzer"},
+            )
+            == 1.0
+        )
+        assert (
+            _sample_value(
+                registry,
+                "rak_llm_tokens_total",
+                {"agent": "analyzer", "model": "claude"},
+            )
+            == 1000.0
+        )
         assert _sample_value(
-            registry, "rak_llm_calls_total", {"model": "claude", "agent": "analyzer"},
-        ) == 1.0
-        assert _sample_value(
-            registry, "rak_llm_tokens_total", {"agent": "analyzer", "model": "claude"},
-        ) == 1000.0
-        assert _sample_value(
-            registry, "rak_llm_cost_total", {"model": "claude", "agent": "analyzer"},
+            registry,
+            "rak_llm_cost_total",
+            {"model": "claude", "agent": "analyzer"},
         ) == pytest.approx(0.05)
 
 
@@ -257,9 +319,14 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_pipeline_completed("example-plugin")
-        assert _sample_value(
-            reg, "rak_pipeline_runs_completed", {"regulation_id": "example-plugin"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_pipeline_runs_completed",
+                {"regulation_id": "example-plugin"},
+            )
+            == 1.0
+        )
 
     def test_record_pipeline_failed_helper(self) -> None:
         reg = CollectorRegistry()
@@ -268,9 +335,14 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_pipeline_failed("example-plugin")
-        assert _sample_value(
-            reg, "rak_pipeline_runs_failed", {"regulation_id": "example-plugin"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_pipeline_runs_failed",
+                {"regulation_id": "example-plugin"},
+            )
+            == 1.0
+        )
 
     def test_record_repo_processed_helper(self) -> None:
         reg = CollectorRegistry()
@@ -288,11 +360,14 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_checkpoint_decision("impact-review", "approved")
-        assert _sample_value(
-            reg,
-            "rak_checkpoint_decisions_total",
-            {"checkpoint_type": "impact-review", "decision": "approved"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_checkpoint_decisions_total",
+                {"checkpoint_type": "impact-review", "decision": "approved"},
+            )
+            == 1.0
+        )
 
     def test_record_tool_invocation_helper(self) -> None:
         reg = CollectorRegistry()
@@ -301,13 +376,19 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_tool_invocation(
-                tool="git_clone", agent="analyzer", success=True, duration_ms=150.0,
+                tool="git_clone",
+                agent="analyzer",
+                success=True,
+                duration_ms=150.0,
             )
-        assert _sample_value(
-            reg,
-            "rak_tool_invocations_total",
-            {"tool": "git_clone", "agent": "analyzer", "success": "True"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_tool_invocations_total",
+                {"tool": "git_clone", "agent": "analyzer", "success": "True"},
+            )
+            == 1.0
+        )
 
     def test_record_llm_call_helper(self) -> None:
         reg = CollectorRegistry()
@@ -316,12 +397,20 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_llm_call(
-                model="claude", agent="analyzer",
-                duration_ms=500.0, tokens=1000, cost_usd=0.05,
+                model="claude",
+                agent="analyzer",
+                duration_ms=500.0,
+                tokens=1000,
+                cost_usd=0.05,
             )
-        assert _sample_value(
-            reg, "rak_llm_calls_total", {"model": "claude", "agent": "analyzer"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_llm_calls_total",
+                {"model": "claude", "agent": "analyzer"},
+            )
+            == 1.0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -347,11 +436,14 @@ class TestInstrumentedTool:
             result = await my_tool()
 
         assert result == {"status": "ok"}
-        assert _sample_value(
-            reg,
-            "rak_tool_invocations_total",
-            {"tool": "test_tool", "agent": "test_agent", "success": "True"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_tool_invocations_total",
+                {"tool": "test_tool", "agent": "test_agent", "success": "True"},
+            )
+            == 1.0
+        )
 
     async def test_error_increments_failure(self) -> None:
         reg = CollectorRegistry()
@@ -367,11 +459,14 @@ class TestInstrumentedTool:
         ):
             await my_tool()
 
-        assert _sample_value(
-            reg,
-            "rak_tool_invocations_total",
-            {"tool": "test_tool", "agent": "test_agent", "success": "False"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_tool_invocations_total",
+                {"tool": "test_tool", "agent": "test_agent", "success": "False"},
+            )
+            == 1.0
+        )
 
     async def test_exception_records_failure_and_reraises(self) -> None:
         reg = CollectorRegistry()
@@ -382,17 +477,23 @@ class TestInstrumentedTool:
             msg = "boom"
             raise RuntimeError(msg)
 
-        with patch(
-            "regulatory_agent_kit.observability.metrics.get_metrics_registry",
-            return_value=m,
-        ), pytest.raises(RuntimeError, match="boom"):
+        with (
+            patch(
+                "regulatory_agent_kit.observability.metrics.get_metrics_registry",
+                return_value=m,
+            ),
+            pytest.raises(RuntimeError, match="boom"),
+        ):
             await my_tool()
 
-        assert _sample_value(
-            reg,
-            "rak_tool_invocations_total",
-            {"tool": "failing_tool", "agent": "analyzer", "success": "False"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_tool_invocations_total",
+                {"tool": "failing_tool", "agent": "analyzer", "success": "False"},
+            )
+            == 1.0
+        )
 
     async def test_non_dict_return_counts_as_success(self) -> None:
         reg = CollectorRegistry()
@@ -409,11 +510,14 @@ class TestInstrumentedTool:
             result = await my_render()
 
         assert result == "rendered content"
-        assert _sample_value(
-            reg,
-            "rak_tool_invocations_total",
-            {"tool": "render_tool", "agent": "refactor", "success": "True"},
-        ) == 1.0
+        assert (
+            _sample_value(
+                reg,
+                "rak_tool_invocations_total",
+                {"tool": "render_tool", "agent": "refactor", "success": "True"},
+            )
+            == 1.0
+        )
 
 
 # ---------------------------------------------------------------------------

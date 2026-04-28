@@ -176,21 +176,25 @@ class RollbackExecutor:
         results: list[RollbackResult] = []
         for action in actions:
             if action.action == "skip":
-                results.append(RollbackResult(
-                    repo_url=action.repo_url,
-                    action="skip",
-                    success=True,
-                    detail="PR already closed — no action needed",
-                ))
+                results.append(
+                    RollbackResult(
+                        repo_url=action.repo_url,
+                        action="skip",
+                        success=True,
+                        detail="PR already closed — no action needed",
+                    )
+                )
                 continue
 
             if dry_run:
-                results.append(RollbackResult(
-                    repo_url=action.repo_url,
-                    action=action.action,
-                    success=True,
-                    detail=f"[DRY RUN] Would {_action_description(action)}",
-                ))
+                results.append(
+                    RollbackResult(
+                        repo_url=action.repo_url,
+                        action=action.action,
+                        success=True,
+                        detail=f"[DRY RUN] Would {_action_description(action)}",
+                    )
+                )
                 continue
 
             result = await self._execute_action(action)
@@ -218,9 +222,7 @@ class RollbackExecutor:
                 error=str(exc),
             )
 
-    async def _close_pr_and_delete_branch(
-        self, action: RollbackAction
-    ) -> RollbackResult:
+    async def _close_pr_and_delete_branch(self, action: RollbackAction) -> RollbackResult:
         """Close an open PR and delete the branch via the git provider API."""
         if not action.pr_url or not self._git_token:
             return RollbackResult(
@@ -244,8 +246,7 @@ class RollbackExecutor:
             repo_url=action.repo_url,
             action=action.action,
             success=True,
-            detail=f"Commented on PR #{pr_id} for closure. "
-            f"Branch: {action.branch_name}",
+            detail=f"Commented on PR #{pr_id} for closure. Branch: {action.branch_name}",
         )
 
     async def _create_revert_pr(self, action: RollbackAction) -> RollbackResult:

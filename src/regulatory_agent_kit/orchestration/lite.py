@@ -226,6 +226,7 @@ class CostEstimationPhase(BasePipelinePhase):
 
     async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.tools.cost_estimator import CostEstimator
+
         estimator = CostEstimator(
             model=context.get_model(),
             cost_threshold=context.get_cost_threshold(),
@@ -244,23 +245,24 @@ class AnalysisPhase(BasePipelinePhase):
         from regulatory_agent_kit.orchestration.activities import (
             analyze_repository,
         )
+
         for repo_url in context.repo_urls:
             entry_id = await context.progress_repo.create(context.run_uuid, repo_url)
             await context.progress_repo.update_status(entry_id, "in_progress")
             analysis = await analyze_repository(
                 repo_url, context.regulation_id, context.plugin_data
             )
-            context.add_repo_result({
-                "repo_url": repo_url,
-                "impact_map": analysis,
-                "change_set": {},
-                "test_result": {},
-            })
+            context.add_repo_result(
+                {
+                    "repo_url": repo_url,
+                    "impact_map": analysis,
+                    "change_set": {},
+                    "test_result": {},
+                }
+            )
 
 
-async def _auto_approve_checkpoint(
-    context: PipelineContext, checkpoint_type: str
-) -> None:
+async def _auto_approve_checkpoint(context: PipelineContext, checkpoint_type: str) -> None:
     """Record an auto-approved checkpoint decision in Lite Mode."""
     await context.checkpoint_repo.create(
         run_id=context.run_uuid,
@@ -294,6 +296,7 @@ class RefactoringPhase(BasePipelinePhase):
         from regulatory_agent_kit.orchestration.activities import (
             refactor_repository,
         )
+
         for repo_result in context.repo_results:
             change_set = await refactor_repository(
                 repo_result["repo_url"],
@@ -314,6 +317,7 @@ class TestingPhase(BasePipelinePhase):
         from regulatory_agent_kit.orchestration.activities import (
             test_repository,
         )
+
         for repo_result in context.repo_results:
             test_result = await test_repository(
                 repo_result["repo_url"],
@@ -342,6 +346,7 @@ class ReportingPhase(BasePipelinePhase):
 
     async def run(self, context: PipelineContext) -> None:
         from regulatory_agent_kit.orchestration.activities import report_results
+
         report = await report_results(
             context.run_id,
             context.repo_results,

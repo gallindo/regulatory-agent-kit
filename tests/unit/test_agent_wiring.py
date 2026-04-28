@@ -85,9 +85,7 @@ class TestAnalyzeWithAgent:
             mock_agent = MagicMock()
             mock_agent.run = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "regulatory_agent_kit.agents.analyzer.analyzer_agent", mock_agent
-            ):
+            with patch("regulatory_agent_kit.agents.analyzer.analyzer_agent", mock_agent):
                 result = await _analyze_with_agent(
                     "https://github.com/test/repo",
                     "test-reg",
@@ -297,9 +295,7 @@ class TestTestWithAgent:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent
-        ):
+        with patch("regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent):
             result = await _test_with_agent(
                 "https://github.com/test/repo",
                 change_set,
@@ -327,9 +323,7 @@ class TestTestWithAgent:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent
-        ):
+        with patch("regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent):
             await _test_with_agent(
                 "https://github.com/test/repo",
                 change_set,
@@ -344,9 +338,7 @@ class TestTestWithAgent:
         mock_agent.run = AsyncMock(side_effect=ConnectionError("LLM unavailable"))
 
         with (
-            patch(
-                "regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent
-            ),
+            patch("regulatory_agent_kit.agents.test_generator.test_generator_agent", mock_agent),
             pytest.raises(ConnectionError),
         ):
             await _test_with_agent(

@@ -181,9 +181,7 @@ class TestPluginRegistryAPI:
         seed_plugin(sample_entry)
         transport = ASGITransport(app=app)  # type: ignore[arg-type]
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get(
-                "/plugins", params={"jurisdiction": "EU"}
-            )
+            response = await client.get("/plugins", params={"jurisdiction": "EU"})
         assert response.status_code == 200
         assert response.json()["total"] == 1
 

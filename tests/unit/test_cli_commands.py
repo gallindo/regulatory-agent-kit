@@ -144,9 +144,7 @@ class TestRetryFailuresCommand:
         db_path = tmp_path / "test.db"
         run_id = str(uuid.uuid4())
         asyncio.run(_create_test_run(db_path, run_id, status="completed"))
-        asyncio.run(
-            _create_test_progress(db_path, run_id, "https://github.com/a/b", "completed")
-        )
+        asyncio.run(_create_test_progress(db_path, run_id, "https://github.com/a/b", "completed"))
 
         with patch("regulatory_agent_kit.cli._LITE_DB_PATH", db_path):
             result = runner.invoke(app, ["retry-failures", "--run-id", run_id])
@@ -161,20 +159,14 @@ class TestRetryFailuresCommand:
         db_path = tmp_path / "test.db"
         run_id = str(uuid.uuid4())
         config = {"default_model": "test-model", "plugin_data": {}}
-        asyncio.run(
-            _create_test_run(
-                db_path, run_id, status="failed", config_snapshot=config
-            )
-        )
+        asyncio.run(_create_test_run(db_path, run_id, status="failed", config_snapshot=config))
         asyncio.run(
             _create_test_progress(
                 db_path, run_id, "https://github.com/a/repo1", "failed", "timeout"
             )
         )
         asyncio.run(
-            _create_test_progress(
-                db_path, run_id, "https://github.com/a/repo2", "completed"
-            )
+            _create_test_progress(db_path, run_id, "https://github.com/a/repo2", "completed")
         )
 
         with patch("regulatory_agent_kit.cli._LITE_DB_PATH", db_path):
@@ -219,9 +211,7 @@ class TestResumeCommand:
         run_id = str(uuid.uuid4())
         config = {"default_model": "test-model", "plugin_data": {}}
         asyncio.run(_create_test_run(db_path, run_id, status="running", config_snapshot=config))
-        asyncio.run(
-            _create_test_progress(db_path, run_id, "https://github.com/a/b", "completed")
-        )
+        asyncio.run(_create_test_progress(db_path, run_id, "https://github.com/a/b", "completed"))
 
         with patch("regulatory_agent_kit.cli._LITE_DB_PATH", db_path):
             result = runner.invoke(app, ["resume", "--run-id", run_id])

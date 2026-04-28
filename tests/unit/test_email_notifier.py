@@ -33,9 +33,7 @@ class TestEmailNotifierFormatting:
         assert "<a href=" in html
 
     def test_checkpoint_html_without_url(self) -> None:
-        html = self.notifier._checkpoint_html(
-            "run-123", "merge_review", "Ready to merge", None
-        )
+        html = self.notifier._checkpoint_html("run-123", "merge_review", "Ready to merge", None)
         assert "run-123" in html
         assert "merge_review" in html
         assert "<a href=" not in html

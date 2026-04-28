@@ -59,53 +59,91 @@ class CIPipelineConfig:
 # Security-related action/image patterns
 # ---------------------------------------------------------------------------
 
-_SECURITY_SCAN_PATTERNS = frozenset({
-    "github/codeql-action",
-    "aquasecurity/trivy-action",
-    "snyk/actions",
-    "securego/gosec",
-    "bandit",
-    "semgrep",
-    "sonarqube",
-    "sonar-scanner",
-    "checkov",
-    "tfsec",
-    "sast",
-    "dast",
-})
+_SECURITY_SCAN_PATTERNS = frozenset(
+    {
+        "github/codeql-action",
+        "aquasecurity/trivy-action",
+        "snyk/actions",
+        "securego/gosec",
+        "bandit",
+        "semgrep",
+        "sonarqube",
+        "sonar-scanner",
+        "checkov",
+        "tfsec",
+        "sast",
+        "dast",
+    }
+)
 
-_DEPENDENCY_SCAN_PATTERNS = frozenset({
-    "dependency-check",
-    "dependabot",
-    "renovate",
-    "pip-audit",
-    "safety check",
-    "npm audit",
-    "yarn audit",
-    "snyk test",
-    "owasp",
-    "grype",
-})
+_DEPENDENCY_SCAN_PATTERNS = frozenset(
+    {
+        "dependency-check",
+        "dependabot",
+        "renovate",
+        "pip-audit",
+        "safety check",
+        "npm audit",
+        "yarn audit",
+        "snyk test",
+        "owasp",
+        "grype",
+    }
+)
 
-_TEST_PATTERNS = frozenset({
-    "pytest", "jest", "mocha", "junit", "go test", "cargo test",
-    "mvn test", "gradle test", "npm test", "yarn test", "rspec",
-})
+_TEST_PATTERNS = frozenset(
+    {
+        "pytest",
+        "jest",
+        "mocha",
+        "junit",
+        "go test",
+        "cargo test",
+        "mvn test",
+        "gradle test",
+        "npm test",
+        "yarn test",
+        "rspec",
+    }
+)
 
-_DEPLOY_PATTERNS = frozenset({
-    "deploy", "kubectl apply", "helm upgrade", "terraform apply",
-    "aws ecs", "gcloud deploy", "az deployment",
-})
+_DEPLOY_PATTERNS = frozenset(
+    {
+        "deploy",
+        "kubectl apply",
+        "helm upgrade",
+        "terraform apply",
+        "aws ecs",
+        "gcloud deploy",
+        "az deployment",
+    }
+)
 
-_SIGNING_PATTERNS = frozenset({
-    "cosign", "sigstore", "gpg --sign", "sign", "notary",
-})
+_SIGNING_PATTERNS = frozenset(
+    {
+        "cosign",
+        "sigstore",
+        "gpg --sign",
+        "sign",
+        "notary",
+    }
+)
 
 # GitLab CI top-level keys that are not job definitions.
-_GITLAB_RESERVED_KEYS = frozenset({
-    "stages", "variables", "default", "include", "workflow",
-    "before_script", "after_script", "image", "services", "cache",
-})
+_GITLAB_RESERVED_KEYS = frozenset(
+    {
+        "stages",
+        "variables",
+        "default",
+        "include",
+        "workflow",
+        "before_script",
+        "after_script",
+        "image",
+        "services",
+        "cache",
+    }
+)
 
 # Feature flags accumulated by scanning CI step text.
 _FEATURE_FLAG_PATTERNS: tuple[tuple[str, frozenset[str]], ...] = (
@@ -202,7 +240,7 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
             env_vars = step.get("env", {}) or {}
 
             # Extract secret references
-            for val in (list(env_vars.values()) if isinstance(env_vars, dict) else []):
+            for val in list(env_vars.values()) if isinstance(env_vars, dict) else []:
                 val_str = str(val)
                 if "${{ secrets." in val_str:
                     secret_name = val_str.split("secrets.")[1].split("}")[0].strip()
@@ -211,25 +249,29 @@ def parse_github_actions(path: Path) -> CIPipelineConfig:
             searchable = f"{step_name} {uses} {run_cmd}".lower()
             _update_feature_flags(searchable, flags)
 
-            steps.append(PipelineStep(
-                name=step_name,
-                command=run_cmd,
-                uses=uses,
-                env_vars=dict(env_vars) if isinstance(env_vars, dict) else {},
-            ))
+            steps.append(
+                PipelineStep(
+                    name=step_name,
+                    command=run_cmd,
+                    uses=uses,
+                    env_vars=dict(env_vars) if isinstance(env_vars, dict) else {},
+                )
+            )
 
         # Environment protection rules imply approval
         if environment and isinstance(env_block, dict):
             needs_approval_gate = True
             flags["has_approval_gate"] = True
 
-        jobs.append(PipelineJob(
-            name=job_name,
-            steps=steps,
-            environment=environment,
-            needs_approval=needs_approval_gate,
-            runs_on=str(job_config.get("runs-on", "")),
-        ))
+        jobs.append(
+            PipelineJob(
+                name=job_name,
+                steps=steps,
+                environment=environment,
+                needs_approval=needs_approval_gate,
+                runs_on=str(job_config.get("runs-on", "")),
+            )
+        )
 
     return _build_config(path, "github_actions", jobs, all_secrets, flags, raw)
 
@@ -299,12 +341,14 @@ def parse_gitlab_ci(path: Path) -> CIPipelineConfig:
 
             steps.append(PipelineStep(name=key, command=line_str))
 
-        jobs.append(PipelineJob(
-            name=key,
-            steps=steps,
-            environment=environment,
-            needs_approval=needs_approval_gate,
-        ))
+        jobs.append(
+            PipelineJob(
+                name=key,
+                steps=steps,
+                environment=environment,
+                needs_approval=needs_approval_gate,
+            )
+        )
 
     return _build_config(path, "gitlab_ci", jobs, all_secrets, flags, raw)
 

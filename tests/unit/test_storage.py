@@ -82,7 +82,9 @@ class TestS3StorageBackend:
             backend = S3StorageBackend(bucket="b")
         backend.upload(b"x", "path/file.txt")
         mock_client.put_object.assert_called_once_with(
-            Bucket="b", Key="path/file.txt", Body=b"x",
+            Bucket="b",
+            Key="path/file.txt",
+            Body=b"x",
         )
 
     def test_implements_protocol(self) -> None:
@@ -114,9 +116,7 @@ class TestGCSStorageBackend:
         mock_gcs_client.bucket.return_value = mock_bucket
 
         with (
-            patch(
-                "regulatory_agent_kit.observability.storage._HAS_GCS", True
-            ),
+            patch("regulatory_agent_kit.observability.storage._HAS_GCS", True),
             patch(
                 "regulatory_agent_kit.observability.storage.gcs_storage",
                 create=True,
@@ -138,9 +138,7 @@ class TestGCSStorageBackend:
         mock_gcs_client.bucket.return_value = mock_bucket
 
         with (
-            patch(
-                "regulatory_agent_kit.observability.storage._HAS_GCS", True
-            ),
+            patch("regulatory_agent_kit.observability.storage._HAS_GCS", True),
             patch(
                 "regulatory_agent_kit.observability.storage.gcs_storage",
                 create=True,
@@ -164,9 +162,7 @@ class TestAzureBlobStorageBackend:
             patch("regulatory_agent_kit.observability.storage._HAS_AZURE", False),
             pytest.raises(ImportError, match="azure-storage-blob"),
         ):
-            AzureBlobStorageBackend(
-                connection_string="conn", container="c"
-            )
+            AzureBlobStorageBackend(connection_string="conn", container="c")
 
     def test_upload_calls_upload_blob(self) -> None:
         mock_container = MagicMock()
@@ -174,9 +170,7 @@ class TestAzureBlobStorageBackend:
         mock_service.get_container_client.return_value = mock_container
 
         with (
-            patch(
-                "regulatory_agent_kit.observability.storage._HAS_AZURE", True
-            ),
+            patch("regulatory_agent_kit.observability.storage._HAS_AZURE", True),
             patch(
                 "regulatory_agent_kit.observability.storage.BlobServiceClient",
                 create=True,
@@ -203,18 +197,14 @@ class TestAzureBlobStorageBackend:
         mock_service.get_container_client.return_value = mock_container
 
         with (
-            patch(
-                "regulatory_agent_kit.observability.storage._HAS_AZURE", True
-            ),
+            patch("regulatory_agent_kit.observability.storage._HAS_AZURE", True),
             patch(
                 "regulatory_agent_kit.observability.storage.BlobServiceClient",
                 create=True,
             ) as mock_cls,
         ):
             mock_cls.from_connection_string.return_value = mock_service
-            backend = AzureBlobStorageBackend(
-                connection_string="conn", container="c"
-            )
+            backend = AzureBlobStorageBackend(connection_string="conn", container="c")
 
         result = backend.download("file.json")
         assert result == b"azure-data"
@@ -237,9 +227,7 @@ class TestCreateStorageBackend:
     def test_s3(self) -> None:
         mock_client = MagicMock()
         with patch("boto3.client", return_value=mock_client):
-            backend = create_storage_backend(
-                "s3", s3_bucket="bucket", s3_prefix="pre"
-            )
+            backend = create_storage_backend("s3", s3_bucket="bucket", s3_prefix="pre")
         assert isinstance(backend, S3StorageBackend)
 
     def test_unknown_raises(self) -> None:
@@ -266,9 +254,7 @@ class TestAuditArchiver:
             {"event_type": "llm_call", "model": "claude", "cost": 0.01},
             {"event_type": "tool_invocation", "tool": "git_clone"},
         ]
-        export_file = archiver.export_partition(
-            2026, 3, tmp_path / "export", entries=entries
-        )
+        export_file = archiver.export_partition(2026, 3, tmp_path / "export", entries=entries)
         assert export_file.exists()
         lines = export_file.read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 2
@@ -277,13 +263,9 @@ class TestAuditArchiver:
 
     def test_archive_partition_exports_and_uploads(self, tmp_path: Path) -> None:
         archive_root = tmp_path / "backend"
-        archiver = AuditArchiver(
-            lite_mode=True, local_root=archive_root
-        )
+        archiver = AuditArchiver(lite_mode=True, local_root=archive_root)
         entries = [{"event_type": "state_transition", "phase": "ANALYZING"}]
-        dest_key = archiver.archive_partition(
-            2026, 3, tmp_path / "export", entries=entries
-        )
+        dest_key = archiver.archive_partition(2026, 3, tmp_path / "export", entries=entries)
         assert dest_key == "audit-archives/2026/03/audit_entries.jsonl"
         # Verify the file was uploaded to the local backend
         uploaded = archive_root / dest_key
@@ -298,9 +280,7 @@ class TestAuditArchiver:
         report.write_bytes(b'{"status": "ok"}')
 
         archiver.upload_report(report, "dest/report.json")
-        mock_backend.upload.assert_called_once_with(
-            b'{"status": "ok"}', "dest/report.json"
-        )
+        mock_backend.upload.assert_called_once_with(b'{"status": "ok"}', "dest/report.json")
 
     def test_export_partition_subdirectory_structure(self, tmp_path: Path) -> None:
         archiver = AuditArchiver(lite_mode=True, local_root=tmp_path / "archive")
@@ -325,7 +305,5 @@ class TestLiteMode:
 
     def test_lite_mode_overrides_provided_backend(self, tmp_path: Path) -> None:
         mock_backend = MagicMock(spec=StorageBackend)
-        archiver = AuditArchiver(
-            backend=mock_backend, lite_mode=True, local_root=tmp_path
-        )
+        archiver = AuditArchiver(backend=mock_backend, lite_mode=True, local_root=tmp_path)
         assert isinstance(archiver.backend, LocalStorageBackend)

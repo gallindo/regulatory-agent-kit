@@ -45,16 +45,12 @@ class TestEnvVarSecretsBackend:
 class TestAWSSecretsManagerBackend:
     def test_get_secret_calls_boto3(self) -> None:
         mock_client = MagicMock()
-        mock_client.get_secret_value.return_value = {
-            "SecretString": "my-api-key"
-        }
+        mock_client.get_secret_value.return_value = {"SecretString": "my-api-key"}
         with patch("boto3.client", return_value=mock_client):
             backend = AWSSecretsManagerBackend(region_name="eu-west-1")
         result = backend.get_secret("rak/prod/anthropic-key")
         assert result == "my-api-key"
-        mock_client.get_secret_value.assert_called_once_with(
-            SecretId="rak/prod/anthropic-key"
-        )
+        mock_client.get_secret_value.assert_called_once_with(SecretId="rak/prod/anthropic-key")
 
     def test_raises_keyerror_on_failure(self) -> None:
         mock_client = MagicMock()
@@ -92,9 +88,7 @@ class TestGCPSecretManagerBackend:
 
         with (
             patch("regulatory_agent_kit.util.secrets._HAS_GCP_SM", True),
-            patch(
-                "regulatory_agent_kit.util.secrets.gcp_sm", create=True
-            ) as mock_mod,
+            patch("regulatory_agent_kit.util.secrets.gcp_sm", create=True) as mock_mod,
         ):
             mock_mod.SecretManagerServiceClient.return_value = mock_gcp_client
             backend = GCPSecretManagerBackend(project_id="my-project")
@@ -110,9 +104,7 @@ class TestGCPSecretManagerBackend:
 
         with (
             patch("regulatory_agent_kit.util.secrets._HAS_GCP_SM", True),
-            patch(
-                "regulatory_agent_kit.util.secrets.gcp_sm", create=True
-            ) as mock_mod,
+            patch("regulatory_agent_kit.util.secrets.gcp_sm", create=True) as mock_mod,
         ):
             mock_mod.SecretManagerServiceClient.return_value = mock_gcp_client
             backend = GCPSecretManagerBackend(project_id="proj")
@@ -127,9 +119,7 @@ class TestGCPSecretManagerBackend:
         mock_gcp_client = MagicMock()
         with (
             patch("regulatory_agent_kit.util.secrets._HAS_GCP_SM", True),
-            patch(
-                "regulatory_agent_kit.util.secrets.gcp_sm", create=True
-            ) as mock_mod,
+            patch("regulatory_agent_kit.util.secrets.gcp_sm", create=True) as mock_mod,
         ):
             mock_mod.SecretManagerServiceClient.return_value = mock_gcp_client
             backend = GCPSecretManagerBackend(project_id=None)
@@ -159,9 +149,7 @@ class TestVaultSecretsBackend:
 
         with (
             patch("regulatory_agent_kit.util.secrets._HAS_HVAC", True),
-            patch(
-                "regulatory_agent_kit.util.secrets.hvac", create=True
-            ) as mock_mod,
+            patch("regulatory_agent_kit.util.secrets.hvac", create=True) as mock_mod,
         ):
             mock_mod.Client.return_value = mock_hvac_client
             backend = VaultSecretsBackend(
@@ -178,15 +166,11 @@ class TestVaultSecretsBackend:
 
     def test_raises_for_empty_data(self) -> None:
         mock_hvac_client = MagicMock()
-        mock_hvac_client.secrets.kv.v2.read_secret_version.return_value = {
-            "data": {"data": {}}
-        }
+        mock_hvac_client.secrets.kv.v2.read_secret_version.return_value = {"data": {"data": {}}}
 
         with (
             patch("regulatory_agent_kit.util.secrets._HAS_HVAC", True),
-            patch(
-                "regulatory_agent_kit.util.secrets.hvac", create=True
-            ) as mock_mod,
+            patch("regulatory_agent_kit.util.secrets.hvac", create=True) as mock_mod,
         ):
             mock_mod.Client.return_value = mock_hvac_client
             backend = VaultSecretsBackend(token="t")  # noqa: S106

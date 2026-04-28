@@ -108,9 +108,7 @@ class TestFiltersRegistered:
 
     def test_basename_in_template(self) -> None:
         engine = TemplateEngine()
-        result = engine.render_string(
-            "{{ path | basename }}", {"path": "src/foo/bar.py"}
-        )
+        result = engine.render_string("{{ path | basename }}", {"path": "src/foo/bar.py"})
         assert result == "bar.py"
 
     def test_chained_filters(self) -> None:

@@ -48,6 +48,7 @@ async def get_plugin_registry(request: Request) -> Any:
         return _PooledRegistryProxy(db_pool)
 
     from regulatory_agent_kit.api.adapters.in_memory_registry import default_registry
+
     return default_registry
 
 
@@ -136,14 +137,10 @@ class _PooledRegistryProxy:
         async with self._db_pool.connection() as conn:
             return await PluginRegistryRepository(conn).list_versions(plugin_id)
 
-    async def get_version(
-        self, plugin_id: str, version: str
-    ) -> dict[str, Any] | None:
+    async def get_version(self, plugin_id: str, version: str) -> dict[str, Any] | None:
         from regulatory_agent_kit.database.repositories.plugin_registry import (
             PluginRegistryRepository,
         )
 
         async with self._db_pool.connection() as conn:
-            return await PluginRegistryRepository(conn).get_version(
-                plugin_id, version
-            )
+            return await PluginRegistryRepository(conn).get_version(plugin_id, version)

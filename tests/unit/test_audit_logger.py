@@ -62,9 +62,7 @@ class TestAuditLoggerEventTypes:
     async def test_log_tool_invocation(
         self, audit_logger: AuditLogger, run_id: UUID, mock_repo: AsyncMock
     ) -> None:
-        entry = await audit_logger.log_tool_invocation(
-            run_id=run_id, payload={"tool": "git_diff"}
-        )
+        entry = await audit_logger.log_tool_invocation(run_id=run_id, payload={"tool": "git_diff"})
         assert entry.event_type == "tool_invocation"
         mock_repo.insert.assert_awaited_once()
 
@@ -142,15 +140,11 @@ class TestAuditLoggerEventTypes:
 
 
 class TestJsonLdEnrichment:
-    async def test_payload_has_context(
-        self, audit_logger: AuditLogger, run_id: UUID
-    ) -> None:
+    async def test_payload_has_context(self, audit_logger: AuditLogger, run_id: UUID) -> None:
         entry = await audit_logger.log_llm_call(run_id=run_id, payload={"model": "claude"})
         assert entry.payload["@context"] == JSONLD_CONTEXT
 
-    async def test_payload_has_type(
-        self, audit_logger: AuditLogger, run_id: UUID
-    ) -> None:
+    async def test_payload_has_type(self, audit_logger: AuditLogger, run_id: UUID) -> None:
         entry = await audit_logger.log_llm_call(run_id=run_id, payload={"model": "claude"})
         assert entry.payload["@type"] == "LLMCall"
 
@@ -174,9 +168,7 @@ class TestJsonLdEnrichment:
             assert entry.payload["@context"] == JSONLD_CONTEXT
             assert entry.payload["@type"] == JSONLD_TYPE_MAP[event_type]
 
-    async def test_caller_fields_preserved(
-        self, audit_logger: AuditLogger, run_id: UUID
-    ) -> None:
+    async def test_caller_fields_preserved(self, audit_logger: AuditLogger, run_id: UUID) -> None:
         payload = {"model": "claude", "cost_usd": 0.042, "agent": "analyzer"}
         entry = await audit_logger.log_llm_call(run_id=run_id, payload=payload)
         assert entry.payload["model"] == "claude"
@@ -228,8 +220,6 @@ class TestAuditLoggerSignature:
     async def test_entry_is_audit_entry_model(
         self, audit_logger: AuditLogger, run_id: UUID
     ) -> None:
-        entry = await audit_logger.log_state_transition(
-            run_id=run_id, payload={"state": "done"}
-        )
+        entry = await audit_logger.log_state_transition(run_id=run_id, payload={"state": "done"})
         assert isinstance(entry, AuditEntry)
         assert entry.run_id == run_id

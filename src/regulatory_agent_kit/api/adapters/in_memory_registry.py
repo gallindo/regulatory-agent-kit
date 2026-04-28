@@ -100,7 +100,8 @@ class InMemoryPluginRegistry:
         if query:
             q_lower = query.lower()
             entries = [
-                e for e in entries
+                e
+                for e in entries
                 if q_lower in e.get("plugin_id", "").lower()
                 or q_lower in e.get("name", "").lower()
                 or q_lower in e.get("description", "").lower()
@@ -108,19 +109,14 @@ class InMemoryPluginRegistry:
         if jurisdiction:
             entries = [e for e in entries if e.get("jurisdiction") == jurisdiction]
         if tags:
-            entries = [
-                e for e in entries
-                if all(tag in e.get("tags", []) for tag in tags)
-            ]
+            entries = [e for e in entries if all(tag in e.get("tags", []) for tag in tags)]
         total = len(entries)
         return entries[offset : offset + limit], total
 
     async def list_versions(self, plugin_id: str) -> list[dict[str, Any]]:
         return list(self._versions.get(plugin_id, []))
 
-    async def get_version(
-        self, plugin_id: str, version: str
-    ) -> dict[str, Any] | None:
+    async def get_version(self, plugin_id: str, version: str) -> dict[str, Any] | None:
         for entry in self._versions.get(plugin_id, []):
             if entry.get("version") == version:
                 return entry

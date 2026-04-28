@@ -183,9 +183,7 @@ class TestAstTransform:
         f = tmp_path / "file.py"
         f.write_text("line1\nline2\n")
 
-        result = await ast_transform(
-            str(f), "R-001", {"action": "append", "content": "# added"}
-        )
+        result = await ast_transform(str(f), "R-001", {"action": "append", "content": "# added"})
         assert result["status"] == "transformed"
         assert "# added" in f.read_text()
 
@@ -201,9 +199,7 @@ class TestAstTransform:
         assert lines[1] == "# inserted"
 
     async def test_returns_error_for_missing_file(self) -> None:
-        result = await ast_transform(
-            "/no/file.py", "R-001", {"action": "append", "content": ""}
-        )
+        result = await ast_transform("/no/file.py", "R-001", {"action": "append", "content": ""})
         assert result["status"] == "error"
 
 

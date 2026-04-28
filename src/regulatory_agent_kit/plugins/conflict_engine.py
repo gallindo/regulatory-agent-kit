@@ -91,9 +91,7 @@ class ConflictEngine:
         for region_a in file_a.affected_regions:
             for region_b in file_b.affected_regions:
                 if _regions_overlap(region_a, region_b):
-                    rule_ids = list(
-                        dict.fromkeys(file_a.get_rule_ids() + file_b.get_rule_ids())
-                    )
+                    rule_ids = list(dict.fromkeys(file_a.get_rule_ids() + file_b.get_rule_ids()))
                     if len(rule_ids) >= 2:
                         overlaps.append((rule_ids, [region_a, region_b]))
 
@@ -104,18 +102,15 @@ def _regions_overlap(region_a: ASTRegion, region_b: ASTRegion) -> bool:
     Uses positive conditionals: returns True when overlap is confirmed.
     """
     regions_are_disjoint = (
-        region_a.end_line < region_b.start_line
-        or region_b.end_line < region_a.start_line
+        region_a.end_line < region_b.start_line or region_b.end_line < region_a.start_line
     )
     if regions_are_disjoint:
         return False
 
     touches_at_boundary_ab = (
-        region_a.end_line == region_b.start_line
-        and region_a.end_col <= region_b.start_col
+        region_a.end_line == region_b.start_line and region_a.end_col <= region_b.start_col
     )
     touches_at_boundary_ba = (
-        region_b.end_line == region_a.start_line
-        and region_b.end_col <= region_a.start_col
+        region_b.end_line == region_a.start_line and region_b.end_col <= region_a.start_col
     )
     return not touches_at_boundary_ab and not touches_at_boundary_ba

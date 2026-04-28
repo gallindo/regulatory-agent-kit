@@ -50,10 +50,7 @@ def format_scan_as_markdown(result: ScanResult) -> str:
     if result.violation_count == 0:
         lines.append("## \u2705 Compliance Scan Passed")
         lines.append("")
-        lines.append(
-            f"**Regulation:** {result.regulation_name}"
-            f" (`{result.regulation_id}`)"
-        )
+        lines.append(f"**Regulation:** {result.regulation_name} (`{result.regulation_id}`)")
         lines.append(
             f"**Files scanned:** {result.files_scanned}"
             f" | **Rules checked:** {result.rules_checked}"
@@ -64,10 +61,7 @@ def format_scan_as_markdown(result: ScanResult) -> str:
 
     lines.append("\u26a0\ufe0f Compliance Violations Found")
     lines.append("")
-    lines.append(
-        f"**Regulation:** {result.regulation_name}"
-        f" (`{result.regulation_id}`)"
-    )
+    lines.append(f"**Regulation:** {result.regulation_name} (`{result.regulation_id}`)")
     lines.append(
         f"**Files scanned:** {result.files_scanned}"
         f" | **Rules checked:** {result.rules_checked}"
@@ -90,9 +84,7 @@ def format_scan_as_markdown(result: ScanResult) -> str:
         lines.append("| File | Rule | Description |")
         lines.append("|------|------|-------------|")
         for v in violations:
-            lines.append(
-                f"| `{v.file_path}` | `{v.rule_id}` | {v.description} |"
-            )
+            lines.append(f"| `{v.file_path}` | `{v.rule_id}` | {v.description} |")
         lines.append("")
 
     return "\n".join(lines)
@@ -194,10 +186,7 @@ class GitHubPRReviewer:
         Returns:
             The comment ID if found, otherwise ``None``.
         """
-        url = (
-            f"{self.api_url}/repos/{owner}/{repo}"
-            f"/issues/{pr_number}/comments"
-        )
+        url = f"{self.api_url}/repos/{owner}/{repo}/issues/{pr_number}/comments"
         try:
             comments: list[dict[str, Any]] = self._request("GET", url)  # type: ignore[assignment]
         except HTTPError:
@@ -233,16 +222,10 @@ class GitHubPRReviewer:
         existing_id = self._find_existing_comment(owner, repo, pr_number)
 
         if existing_id is not None:
-            url = (
-                f"{self.api_url}/repos/{owner}/{repo}"
-                f"/issues/comments/{existing_id}"
-            )
+            url = f"{self.api_url}/repos/{owner}/{repo}/issues/comments/{existing_id}"
             return self._request("PATCH", url, {"body": body})
 
-        url = (
-            f"{self.api_url}/repos/{owner}/{repo}"
-            f"/issues/{pr_number}/comments"
-        )
+        url = f"{self.api_url}/repos/{owner}/{repo}/issues/{pr_number}/comments"
         return self._request("POST", url, {"body": body})
 
 
@@ -282,10 +265,7 @@ class GitLabPRReviewer:
         Returns:
             The note ID if found, otherwise ``None``.
         """
-        url = (
-            f"{self.api_url}/projects/{project_id}"
-            f"/merge_requests/{mr_iid}/notes"
-        )
+        url = f"{self.api_url}/projects/{project_id}/merge_requests/{mr_iid}/notes"
         try:
             notes: list[dict[str, Any]] = self._request("GET", url)  # type: ignore[assignment]
         except HTTPError:
@@ -320,13 +300,9 @@ class GitLabPRReviewer:
 
         if existing_id is not None:
             url = (
-                f"{self.api_url}/projects/{project_id}"
-                f"/merge_requests/{mr_iid}/notes/{existing_id}"
+                f"{self.api_url}/projects/{project_id}/merge_requests/{mr_iid}/notes/{existing_id}"
             )
             return self._request("PUT", url, {"body": body})
 
-        url = (
-            f"{self.api_url}/projects/{project_id}"
-            f"/merge_requests/{mr_iid}/notes"
-        )
+        url = f"{self.api_url}/projects/{project_id}/merge_requests/{mr_iid}/notes"
         return self._request("POST", url, {"body": body})

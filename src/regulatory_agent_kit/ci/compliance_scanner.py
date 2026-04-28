@@ -207,9 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Scan files for regulation compliance violations"
-    )
+    parser = argparse.ArgumentParser(description="Scan files for regulation compliance violations")
     parser.add_argument(
         "--regulation",
         required=True,
@@ -306,8 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         _print("")
         _print(f"Pipeline configs analyzed: {pipeline_result.pipelines_analyzed}")
         _print(
-            f"Pipeline checks: {pipeline_result.checks_passed}/"
-            f"{pipeline_result.checks_run} passed"
+            f"Pipeline checks: {pipeline_result.checks_passed}/{pipeline_result.checks_run} passed"
         )
         if pipeline_result.checks_failed > 0:
             for f in pipeline_result.findings:

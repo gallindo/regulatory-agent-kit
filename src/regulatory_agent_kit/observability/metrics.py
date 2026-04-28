@@ -33,11 +33,32 @@ from prometheus_client import CollectorRegistry, Counter, Histogram
 # ---------------------------------------------------------------------------
 
 _TOOL_DURATION_BUCKETS = (
-    10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000, 60_000,
+    10,
+    25,
+    50,
+    100,
+    250,
+    500,
+    1_000,
+    2_500,
+    5_000,
+    10_000,
+    30_000,
+    60_000,
 )
 
 _LLM_DURATION_BUCKETS = (
-    100, 250, 500, 1_000, 2_500, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000,
+    100,
+    250,
+    500,
+    1_000,
+    2_500,
+    5_000,
+    10_000,
+    15_000,
+    30_000,
+    60_000,
+    120_000,
 )
 
 
@@ -279,9 +300,7 @@ def record_tool_invocation(
 ) -> None:
     """Record a tool invocation (counter + histogram)."""
     m = get_metrics_registry()
-    m.tool_invocations_total.labels(
-        tool=tool, agent=agent, success=str(success)
-    ).inc()
+    m.tool_invocations_total.labels(tool=tool, agent=agent, success=str(success)).inc()
     m.tool_invocation_duration.labels(tool=tool, agent=agent).observe(duration_ms)
 
 
@@ -332,8 +351,7 @@ def instrumented_tool(
             finally:
                 elapsed_ms = (time.perf_counter() - start) * 1_000
                 success = raised is None and (
-                    not isinstance(result, dict)
-                    or result.get("status") != "error"
+                    not isinstance(result, dict) or result.get("status") != "error"
                 )
                 record_tool_invocation(
                     tool=tool_name,

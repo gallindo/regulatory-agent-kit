@@ -33,9 +33,13 @@ def _sample_repos() -> list[dict[str, Any]]:
             "change_set": {
                 "branch_name": "rak/example-regulation-2025/EX-001",
                 "diffs": [
-                    {"file_path": "src/Main.java", "rule_id": "EX-001",
-                     "diff_content": "+@AuditLog", "confidence": 0.95,
-                     "strategy_used": "add_annotation"},
+                    {
+                        "file_path": "src/Main.java",
+                        "rule_id": "EX-001",
+                        "diff_content": "+@AuditLog",
+                        "confidence": 0.95,
+                        "strategy_used": "add_annotation",
+                    },
                 ],
                 "confidence_scores": [0.95],
                 "commit_sha": "abc123def456",
@@ -289,9 +293,7 @@ class TestRollbackManifest:
             status="completed",
             repos=_sample_repos(),
         )
-        manifest = json.loads(
-            artefacts.rollback_manifest_path.read_text(encoding="utf-8")
-        )
+        manifest = json.loads(artefacts.rollback_manifest_path.read_text(encoding="utf-8"))
         assert manifest["run_id"] == _RUN_ID
 
     def test_manifest_repos_match_input(self, tmp_path: Path) -> None:
@@ -303,9 +305,7 @@ class TestRollbackManifest:
             status="completed",
             repos=repos,
         )
-        manifest = json.loads(
-            artefacts.rollback_manifest_path.read_text(encoding="utf-8")
-        )
+        manifest = json.loads(artefacts.rollback_manifest_path.read_text(encoding="utf-8"))
         assert len(manifest["repos"]) == len(repos)
         assert manifest["repos"][0]["repo_url"] == repos[0]["repo_url"]
 
@@ -317,9 +317,7 @@ class TestRollbackManifest:
             status="completed",
             repos=_sample_repos(),
         )
-        manifest = json.loads(
-            artefacts.rollback_manifest_path.read_text(encoding="utf-8")
-        )
+        manifest = json.loads(artefacts.rollback_manifest_path.read_text(encoding="utf-8"))
         first_repo = manifest["repos"][0]
         assert first_repo["branch_name"] == "rak/example-regulation-2025/EX-001"
         assert first_repo["commit_sha"] == "abc123def456"
@@ -332,9 +330,7 @@ class TestRollbackManifest:
             status="completed",
             repos=_sample_repos(),
         )
-        manifest = json.loads(
-            artefacts.rollback_manifest_path.read_text(encoding="utf-8")
-        )
+        manifest = json.loads(artefacts.rollback_manifest_path.read_text(encoding="utf-8"))
         assert manifest["repos"][0]["files_changed"] == ["src/Main.java"]
 
 

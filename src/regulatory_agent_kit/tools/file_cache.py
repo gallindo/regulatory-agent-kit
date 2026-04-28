@@ -134,7 +134,10 @@ class FileAnalysisCache:
         )
         logger.debug(
             "Cache STORE for %s:%s (key=%s, ttl=%dd)",
-            repo_url, file_path, key[:12], self._ttl_days,
+            repo_url,
+            file_path,
+            key[:12],
+            self._ttl_days,
         )
 
     async def clean_expired(self) -> int:

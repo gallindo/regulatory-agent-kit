@@ -55,9 +55,7 @@ class RulesSearchStrategy:
             }
         }
         if regulation_id:
-            body["query"]["bool"]["filter"] = [
-                {"term": {"regulation_id": regulation_id}}
-            ]
+            body["query"]["bool"]["filter"] = [{"term": {"regulation_id": regulation_id}}]
         return body
 
 
@@ -295,9 +293,7 @@ class SearchClient:
                     "authority": plugin.authority,
                     "effective_date": str(getattr(plugin, "effective_date", "")),
                     "source_url": str(getattr(plugin, "source_url", "")),
-                    "condition": " | ".join(
-                        a.condition for a in rule.affects
-                    ),
+                    "condition": " | ".join(a.condition for a in rule.affects),
                     "remediation_strategy": rule.remediation.strategy,
                     "indexed_at": datetime.now(UTC).isoformat(),
                 }
@@ -315,9 +311,7 @@ class SearchClient:
                 )
                 count += 1
 
-            logger.info(
-                "Ingested %d rules from plugin %s", count, plugin.id
-            )
+            logger.info("Ingested %d rules from plugin %s", count, plugin.id)
         except ElasticsearchException:
             logger.warning(
                 "Elasticsearch unavailable — ingestion incomplete for %s",
@@ -485,9 +479,7 @@ class SearchClient:
                 desc = rule.get("rule_description", rule.get("description", ""))
                 sev = rule.get("severity", "")
                 cond = rule.get("condition", "")
-                sections.append(
-                    f"- **{rid}** ({sev}): {desc}"
-                )
+                sections.append(f"- **{rid}** ({sev}): {desc}")
                 if cond:
                     sections.append(f"  Condition: `{cond}`")
 
@@ -519,8 +511,6 @@ class SearchClient:
             try:
                 await self._client.close()
             except ElasticsearchException:
-                logger.warning(
-                    "Error closing Elasticsearch client", exc_info=True
-                )
+                logger.warning("Error closing Elasticsearch client", exc_info=True)
             finally:
                 self._client = None

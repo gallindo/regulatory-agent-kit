@@ -208,7 +208,6 @@ def _estimate_tokens_heuristic() -> int:
     """
     avg_files = 50
     avg_chars = 800
-    return (
-        _OVERHEAD_TOKENS_PER_REPO
-        + avg_files * (avg_chars // _CHARS_PER_TOKEN + _OVERHEAD_TOKENS_PER_FILE)
+    return _OVERHEAD_TOKENS_PER_REPO + avg_files * (
+        avg_chars // _CHARS_PER_TOKEN + _OVERHEAD_TOKENS_PER_FILE
     )

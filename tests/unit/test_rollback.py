@@ -225,8 +225,9 @@ class TestFormatRollbackSummary:
 
         results = [
             RollbackResult(repo_url="r1", action="skip", success=True, detail="done"),
-            RollbackResult(repo_url="r2", action="close_pr_and_delete_branch",
-                           success=False, error="no token"),
+            RollbackResult(
+                repo_url="r2", action="close_pr_and_delete_branch", success=False, error="no token"
+            ),
         ]
         summary = format_rollback_summary(results)
         assert summary["@context"] == "https://schema.org"

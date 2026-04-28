@@ -50,7 +50,8 @@ def _check_security_scanning(config: CIPipelineConfig) -> PipelineCheckResult:
         passed=config.has_security_scanning,
         severity="high",
         description="Security scanning (SAST/DAST) must be present in CI pipeline.",
-        detail="" if config.has_security_scanning
+        detail=""
+        if config.has_security_scanning
         else f"No security scanning step found in {config.source_file}.",
     )
 
@@ -62,7 +63,8 @@ def _check_dependency_scanning(config: CIPipelineConfig) -> PipelineCheckResult:
         passed=config.has_dependency_scanning,
         severity="high",
         description="Dependency vulnerability scanning must be present.",
-        detail="" if config.has_dependency_scanning
+        detail=""
+        if config.has_dependency_scanning
         else f"No dependency scanning step found in {config.source_file}.",
     )
 
@@ -74,8 +76,7 @@ def _check_test_step(config: CIPipelineConfig) -> PipelineCheckResult:
         passed=config.has_test_step,
         severity="high",
         description="Test execution step must be present in CI pipeline.",
-        detail="" if config.has_test_step
-        else f"No test step found in {config.source_file}.",
+        detail="" if config.has_test_step else f"No test step found in {config.source_file}.",
     )
 
 
@@ -94,7 +95,8 @@ def _check_deployment_approval(config: CIPipelineConfig) -> PipelineCheckResult:
         passed=config.has_approval_gate,
         severity="medium",
         description="Deployment steps should have approval gates.",
-        detail="" if config.has_approval_gate
+        detail=""
+        if config.has_approval_gate
         else f"Deployment found without approval gate in {config.source_file}.",
     )
 
@@ -139,7 +141,8 @@ def _check_artifact_signing(config: CIPipelineConfig) -> PipelineCheckResult:
         passed=config.has_artifact_signing,
         severity="low",
         description="Artifacts should be signed before deployment.",
-        detail="" if config.has_artifact_signing
+        detail=""
+        if config.has_artifact_signing
         else f"No artifact signing step found in {config.source_file}.",
     )
 

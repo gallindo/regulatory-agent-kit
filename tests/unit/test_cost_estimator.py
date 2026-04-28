@@ -119,13 +119,13 @@ class TestCostCalculation:
 
 class TestCostEstimator:
     def test_estimate_for_repos_heuristic(self) -> None:
-        estimator = CostEstimator(
-            model="anthropic/claude-sonnet-4-6", cost_threshold=50.0
+        estimator = CostEstimator(model="anthropic/claude-sonnet-4-6", cost_threshold=50.0)
+        result = estimator.estimate_for_repos(
+            [
+                "https://github.com/org/svc-a",
+                "https://github.com/org/svc-b",
+            ]
         )
-        result = estimator.estimate_for_repos([
-            "https://github.com/org/svc-a",
-            "https://github.com/org/svc-b",
-        ])
         assert result["estimated_total_cost"] > 0
         assert result["estimated_total_tokens"] > 0
         assert result["model_used"] == "anthropic/claude-sonnet-4-6"
@@ -164,11 +164,13 @@ class TestCostEstimator:
 
     def test_per_repo_costs_sum_to_total(self) -> None:
         estimator = CostEstimator(model="anthropic/claude-sonnet-4-6")
-        result = estimator.estimate_for_repos([
-            "https://github.com/org/a",
-            "https://github.com/org/b",
-            "https://github.com/org/c",
-        ])
+        result = estimator.estimate_for_repos(
+            [
+                "https://github.com/org/a",
+                "https://github.com/org/b",
+                "https://github.com/org/c",
+            ]
+        )
         summed = round(sum(result["per_repo_cost"].values()), 4)
         assert summed == result["estimated_total_cost"]
 

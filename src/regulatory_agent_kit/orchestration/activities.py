@@ -235,7 +235,8 @@ async def analyze_repository(
         return result
     except Exception:
         activity.logger.info(
-            "Agent analysis unavailable for %s, using rule-based fallback", repo_url,
+            "Agent analysis unavailable for %s, using rule-based fallback",
+            repo_url,
             exc_info=True,
         )
 
@@ -326,7 +327,8 @@ async def refactor_repository(
         return result
     except Exception:
         activity.logger.info(
-            "Agent refactoring unavailable for %s, using rule-based fallback", repo_url,
+            "Agent refactoring unavailable for %s, using rule-based fallback",
+            repo_url,
             exc_info=True,
         )
 
@@ -423,7 +425,8 @@ async def test_repository(
         return await _test_with_agent(repo_url, change_set)
     except Exception:
         activity.logger.info(
-            "Agent testing unavailable for %s, using confidence-based fallback", repo_url,
+            "Agent testing unavailable for %s, using confidence-based fallback",
+            repo_url,
             exc_info=True,
         )
 

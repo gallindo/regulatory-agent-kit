@@ -136,12 +136,14 @@ async def ast_search(
             source = file_path.read_text(encoding="utf-8")
             tree = engine.parse(source, language)
             if engine.check_implements(tree, pattern):
-                results.append({
-                    "file_path": str(file_path),
-                    "pattern": pattern,
-                    "match": True,
-                    "language": language,
-                })
+                results.append(
+                    {
+                        "file_path": str(file_path),
+                        "pattern": pattern,
+                        "match": True,
+                        "language": language,
+                    }
+                )
         except Exception:  # noqa: S112
             continue
 
@@ -578,7 +580,11 @@ ANALYZER_TOOLS: list[object] = [git_clone, ast_parse, ast_search, es_search]
 """Read-only tools for the AnalyzerAgent."""
 
 REFACTOR_TOOLS: list[object] = [
-    git_branch, git_commit, ast_transform, jinja_render, invoke_custom_agent,
+    git_branch,
+    git_commit,
+    ast_transform,
+    jinja_render,
+    invoke_custom_agent,
 ]
 """Read-write tools for the RefactorAgent."""
 

@@ -45,9 +45,7 @@ async def submit_event(
     )
 
     workflow_id = await start_temporal_workflow(temporal_client, event)
-    run_id = await create_pipeline_run(
-        db_pool, event.regulation_id, event.payload, workflow_id
-    )
+    run_id = await create_pipeline_run(db_pool, event.regulation_id, event.payload, workflow_id)
 
     return EventAccepted(
         workflow_id=workflow_id,

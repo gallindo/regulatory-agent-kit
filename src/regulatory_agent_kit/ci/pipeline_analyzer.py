@@ -141,9 +141,7 @@ def format_pipeline_analysis_as_markdown(result: PipelineAnalysisResult) -> str:
     lines.append("|----------|-------|---------|")
     for finding in failed:
         detail = finding.detail or finding.description
-        lines.append(
-            f"| {finding.severity.upper()} | `{finding.check_id}` | {detail} |"
-        )
+        lines.append(f"| {finding.severity.upper()} | `{finding.check_id}` | {detail} |")
     lines.append("")
 
     return "\n".join(lines)
