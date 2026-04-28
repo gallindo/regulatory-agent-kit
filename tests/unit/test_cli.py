@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import uuid
 from pathlib import Path
 
@@ -12,6 +13,13 @@ from typer.testing import CliRunner
 from regulatory_agent_kit.cli import app
 
 runner = CliRunner(env={"NO_COLOR": "1"})
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _plain(text: str) -> str:
+    """Strip all ANSI escape sequences from CLI output."""
+    return _ANSI_RE.sub("", text)
 
 EXAMPLE_PLUGIN = Path("regulations/examples/example.yaml")
 VALID_UUID = str(uuid.uuid4())
@@ -43,11 +51,12 @@ class TestRunCommand:
     def test_run_help_shows_options(self) -> None:
         result = runner.invoke(app, ["run", "--help"])
         assert result.exit_code == 0
-        assert "--regulation" in result.output
-        assert "--repos" in result.output
-        assert "--lite" in result.output
-        assert "--config" in result.output
-        assert "--checkpoint-mode" in result.output
+        out = _plain(result.output)
+        assert "--regulation" in out
+        assert "--repos" in out
+        assert "--lite" in out
+        assert "--config" in out
+        assert "--checkpoint-mode" in out
 
     def test_run_with_valid_plugin_temporal_unavailable(self) -> None:
         """Without --lite and no Temporal, run fails gracefully."""
@@ -317,7 +326,7 @@ class TestPluginTest:
     def test_plugin_test_help(self) -> None:
         result = runner.invoke(app, ["plugin", "test", "--help"])
         assert result.exit_code == 0
-        assert "--repo" in result.output
+        assert "--repo" in _plain(result.output)
 
     def test_plugin_test_with_valid_plugin(self, tmp_path: Path) -> None:
         # Create a fake repo with a matching file
