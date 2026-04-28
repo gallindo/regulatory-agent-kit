@@ -108,7 +108,14 @@ jobs:
       - name: Install pip-audit
         run: uv pip install --system pip-audit
       - name: Run pip-audit
-        run: uv export --no-emit-project --format requirements-txt | pip-audit -r /dev/stdin --strict --desc
+        run: |
+          # GHSA-xqmj-j6mv-4862: LiteLLM Proxy /prompts/test SSTI - not applicable.
+          # RAK uses LiteLLM as a client library only, never as a proxy server.
+          # Upgrade blocked: pydantic-ai requires temporalio<1.20 for litellm>=1.83.7,
+          # but this project requires temporalio>=1.24.0 (unresolvable conflict).
+          uv export --no-emit-project --format requirements-txt \
+            | pip-audit -r /dev/stdin --strict --desc \
+                --ignore-vuln GHSA-xqmj-j6mv-4862
 
   # -----------------------------------------------------------------
   # SBOM generation (CycloneDX)
