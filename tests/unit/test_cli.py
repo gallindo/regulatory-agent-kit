@@ -21,6 +21,7 @@ def _plain(text: str) -> str:
     """Strip all ANSI escape sequences from CLI output."""
     return _ANSI_RE.sub("", text)
 
+
 EXAMPLE_PLUGIN = Path("regulations/examples/example.yaml")
 VALID_UUID = str(uuid.uuid4())
 
