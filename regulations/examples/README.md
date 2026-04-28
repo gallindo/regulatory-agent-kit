@@ -107,8 +107,8 @@ rules:
     affects:
       - pattern: "**/*.java"       # Glob — matches all .java files recursively
         condition: "class implements Service AND NOT has_annotation(@AuditLog)"
-        #                          ↑ AND: BOTH conditions must hold
-        #                                NOT: the annotation must be ABSENT for a match
+        #                          AND: BOTH conditions must hold
+        #                          NOT: the annotation must be ABSENT for a match
     remediation:
       strategy: add_annotation
       template: templates/audit_log.j2
