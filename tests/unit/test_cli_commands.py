@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from regulatory_agent_kit.cli import app
 
-runner = CliRunner()
+runner = CliRunner(env={"NO_COLOR": "1"})
 
 VALID_UUID = str(uuid.uuid4())
 

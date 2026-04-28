@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 from regulatory_agent_kit.cli import app
 from tests.helpers import EXAMPLE_PLUGIN_PATH as EXAMPLE_PLUGIN
 
-runner = CliRunner()
+runner = CliRunner(env={"NO_COLOR": "1"})
 
 
 @pytest.mark.integration
