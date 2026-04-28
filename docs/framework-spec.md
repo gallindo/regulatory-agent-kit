@@ -729,6 +729,96 @@ event_trigger:
 # This allows regulation-specific metadata without polluting the core schema.
 ```
 
+The subsections below provide a complete field-by-field reference derived from
+`src/regulatory_agent_kit/plugins/schema.py`. Use these tables when authoring or
+reviewing a regulation plugin YAML.
+
+### 12.1 Top-Level Fields (`RegulationPlugin`)
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | `str` | Yes | — | Unique plugin identifier. Use kebab-case (e.g. `gdpr-audit-2025`). |
+| `name` | `str` | Yes | — | Human-readable regulation name. |
+| `version` | `str` | Yes | — | Plugin version in semver format (e.g. `1.0.0`). |
+| `effective_date` | `date` (YYYY-MM-DD) | Yes | — | When the regulation takes effect. |
+| `jurisdiction` | `str` | Yes | — | ISO 3166-1 alpha-2 country code or `"GLOBAL"`. |
+| `authority` | `str` | Yes | — | The issuing regulatory authority. |
+| `source_url` | `HttpUrl` | Yes | — | URL to the official regulation text. |
+| `disclaimer` | `str` | Yes | — | Legal disclaimer (must be non-empty). |
+| `rules` | `list[Rule]` | Yes | — | At least one rule required. See §12.2. |
+| `regulatory_technical_standards` | `list[RTS]` | No | `null` | Referenced technical standards. See §12.5. |
+| `cross_references` | `list[CrossReference]` | No | `null` | Dependencies on other plugins. See §12.4. |
+| `supersedes` | `str` | No | `null` | Plugin ID that this version replaces. |
+| `changelog` | `str` | No | `""` | What changed in this version. |
+| `event_trigger` | `EventTrigger` | No | `null` | Event topic that triggers this regulation's pipeline. See §12.6. |
+| `certification` | `Certification` | No | `technically_valid` | Certification status. See §12.7. |
+
+> **Extension fields:** Any additional fields beyond the above are preserved in `model_extra` and available in Jinja2 templates via `plugin.model_extra.<field>`.
+
+### 12.2 Rule Fields (`Rule`)
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | `str` | Yes | — | Unique rule identifier within this plugin (e.g. `GDPR-001`). |
+| `description` | `str` | Yes | — | Plain-language description of what the rule enforces. |
+| `severity` | `"critical"` \| `"high"` \| `"medium"` \| `"low"` | Yes | — | Determines urgency and escalation path. |
+| `affects` | `list[AffectsClause]` | Yes | — | One or more file pattern + condition pairs. See §12.3. |
+| `remediation` | `Remediation` | Yes | — | How to fix violations. See §12.3. |
+
+> Rules also accept extension fields (e.g. `rts_reference`, `article`) that are passed through to templates via `rule.model_extra`.
+
+### 12.3 AffectsClause and Remediation Fields
+
+**`AffectsClause`:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `pattern` | `str` | Yes | Glob pattern for matching files (e.g. `**/*.java`, `**/service-manifest.yaml`). |
+| `condition` | `str` | Yes | Condition DSL expression (see §3.3). |
+
+**`Remediation`:**
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `strategy` | `str` | Yes | — | One of: `add_annotation`, `add_configuration`, `replace_pattern`, `add_dependency`, `generate_file`, `custom_agent`. |
+| `template` | `str` | Yes | — | For built-in strategies: path to the Jinja2 template file relative to the plugin YAML. For `custom_agent`: fully-qualified Python class path (e.g. `mypackage.agents.MyAgent`). |
+| `test_template` | `str` | No | `null` | Path to a Jinja2 template that generates validation tests. |
+| `confidence_threshold` | `float` (0.0–1.0) | No | `0.85` | Minimum Analyzer confidence to auto-apply the remediation. Below this, requires human review. |
+
+### 12.4 CrossReference Fields
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `regulation_id` | `str` | Yes | — | ID of the referenced plugin. |
+| `relationship` | `str` | Yes | — | `does_not_override` \| `takes_precedence` \| `complementary` \| `supersedes` \| `references` |
+| `articles` | `list[str]` | No | `[]` | Referenced article numbers (e.g. `["6(1)", "17"]`). |
+| `conflict_handling` | `str` | No | `null` | `escalate_to_human` \| `apply_both` \| `defer_to_referenced` |
+
+### 12.5 RTS (Regulatory Technical Standard) Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `str` | Yes | RTS identifier. |
+| `name` | `str` | Yes | RTS human-readable name. |
+| `url` | `HttpUrl` | Yes | URL to the RTS document. |
+
+### 12.6 EventTrigger Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `topic` | `str` | Yes | The message topic / event type that activates this pipeline (e.g. `regulatory-changes`). |
+| `schema` | `dict[str, str]` | No | Expected payload fields and their types, for documentation and validation. |
+
+### 12.7 Certification Fields
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `tier` | `str` | No | `technically_valid` | `technically_valid` \| `community_reviewed` \| `official` |
+| `certified_at` | `datetime` | No | `null` | When certification was granted. |
+| `certified_by` | `str` | No | `""` | Required for `official` tier. |
+| `reviews` | `list[ReviewRecord]` | No | `[]` | `community_reviewed` requires ≥ 2 entries. |
+| `ci_validated` | `bool` | No | `false` | Set to `true` by CI after passing `rak plugin validate`. |
+
 ---
 
 ## Appendix A — Quick Start
