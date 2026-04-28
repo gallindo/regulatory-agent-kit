@@ -36,7 +36,7 @@ rak plugin test regulations/examples/python-example/python-example.yaml \
 
 | Aspect | Java example | This Python example |
 |---|---|---|
-| Annotation/decorator | `has_annotation(@AuditLog)` | `has_decorator(audit_log)` |
+| Annotation/decorator | `has_annotation(@AuditLog)` | `has_decorator(@audit_log)` |
 | Inheritance check | `class implements Service` | `class inherits BaseService` |
 | Strategy | `add_annotation` | `add_annotation` + `replace_pattern` |
 | File pattern | `**/*.java` | `**/*.py` |
