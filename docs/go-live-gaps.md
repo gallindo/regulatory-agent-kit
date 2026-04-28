@@ -32,7 +32,7 @@
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ ✓ DONE — .pre-commit-config.yaml    │ ruff (lint+format), pre-commit-hooks (yaml/toml/json/merge), mypy strict — zero-friction onboarding   │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ No hosted docs (MkDocs/GitHub Pages) │ 9 000+ lines of .md are only browsable raw on GitHub                                                  │
+  │ ✓ DONE — MkDocs + Pages workflow     │ mkdocs.yml + docs.yml workflow; enable Pages in repo Settings → Pages → Source: GitHub Actions       │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ No real plugin repos to point to     │ README mentions DORA/PSD2/HIPAA but zero external plugins exist yet; rak plugin install leads nowhere │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤

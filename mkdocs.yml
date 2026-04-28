@@ -1,0 +1,88 @@
+site_name: regulatory-agent-kit
+site_description: Multi-agent AI framework for automated regulatory compliance
+site_url: https://gallindo.github.io/regulatory-agent-kit/
+repo_url: https://github.com/gallindo/regulatory-agent-kit
+repo_name: gallindo/regulatory-agent-kit
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: README.md
+  - Getting Started:
+      - Quickstart: getting-started.md
+      - Local Development: local-development.md
+      - CLI Reference: cli-reference.md
+  - Concepts:
+      - Product Requirements: prd.md
+      - Framework Specification: framework-spec.md
+      - System Design: system-design.md
+  - Architecture:
+      - Software Architecture: software-architecture.md
+      - Implementation Design: implementation-design.md
+      - Data Model: data-model.md
+      - Infrastructure: infrastructure.md
+  - Plugin Authoring:
+      - Plugin Template Guide: plugin-template-guide.md
+  - Operations:
+      - Runbook: operations/runbook.md
+  - Reference:
+      - Glossary: glossary.md
+  - Architecture Decision Records:
+      - ADR-001 Agent Orchestration: adr/001-agent-orchestration-framework.md
+      - ADR-002 Temporal vs LangGraph: adr/002-langgraph-vs-temporal-pydanticai.md
+      - ADR-003 Database Selection: adr/003-database-selection.md
+      - ADR-004 Python Stack: adr/004-python-stack.md
+      - ADR-005 LLM Observability: adr/005-llm-observability-platform.md
+      - ADR-006 Elasticsearch: adr/006-elasticsearch-selection.md
+      - ADR Template: adr/template.md
+  - Contributing:
+      - How to Contribute: ../CONTRIBUTING.md
+      - Security Policy: ../SECURITY.md
+      - Changelog: ../CHANGELOG.md
