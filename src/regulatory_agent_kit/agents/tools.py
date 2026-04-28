@@ -551,7 +551,16 @@ async def invoke_custom_agent(
         }
 
     try:
+        from regulatory_agent_kit.plugins.custom_agent import CustomAgentProtocol
+
         agent_instance = agent_cls()
+        if not isinstance(agent_instance, CustomAgentProtocol):
+            return {
+                "status": "error",
+                "error": f"'{agent_class_path}' does not implement CustomAgentProtocol",
+                "file_path": file_path,
+                "rule_id": rule_id,
+            }
         ctx = context or {}
         result = await agent_instance.remediate(file_path, rule_id, ctx)
         return {

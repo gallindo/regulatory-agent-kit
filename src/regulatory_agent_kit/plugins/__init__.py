@@ -12,6 +12,7 @@ from regulatory_agent_kit.plugins.condition_dsl import (
     to_llm_prompt,
 )
 from regulatory_agent_kit.plugins.conflict_engine import ConflictEngine
+from regulatory_agent_kit.plugins.custom_agent import CustomAgentProtocol
 from regulatory_agent_kit.plugins.loader import PluginLoader, TemplateValidator
 from regulatory_agent_kit.plugins.scaffolder import PluginScaffolder
 from regulatory_agent_kit.plugins.schema import (
@@ -36,6 +37,7 @@ __all__ = [
     "ConditionVisitor",
     "ConflictEngine",
     "CrossReference",
+    "CustomAgentProtocol",
     "EventTrigger",
     "LLMPromptVisitor",
     "PluginLoader",
