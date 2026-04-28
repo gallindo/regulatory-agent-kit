@@ -1,0 +1,11 @@
+{# templates/audit_decorator.j2 #}
+{# Adds @audit_log decorator above the class definition. #}
+{# Works for Python classes using the inherits-BaseService pattern. #}
+{% set lines = file_content.split('\n') %}
+{% set class_line = affected_region.start_line - 1 %}
+{% for i in range(lines | length) %}
+{% if i == class_line %}
+@audit_log(regulation="{{ plugin.id }}", rule="{{ rule.id }}", level="INFO")
+{% endif %}
+{{ lines[i] }}
+{% endfor %}

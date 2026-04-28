@@ -1,0 +1,3 @@
+{# templates/replace_db_execute.j2 #}
+{# Replace db.execute() calls with Repository.query() per {{ rule.id }} #}
+{{ file_content | replace("db.execute(", "Repository.query(") }}

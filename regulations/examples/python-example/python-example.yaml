@@ -1,0 +1,42 @@
+# regulations/examples/python-example/python-example.yaml
+
+id: example-python-audit-logging-2025
+name: "Example Python Audit Logging Regulation"
+version: "1.0.0"
+effective_date: "2025-01-01"
+jurisdiction: "EXAMPLE"
+authority: "Example Regulatory Authority"
+source_url: "https://example.com/regulations/python-audit-logging"
+disclaimer: >
+  This is an example regulation plugin for Python codebases.
+  It does not represent any real regulatory requirement.
+
+changelog: "1.0.0: Initial Python example plugin."
+
+rules:
+  - id: PYEX-001
+    description: >
+      All Python service classes must be decorated with @audit_log
+      for operational traceability.
+    severity: high
+    affects:
+      - pattern: "**/*.py"
+        condition: "class inherits BaseService AND NOT has_decorator(@audit_log)"
+    remediation:
+      strategy: add_annotation
+      template: templates/audit_decorator.j2
+      test_template: templates/audit_decorator_test.j2
+      confidence_threshold: 0.85
+
+  - id: PYEX-002
+    description: >
+      Deprecated direct database calls must be replaced with the
+      repository pattern (Repository.query instead of db.execute).
+    severity: medium
+    affects:
+      - pattern: "**/*.py"
+        condition: "has_method(db.execute)"
+    remediation:
+      strategy: replace_pattern
+      template: templates/replace_db_execute.j2
+      confidence_threshold: 0.80

@@ -1,0 +1,12 @@
+{# templates/audit_decorator_test.j2 #}
+import pytest
+from {{ file_path | replace('/', '.') | replace('.py', '') }} import {{ affected_region.class_name }}
+
+
+def test_{{ affected_region.class_name | lower }}_has_audit_log_decorator():
+    """{{ rule.id }}: {{ rule.description }}"""
+    marker = getattr({{ affected_region.class_name }}, "_audit_log_regulation", None)
+    assert marker == "{{ plugin.id }}", (
+        f"{{ affected_region.class_name }} must be decorated with @audit_log "
+        f"per regulation {{ plugin.id }} rule {{ rule.id }}"
+    )
