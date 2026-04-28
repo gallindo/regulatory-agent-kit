@@ -193,7 +193,90 @@ Run a plugin against a test repository to verify rule matching and remediation.
 rak plugin test <path-to-plugin.yaml> --repo <path-to-test-repo>
 ```
 
-Executes the Analyzer Agent against the test repository using the plugin, reports which rules matched, and optionally applies remediations to verify template output.
+**What it does:**
+1. Loads and validates the plugin YAML.
+2. Scans every file in `--repo` that matches a rule's `pattern` glob.
+3. Evaluates each rule's `condition` DSL against matching files.
+4. Renders the `template` for matched files and prints the generated diff.
+5. If a `test_template` is present, renders and displays the generated test code.
+6. Prints a summary table.
+
+**Sample output:**
+
+```
+Testing plugin: Example Audit Logging Regulation (v1.0.0)
+Repo: /path/to/test-repo
+
+Scanning files...
+  ✓  src/UserService.java        matches EXAMPLE-001 (confidence: 0.97)
+  ✓  src/PaymentService.java     matches EXAMPLE-001 (confidence: 0.92)
+  –  src/README.md               no rules matched
+  ✗  src/OrderService.java       EXAMPLE-001 did not match (confidence: 0.41 < 0.85)
+
+Remediations:
+  EXAMPLE-001 → src/UserService.java
+  --- original
+  +++ remediated
+  @@ -3,6 +3,7 @@
+   public class UserService implements Service {
+  +@AuditLog(level = AuditLevel.FULL, retentionDays = 90)
+
+Summary ─────────────────────────────────────────────
+  Rules tested :  2
+  Files scanned:  4
+  Matches      :  2  (EXAMPLE-001 × 2)
+  Skipped      :  1  (confidence below threshold)
+  No match     :  1
+  Exit code    :  0
+```
+
+**Understanding the output:**
+
+| Symbol | Meaning |
+|---|---|
+| `✓` | File matched the rule and confidence ≥ `confidence_threshold` — remediation would be applied automatically |
+| `✗` | Condition matched but confidence < `confidence_threshold` — would require human review in a real run |
+| `–` | No rule patterns matched this file |
+
+**Confidence scores** are produced by the Analyzer Agent's AST evaluation. A score of 1.0 means the condition was matched deterministically by tree-sitter. Scores below 1.0 mean the LLM was used to resolve ambiguity — lower scores indicate more uncertainty.
+
+**Structuring a test repository (fixtures):**
+
+The `--repo` argument points to any directory. For predictable tests, create a minimal synthetic repo that contains exactly the files your rules target:
+
+```
+test-fixtures/
+├── compliant/
+│   └── GoodService.java        # already has @AuditLog — should NOT match
+└── non-compliant/
+    └── BadService.java         # missing @AuditLog — SHOULD match EXAMPLE-001
+```
+
+Run twice to verify both cases:
+
+```bash
+rak plugin test regulations/my-plugin/my-plugin.yaml --repo test-fixtures/non-compliant
+# Expected: ✓ match on BadService.java
+
+rak plugin test regulations/my-plugin/my-plugin.yaml --repo test-fixtures/compliant
+# Expected: – no match on GoodService.java
+```
+
+**Debugging a failing test:**
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `no rules matched` on a file you expect to match | Glob pattern too narrow | Check `affects[].pattern` — use `**/*.java` not `*.java` |
+| Confidence always low (< 0.5) | Condition DSL not matching AST | Simplify condition; check class names match exactly |
+| `Template render error` | Jinja2 syntax error or missing variable | Run `rak plugin validate` to get the exact error location |
+| `Error loading plugin` | YAML parse error or missing required field | Run `rak plugin validate` first |
+
+**Exit codes:**
+
+| Code | Meaning |
+|---|---|
+| `0` | All matched rules produced valid remediations |
+| `1` | Plugin failed to load, or at least one template failed to render |
 
 ### `rak plugin search`
 
