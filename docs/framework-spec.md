@@ -4,7 +4,7 @@
 
 > **Version:** 2.0
 > **Status:** Active Development
-> **Scope:** This document describes the framework's architecture, contracts, and infrastructure. It contains **no regulation-specific business rules, country-specific references, or jurisdiction-dependent logic**. All regulatory knowledge is externalized into YAML plugins (see [`regulations/`](../regulations/README.md)).
+> **Scope:** This document describes the framework's architecture, contracts, and infrastructure. It contains **no regulation-specific business rules, country-specific references, or jurisdiction-dependent logic**. All regulatory knowledge is externalized into YAML plugins (see [Plugin Authoring Guide](plugin-authoring-guide.md)).
 > **Glossary:** See [`glossary.md`](glossary.md) for term definitions.
 
 ---
@@ -20,7 +20,7 @@
 7. [Observability](#7-observability)
 8. [Cross-Regulation Dependency Engine](#8-cross-regulation-dependency-engine)
 9. [Security Architecture](#9-security-architecture)
-10. [Technical Risks & Mitigations](#10-technical-risks--mitigations)
+10. [Technical Risks & Mitigations](#10-technical-risks-mitigations)
 11. [Deployment Options](#11-deployment-options)
 12. [Plugin Schema Reference](#12-plugin-schema-reference)
 
@@ -866,4 +866,4 @@ rak resume --run-id <id>
 | Writing regulation plugins | [`plugin-template-guide.md`](plugin-template-guide.md) — Jinja2 template authoring |
 | Understanding data storage | [`data-model.md`](data-model.md) — tables, indexes, partitioning |
 
-*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements including market context and business strategy, see [`docs/prd.md`](prd.md).*
+*This document describes the framework infrastructure only. For regulation-specific plugin documentation, see [Plugin Authoring Guide](plugin-authoring-guide.md). For the full product requirements including market context and business strategy, see [`docs/prd.md`](prd.md).*

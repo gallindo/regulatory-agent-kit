@@ -1,12 +1,12 @@
 # ADR-NNN: Short Title
 
-**Status:** Proposed | Accepted | Superseded by [ADR-NNN](NNN-title.md) | Deprecated
+**Status:** Proposed | Accepted | Superseded by ADR-NNN | Deprecated
 **Date:** YYYY-MM-DD
 **Decision Makers:** [Names or roles]
 **Context:** [Brief context — what triggered this decision?]
 
-> If superseding a previous ADR, add: **Supersedes:** [ADR-NNN](NNN-title.md)
-> If superseded, add: **Superseded by:** [ADR-NNN](NNN-title.md) with a brief summary of why.
+> If superseding a previous ADR, add: **Supersedes:** ADR-NNN
+> If superseded, add: **Superseded by:** ADR-NNN with a brief summary of why.
 
 ---
 

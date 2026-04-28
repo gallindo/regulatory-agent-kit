@@ -69,11 +69,13 @@ nav:
       - Data Model: data-model.md
       - Infrastructure: infrastructure.md
   - Plugin Authoring:
+      - Authoring Guide: plugin-authoring-guide.md
       - Plugin Template Guide: plugin-template-guide.md
   - Operations:
       - Runbook: operations/runbook.md
   - Reference:
       - Glossary: glossary.md
+      - Go-Live Gaps: go-live-gaps.md
   - Architecture Decision Records:
       - ADR-001 Agent Orchestration: adr/001-agent-orchestration-framework.md
       - ADR-002 Temporal vs LangGraph: adr/002-langgraph-vs-temporal-pydanticai.md
@@ -83,6 +85,6 @@ nav:
       - ADR-006 Elasticsearch: adr/006-elasticsearch-selection.md
       - ADR Template: adr/template.md
   - Contributing:
-      - How to Contribute: ../CONTRIBUTING.md
-      - Security Policy: ../SECURITY.md
-      - Changelog: ../CHANGELOG.md
+      - How to Contribute: https://github.com/gallindo/regulatory-agent-kit/blob/main/CONTRIBUTING.md
+      - Security Policy: https://github.com/gallindo/regulatory-agent-kit/blob/main/SECURITY.md
+      - Changelog: https://github.com/gallindo/regulatory-agent-kit/blob/main/CHANGELOG.md

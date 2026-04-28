@@ -18,8 +18,8 @@ This repository's documentation is split into three layers to maintain regulatio
 |---|---|---|
 | **[`docs/framework-spec.md`](framework-spec.md)** | Pure framework specification — agents, plugins, events, security, deployment | **No** — completely regulation-agnostic |
 | **`docs/prd.md`** (this file) | Full product document — market context, business strategy, competitive analysis, roadmap | Yes — uses specific regulations as examples for market positioning |
-| **[`regulations/README.md`](../regulations/README.md)** | Plugin catalog, contribution guide, plugin roadmap | Yes — lists all planned and community regulation plugins |
-| **[`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md)** | DORA-specific plugin documentation (five pillars, RTS/ITS, cross-references) | Yes — entirely DORA-specific |
+| **[Plugin Authoring Guide](plugin-authoring-guide.md)** | Plugin catalog, contribution guide, plugin roadmap | Yes — lists all planned and community regulation plugins |
+| **[Example Plugins](plugin-authoring-guide.md)** | Plugin documentation (pillars, RTS/ITS, cross-references) | Yes — entirely regulation-specific |
 
 **The framework codebase is regulation-agnostic.** All regulatory knowledge lives in YAML plugins under `regulations/`. Specific regulations mentioned in this document (DORA, PCI-DSS, PSD2, etc.) are used as illustrative examples for market positioning and business context, not as framework dependencies.
 
@@ -27,15 +27,15 @@ This repository's documentation is split into three layers to maintain regulatio
 
 ## Table of Contents
 
-1. [Executive Summary & Objective](#1-executive-summary--objective)
+1. [Executive Summary & Objective](#1-executive-summary-objective)
 2. [Target Market](#2-target-market)
 3. [Pain Points Solved](#3-pain-points-solved)
 4. [Core Features](#4-core-features)
-5. [Integrations & Ecosystem](#5-integrations--ecosystem)
+5. [Integrations & Ecosystem](#5-integrations-ecosystem)
 6. [Risk Analysis](#6-risk-analysis)
 7. [Open Source Strategy](#7-open-source-strategy)
 8. [Future Roadmap](#8-future-roadmap)
-9. [References & Citations](#9-references--citations)
+9. [References & Citations](#9-references-citations)
 
 ---
 
@@ -369,7 +369,7 @@ kafka_event:
 
 **DORA Coverage — Five Pillars:**
 
-> For detailed DORA plugin documentation including all five pillars, RTS/ITS references, enforcement architecture, and cross-regulation dependencies, see [`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md).
+> For detailed DORA plugin documentation including all five pillars, RTS/ITS references, enforcement architecture, and cross-regulation dependencies, see [Plugin Authoring Guide](plugin-authoring-guide.md).
 
 | Pillar | Automation Potential |
 |---|---|
@@ -578,7 +578,7 @@ A single code change may trigger multiple regulations simultaneously. The kit's 
 | `supersedes` | Replaces the referenced regulation entirely | New version replaces old version |
 | `references` | Cites the other without a precedence relationship | EU AI Act references GDPR for data governance |
 
-> For the complete DORA cross-regulation dependency map, see [`regulations/example-regulation/README.md`](../regulations/example-regulation/README.md).
+> For the complete DORA cross-regulation dependency map, see [Plugin Authoring Guide](plugin-authoring-guide.md).
 
 **Practical implications (regulation-agnostic behavior):**
 - The Analyzer Agent evaluates **all loaded regulation plugins** for each code change, not just one
@@ -1042,13 +1042,13 @@ rak rollback --run-id <id>
 
 ## Appendix B — Regulation Plugin Schema Reference
 
-For the complete plugin YAML schema with all required and optional fields, see [`framework-spec.md` Section 12 — Plugin Schema Reference](framework-spec.md#12-plugin-schema-reference). A worked example using DORA is provided in [Section 4.2](#42-feature-1--regulation-as-yaml-plugin-system) of this document.
+For the complete plugin YAML schema with all required and optional fields, see [`framework-spec.md` Section 12 — Plugin Schema Reference](framework-spec.md#12-plugin-schema-reference). A worked example using DORA is provided in [Section 4.2](#42-feature-1-regulation-as-yaml-plugin-system) of this document.
 
 ---
 
 ## Appendix C — Regulatory Timeline (2024–2027, Illustrative)
 
-> **Note:** This timeline is provided for market context only. It highlights regulations relevant to early adopters and is not exhaustive. The framework supports any regulation from any jurisdiction via its plugin system. For regulation-specific details, see [`regulations/`](../regulations/README.md).
+> **Note:** This timeline is provided for market context only. It highlights regulations relevant to early adopters and is not exhaustive. The framework supports any regulation from any jurisdiction via its plugin system. For regulation-specific details, see [Plugin Authoring Guide](plugin-authoring-guide.md).
 
 | Date | Event | Impact |
 |---|---|---|

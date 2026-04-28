@@ -75,9 +75,9 @@ This document covers:
 - Security boundaries and credential management
 
 This document does **not** cover:
-- Regulation-specific business rules (see [`regulations/`](../regulations/README.md))
+- Regulation-specific business rules (see [Plugin Authoring Guide](plugin-authoring-guide.md))
 - Market positioning or business strategy (see [`prd.md`](prd.md))
-- Plugin authoring guides (see [`regulations/README.md`](../regulations/README.md))
+- Plugin authoring guides (see [Plugin Authoring Guide](plugin-authoring-guide.md))
 
 ### 1.3 Architectural Principles
 
@@ -1118,7 +1118,7 @@ For the full directory tree with per-file descriptions, see [`implementation-des
 
 ## 17. Technical Risks and Mitigations
 
-For the canonical risk table, see [`framework-spec.md` Section 10 — Technical Risks & Mitigations](framework-spec.md#10-technical-risks--mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
+For the canonical risk table, see [`framework-spec.md` Section 10 — Technical Risks & Mitigations](framework-spec.md#10-technical-risks-mitigations). The following risks are **specific to the SAD's implementation choices** and supplement the architecture-level risks:
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
@@ -1148,4 +1148,4 @@ This document uses the [C4 model](https://c4model.com/) at four levels of abstra
 
 Start at Level 1 to understand the big picture, then drill down to Level 3 for implementation details.
 
-*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`framework-spec.md`](framework-spec.md). For the canonical database schema, see [`data-model.md`](data-model.md). For regulation-specific plugin documentation, see [`regulations/`](../regulations/README.md). For the full product requirements, see [`prd.md`](prd.md).*
+*This document describes the implementation architecture. For the abstract framework specification (regulation-agnostic), see [`framework-spec.md`](framework-spec.md). For the canonical database schema, see [`data-model.md`](data-model.md). For regulation-specific plugin documentation, see [Plugin Authoring Guide](plugin-authoring-guide.md). For the full product requirements, see [`prd.md`](prd.md).*

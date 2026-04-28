@@ -11,9 +11,9 @@
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Cloud Topology — AWS](#2-cloud-topology--aws)
-3. [Cloud Topology — GCP](#3-cloud-topology--gcp)
-4. [Cloud Topology — Azure](#4-cloud-topology--azure)
+2. [Cloud Topology — AWS](#2-cloud-topology-aws)
+3. [Cloud Topology — GCP](#3-cloud-topology-gcp)
+4. [Cloud Topology — Azure](#4-cloud-topology-azure)
 5. [Kubernetes Cluster Architecture](#5-kubernetes-cluster-architecture)
 6. [Network Configuration](#6-network-configuration)
 7. [Load Balancing Strategy](#7-load-balancing-strategy)
