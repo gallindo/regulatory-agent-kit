@@ -259,7 +259,66 @@ The DSL is evaluated by the Analyzer Agent using tree-sitter AST queries. Condit
 | `replace_pattern` | Replaces deprecated patterns with compliant ones | Jinja2 template with old/new | Modified source file |
 | `add_dependency` | Adds required library dependencies to build files | Jinja2 template | Modified pom.xml/build.gradle/package.json |
 | `generate_file` | Creates new required files per repository | Jinja2 template | New file |
-| `custom_agent` | Delegates to a user-defined Python agent class | Agent class path | Agent-defined output |
+| `custom_agent` | Delegates to a user-defined Python class implementing `CustomAgentProtocol` | Fully-qualified class path in `template` field | Agent-defined `changes` list |
+
+#### 3.4.1 Writing a Custom Agent
+
+Use `custom_agent` when the five built-in strategies cannot express your remediation — for example, when you need to call an external API, apply semantic analysis, or make changes across multiple files.
+
+**Step 1 — Implement the protocol:**
+
+```python
+# mypackage/agents/my_remediator.py
+from regulatory_agent_kit.plugins.custom_agent import CustomAgentProtocol
+from typing import Any
+
+
+class MyRemediator(CustomAgentProtocol):
+    async def remediate(
+        self, file_path: str, rule_id: str, context: dict[str, Any]
+    ) -> dict[str, Any]:
+        with open(file_path) as f:
+            content = f.read()
+
+        modified = content.replace("old_pattern", "new_pattern")
+
+        with open(file_path, "w") as f:
+            f.write(modified)
+
+        return {
+            "status": "success",
+            "changes": [
+                {
+                    "file_path": file_path,
+                    "original": content,
+                    "modified": modified,
+                }
+            ],
+        }
+```
+
+**Step 2 — Reference in YAML (`template` holds the class path):**
+
+```yaml
+remediation:
+  strategy: custom_agent
+  template: mypackage.agents.MyRemediator
+  confidence_threshold: 0.85
+```
+
+**Step 3 — Make the class importable at runtime:**
+
+The framework imports the class using `importlib.import_module`. Your package must be installed in the same Python environment as `rak` (e.g., `uv pip install -e ./mypackage`).
+
+**Return value contract:**
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `status` | `"success"` \| `"skipped"` \| `"error"` | Yes | Outcome of the remediation |
+| `changes` | `list[dict]` | When `status == "success"` | Each entry needs `file_path`, `original`, `modified` |
+| `message` | `str` | No | Human-readable explanation shown in the audit trail |
+
+Return `{"status": "skipped", "message": "..."}` when the rule matches but your agent decides no change is needed. Return `{"status": "error", "message": "..."}` (or raise an exception) to flag the file for human review.
 
 ### 3.5 Plugin Lifecycle
 
