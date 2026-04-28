@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from regulatory_agent_kit.ci.pipeline_checks import (
     PIPELINE_CHECKS,

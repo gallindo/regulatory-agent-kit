@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
 
 from regulatory_agent_kit.api.main import app
 from regulatory_agent_kit.api.routes.plugins import clear_registry, seed_plugin
@@ -43,7 +44,7 @@ class TestRegistryModels:
         assert result.total == 0
 
     def test_publish_request_requires_yaml(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             PublishRequest(yaml_content="")  # min_length=1
 
     def test_search_query_defaults(self) -> None:
@@ -52,9 +53,9 @@ class TestRegistryModels:
         assert query.limit == 20
 
     def test_search_query_limit_bounds(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             SearchQuery(limit=0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             SearchQuery(limit=200)
 
 

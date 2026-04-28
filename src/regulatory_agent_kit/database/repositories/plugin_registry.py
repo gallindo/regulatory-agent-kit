@@ -104,13 +104,13 @@ class PluginRegistryRepository(BaseRepository):
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
-        count_sql = "SELECT count(*) AS total FROM rak.plugin_registry" + where_clause
+        count_sql = "SELECT count(*) AS total FROM rak.plugin_registry" + where_clause  # noqa: S608
         count_row = await self._fetch_one(count_sql, tuple(params))
         total = count_row["total"] if count_row else 0
 
         params.extend([limit, offset])
         list_sql = (
-            "SELECT * FROM rak.plugin_registry"
+            "SELECT * FROM rak.plugin_registry"  # noqa: S608
             + where_clause
             + " ORDER BY published_at DESC LIMIT %s OFFSET %s"
         )

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from regulatory_agent_kit.ci.pipeline_analyzer import (
     analyze_pipelines,
     format_pipeline_analysis_as_markdown,

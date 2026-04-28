@@ -7,8 +7,11 @@ pipeline completes with audit entries and populated results.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 

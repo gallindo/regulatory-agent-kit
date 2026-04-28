@@ -96,7 +96,10 @@ class TestPipelineMetrics:
         self, metrics: MetricsRegistry, registry: CollectorRegistry,
     ) -> None:
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
-        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 1.0
+        assert (
+            _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"})
+            == 1.0
+        )
 
     def test_record_pipeline_completed(
         self, metrics: MetricsRegistry, registry: CollectorRegistry,
@@ -119,7 +122,10 @@ class TestPipelineMetrics:
     ) -> None:
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
         metrics.pipeline_runs_total.labels(regulation_id="example-plugin").inc()
-        assert _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 2.0
+        assert (
+            _sample_value(registry, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"})
+            == 2.0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +245,10 @@ class TestHelperFunctions:
             return_value=get_metrics_registry(registry=reg),
         ):
             record_pipeline_started("example-plugin")
-        assert _sample_value(reg, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"}) == 1.0
+        assert (
+            _sample_value(reg, "rak_pipeline_runs_total", {"regulation_id": "example-plugin"})
+            == 1.0
+        )
 
     def test_record_pipeline_completed_helper(self) -> None:
         reg = CollectorRegistry()
