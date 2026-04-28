@@ -46,6 +46,7 @@ The documentation is organized in layers from "why" to "how to deploy". Start fr
 | [`local-development.md`](local-development.md) | Full-stack local setup with Docker Compose — 10 minutes, all services |
 | [`glossary.md`](glossary.md) | Definitions for technical and regulatory terms used across docs |
 | [`cli-reference.md`](cli-reference.md) | All `rak` CLI commands, flags, and environment variables |
+| [`plugin-authoring-guide.md`](plugin-authoring-guide.md) | End-to-end: create, validate, test, and share a plugin |
 | [`plugin-template-guide.md`](plugin-template-guide.md) | Jinja2 template authoring for regulation plugins |
 | [`operations/runbook.md`](operations/runbook.md) | Operational runbook for failure recovery and maintenance |
 

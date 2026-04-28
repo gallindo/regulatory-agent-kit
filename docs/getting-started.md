@@ -99,7 +99,7 @@ Cost:   $0.42 estimated / $0.18 actual so far
 |---|---|
 | Run full stack locally (Docker) | [`local-development.md`](local-development.md) — all services, parallel processing, Elasticsearch, MLflow |
 | Understand the architecture | [`framework-spec.md`](framework-spec.md) — framework contracts, plugin system, agent orchestration |
-| Write a regulation plugin | [`framework-spec.md` Section 12](framework-spec.md#12-plugin-schema-reference) then [`plugin-template-guide.md`](plugin-template-guide.md) |
+| Write a regulation plugin | [`plugin-authoring-guide.md`](plugin-authoring-guide.md) — end-to-end tutorial (init → validate → test → run → share) |
 | Deploy to production | [`system-design.md`](system-design.md) then [`infrastructure.md`](infrastructure.md) — Docker Compose, Kubernetes, AWS/GCP/Azure |
 | Understand the data model | [`data-model.md`](data-model.md) — tables, indexes, partitioning, retention |
 | Operate and troubleshoot | [`operations/runbook.md`](operations/runbook.md) — failure recovery, maintenance |
