@@ -5,8 +5,17 @@ Import these where needed instead of duplicating factory logic.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def strip_ansi(text: str) -> str:
+    """Strip ANSI escape sequences from CLI output for plain-text assertions."""
+    return _ANSI_RE.sub("", text)
+
 
 EXAMPLE_PLUGIN_PATH = (
     Path(__file__).resolve().parents[1] / "regulations" / "examples" / "example.yaml"

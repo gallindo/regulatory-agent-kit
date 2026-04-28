@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import re
 import uuid
 from pathlib import Path
 
@@ -11,15 +10,9 @@ import pytest
 from typer.testing import CliRunner
 
 from regulatory_agent_kit.cli import app
+from tests.helpers import strip_ansi as _plain
 
 runner = CliRunner(env={"NO_COLOR": "1"})
-
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-
-
-def _plain(text: str) -> str:
-    """Strip all ANSI escape sequences from CLI output."""
-    return _ANSI_RE.sub("", text)
 
 
 EXAMPLE_PLUGIN = Path("regulations/examples/example.yaml")
