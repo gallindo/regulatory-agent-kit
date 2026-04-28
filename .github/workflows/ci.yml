@@ -108,7 +108,7 @@ jobs:
       - name: Install pip-audit
         run: uv pip install --system pip-audit
       - name: Run pip-audit
-        run: pip-audit --strict --desc
+        run: uv export --no-emit-project --format requirements-txt | pip-audit -r /dev/stdin --strict --desc
 
   # -----------------------------------------------------------------
   # SBOM generation (CycloneDX)
