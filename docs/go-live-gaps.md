@@ -28,15 +28,15 @@
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ No CODE_OF_CONDUCT.md                │ Standard signal of community values; expected on any public repo                                      │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ No SECURITY.md                       │ No responsible disclosure process for vulnerability reports                                           │
+  │ ✓ DONE — SECURITY.md added           │ Responsible disclosure via GitHub Security Advisories; severity targets; RAK-specific scope          │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ No .pre-commit-config.yaml           │ Contributors must manually wire ruff/mypy; friction at onboarding                                     │
+  │ ✓ DONE — .pre-commit-config.yaml    │ ruff (lint+format), pre-commit-hooks (yaml/toml/json/merge), mypy strict — zero-friction onboarding   │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ No hosted docs (MkDocs/GitHub Pages) │ 9 000+ lines of .md are only browsable raw on GitHub                                                  │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
   │ No real plugin repos to point to     │ README mentions DORA/PSD2/HIPAA but zero external plugins exist yet; rak plugin install leads nowhere │
   ├──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ No CODEOWNERS                        │ No default reviewers assigned to PRs; fine for solo, needed for team                                  │
+  │ ✓ DONE — CODEOWNERS added            │ @gallindo owns everything; extra rules for infra, workflows, crypto, DB, migrations                   │
   └──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
   ---

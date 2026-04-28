@@ -1,0 +1,17 @@
+# Default owner for everything in the repository.
+# Assigned automatically as reviewer on every PR.
+* @gallindo
+
+# Regulation plugin authoring guide and example — plugin authors need review
+/regulations/ @gallindo
+/docs/plugin-template-guide.md @gallindo
+
+# Infrastructure changes require extra scrutiny
+/infrastructure/ @gallindo
+/helm/ @gallindo
+/.github/workflows/ @gallindo
+
+# Security-sensitive modules
+/src/regulatory_agent_kit/util/crypto.py @gallindo
+/src/regulatory_agent_kit/database/ @gallindo
+/migrations/ @gallindo
